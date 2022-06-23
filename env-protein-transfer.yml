@@ -1,0 +1,35 @@
+# Install or update using
+# conda env update --file env-protein-transfer.yml --prune
+
+name: protran
+channels:
+- conda-forge
+- anaconda
+- bioconda
+dependencies:
+- python=3.9
+- biopython
+- bokeh=2.3.3
+- colorcet=2.0.2
+- cudatoolkit=11.3
+- firefox=99.0
+- geckodriver=0.30.0
+- holoviews=1.14.6
+- ipywidgets
+- jinja2=3.0.3
+- jupyterlab
+- matplotlib
+- numpy
+- pandas
+- panel=0.12.1
+- pip
+- pytorch
+- pyviz_comms=2.1.0
+- scikit-learn
+- scipy
+- selenium=3.141.0
+
+- pip:
+  - iqplot==0.2.4
+  - sequence-models
+  - wget
