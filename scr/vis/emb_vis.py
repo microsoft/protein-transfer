@@ -106,5 +106,6 @@ class Emb_Vis:
             plt.savefig(
                 os.path.join(
                     self._subfolder_path, f"{mod_emb_name}_{dim_red_type}{plot_format}"
-                )
+                ),
+                bbox_inches="tight"
             )
