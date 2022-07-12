@@ -7,14 +7,9 @@ from collections import Sequence
 import torch
 
 from scr.vis.emb_vis import Emb_Vis
+from scr.params.emb import TRANSFORMER_INFO
 
-ESM_MODEL_LIST = [
-    "esm1b_t33_650M_UR50S",
-    "esm1_t34_670M_UR50S",
-    "esm1_t12_85M_UR50S",
-    "esm1_t6_43M_UR50S",
-]
-
+ESM_MODEL_LIST = list(TRANSFORMER_INFO.keys())
 
 def esm_emb_vis(
     esm_model_list: list(str) = ESM_MODEL_LIST,

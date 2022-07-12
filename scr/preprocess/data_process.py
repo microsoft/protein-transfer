@@ -8,32 +8,8 @@ import os
 from glob import glob
 import pandas as pd
 
-from Bio import SeqIO
-
 from scr.utils import pickle_save, replace_ext
-
-
-def load_parent_seq(parent_seq_path: str) -> str:
-    """
-    Load parent fasta sequence
-
-    Args:
-    - parent_seq_path: str, the fasta path for the parent sequence,
-        with only one sequence per file
-
-    Returns:
-    - str, the full parent sequence in the fasta file
-    """
-
-    with open(parent_seq_path) as handle:
-        recs = []
-        for rec in SeqIO.parse(handle, "fasta"):
-            recs.append(rec)
-
-    # Confirm that there is only one seq file
-    assert len(recs) == 1, "More than 1 sequence in the seq file"
-    return str(recs[0].seq)
-
+from scr.preprocess.seq_loader import SeqLoader
 
 def get_mut_name(mut_seq: str, parent_seq: str) -> str:
     """
@@ -66,7 +42,7 @@ class AddMutInfo:
     def __init__(self, parent_seq_path: str, csv_path: str):
 
         # Load the parent sequence from the fasta file
-        self._parent_seq = load_parent_seq(parent_seq_path=parent_seq_path)
+        self._parent_seq = SeqLoader(parent_seq_path=parent_seq_path)
 
         # load the dataframe
         self._init_df = pd.read_csv(csv_path)
