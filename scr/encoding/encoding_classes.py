@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import torch
 
-from scr.params.emb import TRANSFORMER_INFO
+from scr.params.emb import TRANSFORMER_INFO, TRANSFORMER_MAX_SEQ_LEN
 from scr.params.train_test import DEVICE
 from scr.preprocess.seq_loader import SeqLoader
 
@@ -190,6 +190,10 @@ class ESMEncoder(AbstractEncoder):
         # Turn off gradients and pass the batch through
         with torch.no_grad():
             # shape [batch_size, seq_len + pad, embed_dim]
+            if batch_tokens.shape[1] > TRANSFORMER_MAX_SEQ_LEN:
+                print(f"Sequence exceeds {TRANSFORMER_MAX_SEQ_LEN}, chopping the end")
+                batch_tokens = batch_tokens[:, :TRANSFORMER_MAX_SEQ_LEN]
+
             encoded_mut_seqs = (
                 self.model(batch_tokens, repr_layers=[self._embed_layer])[
                     "representations"
