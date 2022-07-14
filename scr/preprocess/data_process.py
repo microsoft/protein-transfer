@@ -7,8 +7,11 @@ from collections import Sequence
 import os
 from glob import glob
 import pandas as pd
+import numpy as np
 
-from scr.utils import pickle_save, replace_ext
+from torch.utils.data import Dataset
+
+from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.preprocess.seq_loader import SeqLoader
 
 def get_mut_name(mut_seq: str, parent_seq: str) -> str:
@@ -85,7 +88,16 @@ class TaskProcess:
         """
         Args:
         - data_folder: str, a folder path with all the tasks as subfolders where
-            all the subfolders have datasets as the subsubfolders
+            all the subfolders have datasets as the subsubfolders, ie
+
+            {data_folder}/
+                proeng/
+                    aav/
+                        one_vs_many.csv
+                        two_vs_many.csv
+                        P03135.fasta
+                    thermo/
+                        mixed.csv
         """
 
         if data_folder[-1] == "/":
@@ -170,3 +182,108 @@ class TaskProcess:
     def sum_file_df(self) -> pd.DataFrame:
         """A summary table for all files in the data folder"""
         return self._sum_file_df
+
+class ProtranDataset(Dataset):
+
+    """A dataset class for processing protein transfer data"""
+
+    def __init__(self, dataset_path: str, subset: str):
+
+        """
+        Args:
+        - dataset_path: str, full path to the dataset, in pkl or panda readable format
+            columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
+        - subset: str, train, val, test
+        """
+
+        # with additional info mut_name, mut_numb
+        if os.path.splitext(dataset_path)[-1] in [".pkl", ".PKL", ""]:
+            self._df = pickle_load(dataset_path)
+            self._add_mut_info = True
+        # without such info
+        else:
+            self._df = pd.read_csv(dataset_path)
+            self._add_mut_info = False
+
+        assert "set" in self._df.columns, f"set is not a column in {dataset_path}"
+        assert (
+            "validation" in self._df.columns
+        ), f"validation is not a column in {dataset_path}"
+
+        self._df_train = self._df.loc[
+            (self._df["set"] == "train") & (self._df["validation"] != True)
+        ]
+        self._df_val = self._df.loc[
+            (self._df["set"] == "train") & (self._df["validation"] == True)
+        ]
+        self._df_test = self._df.loc[(self._df["set"] == "test")]
+
+        self._df_dict = {
+            "train": self._df_train,
+            "val": self._df_val,
+            "test": self._df_test,
+        }
+
+        assert subset in list(
+            self._df_dict.keys()
+        ), "split can only be 'train', 'val', or 'test'"
+        self._subset = subset
+
+        self._subdf_len = len(self._df_dict[self._subset])
+
+        # get unencoded string of input sequence
+        # will need to convert data type
+        # self.x = torch.tensor(x,dtype=torch.float32)
+        self.x = self._get_column_value("sequence")
+
+        # get and format the fitness or secondary structure values
+        # can be numbers or string
+        # will need to convert data type
+        self.y = self._get_column_value("target")
+
+        if self._add_mut_info:
+            self.mut_name = self._get_column_value("mut_name")
+            self.mut_numb = self._get_column_value("mut_numb")
+        else:
+            self.mut_name = [""] * self._subdf_len
+            self.mut_numb = [np.nan] * self._subdf_len
+
+    def __len__(self):
+        """Return the length of the selected subset of the dataframe"""
+        return self._subdf_len
+
+    def __getitem__(self, idx: int):
+
+        """
+        Return the item in the order of
+        sequence (x), target (y), mut_name (optional), mut_numb (optional)
+        """
+
+        return self.x[idx], self.y[idx], self.mut_name[idx], self.mut_numb[idx]
+
+    def _get_column_value(self, column_name: str) -> np.ndarray:
+        """
+        Check and return the column values of the selected dataframe subset
+        """
+        if column_name in self._df.columns:
+            return self._df_dict[self._subset][column_name].values
+
+    @property
+    def df_full(self) -> pd.DataFrame:
+        """Return the full loaded dataset"""
+        return self._df
+
+    @property
+    def df_train(self) -> pd.DataFrame:
+        """Return the dataset for training only"""
+        return self._df_train
+
+    @property
+    def df_val(self) -> pd.DataFrame:
+        """Return the dataset for validation only"""
+        return self._df_val
+
+    @property
+    def df_test(self) -> pd.DataFrame:
+        """Return the dataset for training only"""
+        return self._df_test
