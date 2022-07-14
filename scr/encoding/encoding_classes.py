@@ -55,15 +55,23 @@ class AbstractEncoder(ABC):
 
         # If the batch size is 0, then encode all at once in a single batch
         if batch_size == 0:
-            yield self._encode_batch(mut_seqs, flatten_emb)
+            yield self._encode_batch(mut_seqs=mut_seqs, flatten_emb=flatten_emb, mut_names=mut_names)
 
         # Otherwise, yield chunks of encoded sequence
         else:
+
             for i in tqdm(range(0, len(mut_seqs), batch_size)):
+
+                # figure out what mut_names to feed in
+                if mut_names is None:
+                    mut_name_batch = mut_names
+                else:
+                    mut_name_batch = mut_names[i : i + batch_size]
+                    
                 yield self._encode_batch(
-                    mut_seqs[i : i + batch_size],
-                    flatten_emb,
-                    mut_names[i : i + batch_size],
+                    mut_seqs=mut_seqs[i : i + batch_size],
+                    flatten_emb=flatten_emb,
+                    mut_names=mut_name_batch,
                 )
 
     @abstractmethod

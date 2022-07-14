@@ -9,10 +9,13 @@ from glob import glob
 import pandas as pd
 import numpy as np
 
+import torch
 from torch.utils.data import Dataset
 
 from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.preprocess.seq_loader import SeqLoader
+from scr.encoding.encoding_classes import AbstractEncoder
+
 
 def get_mut_name(mut_seq: str, parent_seq: str) -> str:
     """
@@ -183,17 +186,36 @@ class TaskProcess:
         """A summary table for all files in the data folder"""
         return self._sum_file_df
 
+
 class ProtranDataset(Dataset):
 
     """A dataset class for processing protein transfer data"""
 
-    def __init__(self, dataset_path: str, subset: str):
+    def __init__(
+        self,
+        dataset_path: str,
+        subset: str,
+        encoder_class: AbstractEncoder,
+        encoder_name: str,
+        embed_layer: int,
+        embed_batch_size: int = 0,
+        flatten_emb: bool | str = False,
+        embed_path: str = None,
+        **encoder_params,
+    ):
 
         """
         Args:
         - dataset_path: str, full path to the dataset, in pkl or panda readable format
             columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
         - subset: str, train, val, test
+        - encoder_class: AbstractEncoder, the encoder class
+        - encoder_name: str, the name of the encoder
+        - embed_layer: int, the layer number of the embedding
+        - embed_batch_size: int, set to 0 to encode all in a single batch
+        - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
+        - embed_path: str = None, path to presaved embedding
+        - encoder_params: kwarg, additional parameters for encoding
         """
 
         # with additional info mut_name, mut_numb
@@ -233,14 +255,35 @@ class ProtranDataset(Dataset):
 
         # get unencoded string of input sequence
         # will need to convert data type
-        # self.x = torch.tensor(x,dtype=torch.float32)
-        self.x = self._get_column_value("sequence")
+        self.sequence = self._get_column_value("sequence")
+
+        # check if pregenerated embedding
+        if embed_path is not None:
+            print(f"Loading pregenerated embeddings from {embed_path}")
+            encoded_sequences = pickle_load(embed_path)
+
+        # encode the sequences without the mut_name
+        else:
+            encoded_sequences = []
+
+            for x in encoder_class(
+                encoder_name=encoder_name, embed_layer=embed_layer
+            ).encode(
+                mut_seqs=self.sequence,
+                batch_size=embed_batch_size,
+                flatten_emb=flatten_emb,
+                **encoder_params,
+            ):
+                encoded_sequences.append(x)
+
+        self.x = torch.tensor(np.vstack(encoded_sequences), dtype=torch.float32)
 
         # get and format the fitness or secondary structure values
         # can be numbers or string
         # will need to convert data type
         self.y = self._get_column_value("target")
 
+        # add mut_name and mut_numb for relevant proeng datasets
         if self._add_mut_info:
             self.mut_name = self._get_column_value("mut_name")
             self.mut_numb = self._get_column_value("mut_numb")
@@ -256,10 +299,16 @@ class ProtranDataset(Dataset):
 
         """
         Return the item in the order of
-        sequence (x), target (y), mut_name (optional), mut_numb (optional)
+        encoded sequence (x), target (y), sequence, mut_name (optional), mut_numb (optional)
         """
 
-        return self.x[idx], self.y[idx], self.mut_name[idx], self.mut_numb[idx]
+        return (
+            self.x[idx],
+            self.y[idx],
+            self.sequence[idx],
+            self.mut_name[idx],
+            self.mut_numb[idx],
+        )
 
     def _get_column_value(self, column_name: str) -> np.ndarray:
         """
