@@ -201,6 +201,8 @@ class ProtranDataset(Dataset):
         embed_batch_size: int = 0,
         flatten_emb: bool | str = False,
         embed_path: str = None,
+        seq_start_idx: bool | int = False,
+        seq_end_idx: bool | int = False,
         **encoder_params,
     ):
 
@@ -215,6 +217,8 @@ class ProtranDataset(Dataset):
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_path: str = None, path to presaved embedding
+        - seq_start_idx: bool | int = False, the index for the start of the sequence
+        - seq_end_idx: bool | int = False, the index for the end of the sequence
         - encoder_params: kwarg, additional parameters for encoding
         """
 
@@ -253,6 +257,17 @@ class ProtranDataset(Dataset):
 
         self._subdf_len = len(self._df_dict[self._subset])
 
+        # not specified seq start will be from 0
+        if seq_start_idx == False:
+            self._seq_start_idx = 0
+        else:
+            self._seq_start_idx = seq_start_idx
+        # not specified seq end will be the full sequence length
+        if seq_end_idx == False:
+            self._seq_end_idx = -1
+        else:
+            self._seq_end_idx = seq_end_idx
+
         # get unencoded string of input sequence
         # will need to convert data type
         self.sequence = self._get_column_value("sequence")
@@ -281,7 +296,8 @@ class ProtranDataset(Dataset):
         # get and format the fitness or secondary structure values
         # can be numbers or string
         # will need to convert data type
-        self.y = self._get_column_value("target")
+        # make 1D tensor 2D
+        self.y = np.expand_dims(self._get_column_value("target"), 1)
 
         # add mut_name and mut_numb for relevant proeng datasets
         if self._add_mut_info:
@@ -315,7 +331,14 @@ class ProtranDataset(Dataset):
         Check and return the column values of the selected dataframe subset
         """
         if column_name in self._df.columns:
-            return self._df_dict[self._subset][column_name].values
+            if column_name == "sequence":
+                return (
+                    self._df_dict[self._subset][column_name]
+                    .str[self._seq_start_idx : self._seq_end_idx]
+                    .values
+                )
+            else:
+                return self._df_dict[self._subset][column_name].values
 
     @property
     def df_full(self) -> pd.DataFrame:
