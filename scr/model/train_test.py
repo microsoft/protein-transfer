@@ -1,22 +1,17 @@
-from __future__ import annotations
+"""A script with model training and testing details"""
 
-from collections.abc import Callable, Sequence
-import os
-import pickle
+from __future__ import annotations
 
 import random
 import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader 
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
-from scr.params.train_test import *
-
-NUM_WORKERS = 8
+from scr.params.sys import RAND_SEED, DEVICE
 
 # seed everything
-RAND_SEED = 42
 random.seed(RAND_SEED)
 np.random.seed(RAND_SEED)
 torch.manual_seed(RAND_SEED)

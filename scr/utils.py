@@ -15,9 +15,13 @@ def checkNgen_folder(folder_path: str) -> None:
     - folder_path: str, the folder path
     """
 
-    if not os.path.exists(folder_path):
-        print(f"Making {folder_path}...")
-        os.mkdir(folder_path)
+    split_list = folder_path.split("/")
+    for p, _ in enumerate(split_list):
+        subfolder_path = "/".join(split_list[:p])
+        if not os.path.exists(subfolder_path):
+            print(f"Making {subfolder_path}...")
+            os.mkdir(subfolder_path)
+
 
 def replace_ext(input_path: str, ext: str) -> str:
     
@@ -36,6 +40,40 @@ def replace_ext(input_path: str, ext: str) -> str:
         return os.path.splitext(input_path)[0] + ext
     else:
         return os.path.splitext(input_path)[0] + "." + ext
+
+def get_folder_file_names(
+    parent_folder: str,
+    dataset_path: str,
+    encoder_name: str,
+    embed_layer: int,
+    flatten_emb: bool | str,
+) -> list[str]:
+    """
+    A function for specify folder and file names for the output given input dataset
+
+    Args:
+    - parent_folder: str, the parent result folder, such as results/train_val_test
+    - dataset_path: str, full path to the input dataset, in pkl or panda readable format
+        columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
+    - encoder_name: str, the name of the encoder
+    - embed_layer: int, the layer number of the embedding
+    - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
+
+    Returns:
+    - dataset_subfolder: str, the full path for the dataset based subfolder
+    - file_name: str, the name of the file with embedding details without file extension
+    """
+    # path for the subfolder
+    dataset_subfolder = os.path.join(
+        parent_folder, "/".join(os.path.splitext(dataset_path)[0].split("/")[1:])
+    )
+
+    # check and generate the folder
+    checkNgen_folder(dataset_subfolder)
+
+    file_name = f"{encoder_name}-layer_{embed_layer}-{flatten_emb}"
+
+    return dataset_subfolder, file_name
 
 def pickle_save(what2save, where2save: str) -> None:
 

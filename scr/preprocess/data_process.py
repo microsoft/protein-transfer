@@ -10,9 +10,10 @@ import pandas as pd
 import numpy as np
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 from scr.utils import pickle_save, pickle_load, replace_ext
+from scr.params.sys import RAND_SEED
 from scr.preprocess.seq_loader import SeqLoader
 from scr.encoding.encoding_classes import AbstractEncoder
 
@@ -359,3 +360,69 @@ class ProtranDataset(Dataset):
     def df_test(self) -> pd.DataFrame:
         """Return the dataset for training only"""
         return self._df_test
+
+
+def split_protrain_loader(
+    dataset_path: str,
+    encoder_class: AbstractEncoder,
+    encoder_name: str,
+    embed_layer: int,
+    embed_batch_size: int = 128,
+    flatten_emb: bool | str = False,
+    embed_path: str | None = None,
+    seq_start_idx: bool | int = False,
+    seq_end_idx: bool | int = False,
+    subset_list: list[str] = ["train", "val", "test"],
+    loader_batch_size: int = 256,
+    worker_seed: int = RAND_SEED,
+    **encoder_params,
+):
+
+    """
+    A function encode and load the data from a path
+
+    Args:
+    - dataset_path: str, full path to the dataset, in pkl or panda readable format
+        columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
+    - encoder_class: AbstractEncoder, the encoder class
+    - encoder_name: str, the name of the encoder
+    - embed_layer: int, the layer number of the embedding
+    - embed_batch_size: int, set to 0 to encode all in a single batch
+    - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
+    - embed_path: str = None, path to presaved embedding
+    - seq_start_idx: bool | int = False, the index for the start of the sequence
+    - seq_end_idx: bool | int = False, the index for the end of the sequence
+    - subset_list: list of str, train, val, test
+    - loader_batch_size: int, the batch size for train, val, and test dataloader
+    - worker_seed: int, the seed for dataloader
+    - encoder_params: kwarg, additional parameters for encoding
+    """
+
+    assert set(subset_list) <= set(
+        ["train", "val", "test"]
+    ), "subset_list can only contrain terms with in be 'train', 'val', or 'test'"
+
+    # specify no shuffling for validation and test
+    if_shuffle_list = [True if subset == "train" else False for subset in subset_list]
+
+    return (
+        DataLoader(
+            dataset=ProtranDataset(
+                dataset_path=dataset_path,
+                subset=subset,
+                encoder_class=encoder_class,
+                encoder_name=encoder_name,
+                embed_layer=embed_layer,
+                embed_batch_size=embed_batch_size,
+                flatten_emb=flatten_emb,
+                embed_path=embed_path,
+                seq_start_idx=seq_start_idx,
+                seq_end_idx=seq_end_idx,
+                **encoder_params,
+            ),
+            batch_size=loader_batch_size,
+            shuffle=if_shuffle,
+            worker_init_fn=worker_seed,
+        )
+        for subset, if_shuffle in zip(subset_list, if_shuffle_list)
+    )
