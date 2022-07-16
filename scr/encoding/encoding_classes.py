@@ -12,7 +12,6 @@ import torch
 
 from scr.params.emb import TRANSFORMER_INFO, TRANSFORMER_MAX_SEQ_LEN
 from scr.params.sys import DEVICE
-from scr.preprocess.seq_loader import SeqLoader
 
 
 class AbstractEncoder(ABC):

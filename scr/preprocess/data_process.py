@@ -14,8 +14,9 @@ from torch.utils.data import Dataset, DataLoader
 
 from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.params.sys import RAND_SEED
+from scr.params.emb import TRANSFORMER_INFO
 from scr.preprocess.seq_loader import SeqLoader
-from scr.encoding.encoding_classes import AbstractEncoder
+from scr.encoding.encoding_classes import AbstractEncoder, ESMEncoder
 
 
 def get_mut_name(mut_seq: str, parent_seq: str) -> str:
@@ -262,12 +263,12 @@ class ProtranDataset(Dataset):
         if seq_start_idx == False:
             self._seq_start_idx = 0
         else:
-            self._seq_start_idx = seq_start_idx
+            self._seq_start_idx = int(seq_start_idx)
         # not specified seq end will be the full sequence length
         if seq_end_idx == False:
             self._seq_end_idx = -1
         else:
-            self._seq_end_idx = seq_end_idx
+            self._seq_end_idx = int(seq_end_idx)
 
         # get unencoded string of input sequence
         # will need to convert data type
@@ -334,7 +335,7 @@ class ProtranDataset(Dataset):
         if column_name in self._df.columns:
             if column_name == "sequence":
                 return (
-                    self._df_dict[self._subset][column_name]
+                    self._df_dict[self._subset]["sequence"].astype(str)
                     .str[self._seq_start_idx : self._seq_end_idx]
                     .values
                 )
@@ -364,7 +365,6 @@ class ProtranDataset(Dataset):
 
 def split_protrain_loader(
     dataset_path: str,
-    encoder_class: AbstractEncoder,
     encoder_name: str,
     embed_layer: int,
     embed_batch_size: int = 128,
@@ -373,7 +373,7 @@ def split_protrain_loader(
     seq_start_idx: bool | int = False,
     seq_end_idx: bool | int = False,
     subset_list: list[str] = ["train", "val", "test"],
-    loader_batch_size: int = 256,
+    loader_batch_size: int = 64,
     worker_seed: int = RAND_SEED,
     **encoder_params,
 ):
@@ -384,7 +384,6 @@ def split_protrain_loader(
     Args:
     - dataset_path: str, full path to the dataset, in pkl or panda readable format
         columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
-    - encoder_class: AbstractEncoder, the encoder class
     - encoder_name: str, the name of the encoder
     - embed_layer: int, the layer number of the embedding
     - embed_batch_size: int, set to 0 to encode all in a single batch
@@ -404,6 +403,9 @@ def split_protrain_loader(
 
     # specify no shuffling for validation and test
     if_shuffle_list = [True if subset == "train" else False for subset in subset_list]
+
+    if encoder_name in TRANSFORMER_INFO.keys():
+        encoder_class = ESMEncoder
 
     return (
         DataLoader(

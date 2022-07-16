@@ -17,7 +17,7 @@ def checkNgen_folder(folder_path: str) -> None:
 
     split_list = folder_path.split("/")
     for p, _ in enumerate(split_list):
-        subfolder_path = "/".join(split_list[:p])
+        subfolder_path = "/".join(split_list[:p+1])
         if not os.path.exists(subfolder_path):
             print(f"Making {subfolder_path}...")
             os.mkdir(subfolder_path)

@@ -1,6 +1,5 @@
 """Embedding constants"""
 
-
 # (embedding dim, num layers, token dim)
 TRANSFORMER_INFO = {
     "esm1_t6_43M_UR50S": (768, 6, 2),
