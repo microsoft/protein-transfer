@@ -22,6 +22,20 @@ def checkNgen_folder(folder_path: str) -> None:
             print(f"Making {subfolder_path}...")
             os.mkdir(subfolder_path)
 
+    return folder_path
+
+def get_filename(file_path: str) -> str:
+    """
+    Get the filename without the extension from a full path
+    
+    Args:
+    - file_path: str, the full path for the input file
+
+    Returns:
+    - str, the file name without extension
+    """
+    return os.path.splitext(os.path.basename(file_path))[0]
+
 
 def replace_ext(input_path: str, ext: str) -> str:
     
