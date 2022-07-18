@@ -42,6 +42,7 @@ def plot_lc(
         flatten_emb=flatten_emb,
     )
 
+    plt.figure()
     plt.plot(range(epochs), train_losses, label="train")
     plt.plot(range(epochs), val_losses, label="val")
     plt.title(plotname)
@@ -52,3 +53,4 @@ def plot_lc(
     plt.savefig(
         os.path.join(plot_dataset_folder, plotname + ".svg"), bbox_inches="tight"
     )
+    plt.close()

@@ -34,6 +34,7 @@ def run_pytorch(
     lr_decay: float = 0.1,
     epochs: int = 100,
     device: torch.device | str = DEVICE,
+    all_plot_folder: str = "results/learning_curves",
     all_result_folder: str = "results/train_val_test",
     **encoder_params,
 ) -> dict:
@@ -57,6 +58,7 @@ def run_pytorch(
     - lr_decay: float, factor by which to decay LR on plateau
     - epochs: int, number of epochs to train for
     - device: torch.device or str
+    - all_plot_folder: str, the parent folder path for saving all the learning curves
     - all_result_folder: str = "results/train_val_test", the parent folder for all results
     - encoder_params: kwarg, additional parameters for encoding
 
@@ -123,6 +125,7 @@ def run_pytorch(
         encoder_name=encoder_name,
         embed_layer=embed_layer,
         flatten_emb=flatten_emb,
+        all_plot_folder=all_result_folder,
     )
 
     # now test the model with the test data
