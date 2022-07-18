@@ -83,28 +83,36 @@ class LayerLoss:
                 else:
                     output_numb_dict[metric][layer_numb] = result_dict[subset][kind]
 
+            # get the details for the dataset such as proeng/gb1/two_vs_rest
+            task_subflder = os.path.dirname(
+                pkl_list[0].split(self._input_path + "/")[-1]
+            )
+            task, dataset, split = task_subflder.split("/")
+
             # get some details for plotting and saving
             output_subfolder = checkNgen_folder(
                 os.path.join(
                     self._output_path,
-                    os.path.dirname(pkl_list[0].split(self._input_path + "/")[-1]),
+                    task_subflder,
                 )
             )
 
         for metric in output_numb_dict.keys():
 
-            plotname = f"{encoder_name}_{flatten_emb}_{metric}"
+            plot_name = f"{encoder_name}_{flatten_emb}_{metric}"
+            plot_prefix = f"{task}_{dataset}_{split}"
 
             plt.figure()
             plt.plot(output_numb_dict[metric])
-            plt.title(plotname)
+            plt.title(f"{plot_prefix} \n {plot_name}")
             plt.xlabel("layers")
             plt.ylabel("loss")
 
-            plt.savefig(
-                os.path.join(output_subfolder, plotname + ".svg"),
-                bbox_inches="tight",
-            )
+            for plot_ext in [".svg", ".png"]:
+                plt.savefig(
+                    os.path.join(output_subfolder, plot_name + plot_ext),
+                    bbox_inches="tight",
+                )
             plt.close()
 
         output_numb_details = {

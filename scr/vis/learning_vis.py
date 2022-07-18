@@ -51,6 +51,6 @@ def plot_lc(
     plt.legend(loc="upper right")
 
     plt.savefig(
-        os.path.join(plot_dataset_folder, plotname + ".svg"), bbox_inches="tight"
+        os.path.join(plot_dataset_folder, plotname + ".png"), bbox_inches="tight"
     )
     plt.close()
