@@ -125,7 +125,7 @@ def run_pytorch(
         encoder_name=encoder_name,
         embed_layer=embed_layer,
         flatten_emb=flatten_emb,
-        all_plot_folder=all_result_folder,
+        all_plot_folder=all_plot_folder,
     )
 
     # now test the model with the test data
