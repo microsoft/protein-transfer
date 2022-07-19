@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Sequence
 
 import os
+import sys
 import pickle
 
 
@@ -113,3 +114,11 @@ def pickle_load(path2load: str):
 
     with open(path2load, "rb") as f:
         return pickle.load(f)
+
+def blockPrint():
+    """Block printing"""
+    sys.stdout = open(os.devnull, "w")
+
+def enablePrint():
+    """Restore printing"""
+    sys.stdout = sys.__stdout__
