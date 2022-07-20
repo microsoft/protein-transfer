@@ -15,10 +15,10 @@ def checkNgen_folder(folder_path: str) -> None:
     Args:
     - folder_path: str, the folder path
     """
-
-    split_list = folder_path.split("/")
-    for p, _ in enumerate(split_list):
-        subfolder_path = "/".join(split_list[:p+1])
+    _, local_path = folder_path.split(os.getenv("AMLT_OUTPUT_DIR") + "/")
+    split_local_list = local_path.split("/")
+    for p, _ in enumerate(split_local_list):
+        subfolder_path = os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "/".join(split_local_list[:p+1]))
         if not os.path.exists(subfolder_path):
             print(f"Making {subfolder_path}...")
             os.mkdir(subfolder_path)

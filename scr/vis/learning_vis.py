@@ -50,6 +50,8 @@ def plot_lc(
     plt.ylabel("loss")
     plt.legend(loc="upper right")
 
+    # TODO: split the encoder and flatten to be subfolders
+
     plt.savefig(
         os.path.join(plot_dataset_folder, plotname + ".png"), bbox_inches="tight"
     )

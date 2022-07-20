@@ -1,3 +1,4 @@
+import os
 import argparse
 
 from scr.encoding.encoding_classes import AbstractEncoder, ESMEncoder
@@ -108,7 +109,7 @@ parser.add_argument(
 parser.add_argument(
     "--all_plot_folder",
     type=str,
-    default="results/learning_curves",
+    default=os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "results/learning_curves"),
     metavar="LC",
     help="the parent folder for all learning curves (default: 'results/learning_curves')",
 )  
@@ -116,7 +117,7 @@ parser.add_argument(
 parser.add_argument(
     "--all_result_folder",
     type=str,
-    default="results/train_val_test",
+    default=os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "results/train_val_test"),
     metavar="O",
     help="the parent folder for all results (default: 'results/train_val_test')",
 )
@@ -142,5 +143,6 @@ for layer in range(0, TRANSFORMER_INFO[args.encoder_name][1] + 1):
         lr_decay=args.lr_decay,
         epochs=args.epochs,
         device=args.device,
+        all_plot_folder=args.all_plot_folder,
         all_result_folder=args.all_result_folder,
     )

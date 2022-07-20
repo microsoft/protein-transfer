@@ -12,7 +12,7 @@ TRANSFORMER_MAX_SEQ_LEN = 1024
 
 # encoder_name: (d_model, n_layers)
 CARP_INFO = {
-    "carp_600K": (128, 16),
+    "carp_600k": (128, 16),
     "carp_38M": (1024, 16),
     "carp_76M": (1024, 32),
     "carp_640M": (1280, 56),
