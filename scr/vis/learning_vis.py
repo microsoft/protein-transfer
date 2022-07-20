@@ -6,7 +6,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from scr.utils import get_folder_file_names
+from scr.utils import get_folder_file_names, get_task_data_split
 
 
 def plot_lc(
@@ -42,10 +42,12 @@ def plot_lc(
         flatten_emb=flatten_emb,
     )
 
+    task, dataset, split = get_task_data_split(dataset_path=dataset_path)
+
     plt.figure()
     plt.plot(range(epochs), train_losses, label="train")
     plt.plot(range(epochs), val_losses, label="val")
-    plt.title(plotname)
+    plt.title(f"{task}_{dataset}_{split} \n {plotname}")
     plt.xlabel("epochs")
     plt.ylabel("loss")
     plt.legend(loc="upper right")

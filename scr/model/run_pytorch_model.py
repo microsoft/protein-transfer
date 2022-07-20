@@ -143,7 +143,7 @@ def run_pytorch(
             "ndcg": ndcg_score(true[None, :], pred[None, :]),
             "rho": spearmanr(true, pred),
         }
-    print(all_result_folder, dataset_path)
+
     dataset_subfolder, file_name = get_folder_file_names(
         parent_folder=all_result_folder,
         dataset_path=dataset_path,

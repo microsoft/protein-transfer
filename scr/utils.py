@@ -11,19 +11,31 @@ def checkNgen_folder(folder_path: str) -> None:
     """
     Check if the folder or the subfolder exists
     to create a new directory if not
-    
+
     Args:
     - folder_path: str, the folder path
     """
-    _, local_path = folder_path.split(os.getenv("AMLT_OUTPUT_DIR") + "/")
-    split_local_list = local_path.split("/")
-    for p, _ in enumerate(split_local_list):
-        subfolder_path = os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "/".join(split_local_list[:p+1]))
-        if not os.path.exists(subfolder_path):
-            print(f"Making {subfolder_path}...")
-            os.mkdir(subfolder_path)
+    if os.getenv("AMLT_OUTPUT_DIR") is None:
+        split_list = folder_path.split("/")
+        for p, _ in enumerate(split_list):
+            subfolder_path = "/".join(split_list[: p + 1])
+            if not os.path.exists(subfolder_path):
+                print(f"Making {subfolder_path}...")
+                os.mkdir(subfolder_path)
+        return folder_path
 
-    return folder_path
+    else:
+        _, local_path = folder_path.split(os.getenv("AMLT_OUTPUT_DIR") + "/")
+        split_local_list = local_path.split("/")
+        for p, _ in enumerate(split_local_list):
+            subfolder_path = os.path.join(
+                os.getenv("AMLT_OUTPUT_DIR"), "/".join(split_local_list[: p + 1])
+            )
+            if not os.path.exists(subfolder_path):
+                print(f"Making {subfolder_path}...")
+                os.mkdir(subfolder_path)
+
+        return folder_path
 
 def get_filename(file_path: str) -> str:
     """
@@ -56,6 +68,20 @@ def replace_ext(input_path: str, ext: str) -> str:
     else:
         return os.path.splitext(input_path)[0] + "." + ext
 
+def get_task_data_split(dataset_path: str,) -> list[str]:
+    """
+    Return the task, dataset, and the split given the dataset_path is
+    data/task/dataset/split.csv, ie. data/proeng/gb1/two_vs_rest.csv
+
+    Args:
+    - dataset_path: str, full path to the input dataset, in pkl or panda readable format
+        columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
+    
+    Returns:
+    - list[str]: [task, dataset, split]
+    """
+    return os.path.splitext(dataset_path)[0].split("/")[1:]
+
 def get_folder_file_names(
     parent_folder: str,
     dataset_path: str,
@@ -80,13 +106,13 @@ def get_folder_file_names(
     """
     # path for the subfolder
     dataset_subfolder = os.path.join(
-        parent_folder, "/".join(os.path.splitext(dataset_path)[0].split("/")[1:])
+        parent_folder, "/".join(os.path.splitext(dataset_path)[0].split("/")[1:]), encoder_name, flatten_emb
     )
 
     # check and generate the folder
     checkNgen_folder(dataset_subfolder)
 
-    file_name = f"{encoder_name}-layer_{embed_layer}-{flatten_emb}"
+    file_name = f"{encoder_name}-{flatten_emb}-layer_{embed_layer}"
 
     return dataset_subfolder, file_name
 
