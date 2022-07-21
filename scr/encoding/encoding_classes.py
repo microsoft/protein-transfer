@@ -9,8 +9,9 @@ import numpy as np
 from tqdm import tqdm
 
 import torch
+from sequence_models.pretrained import load_model_and_alphabet
 
-from scr.params.emb import TRANSFORMER_INFO, TRANSFORMER_MAX_SEQ_LEN
+from scr.params.emb import TRANSFORMER_INFO, TRANSFORMER_MAX_SEQ_LEN, CARP_INFO
 from scr.params.sys import DEVICE
 
 
@@ -54,7 +55,9 @@ class AbstractEncoder(ABC):
 
         # If the batch size is 0, then encode all at once in a single batch
         if batch_size == 0:
-            yield self._encode_batch(mut_seqs=mut_seqs, flatten_emb=flatten_emb, mut_names=mut_names)
+            yield self._encode_batch(
+                mut_seqs=mut_seqs, flatten_emb=flatten_emb, mut_names=mut_names
+            )
 
         # Otherwise, yield chunks of encoded sequence
         else:
@@ -66,12 +69,47 @@ class AbstractEncoder(ABC):
                     mut_name_batch = mut_names
                 else:
                     mut_name_batch = mut_names[i : i + batch_size]
-                    
+
                 yield self._encode_batch(
                     mut_seqs=mut_seqs[i : i + batch_size],
                     flatten_emb=flatten_emb,
                     mut_names=mut_name_batch,
                 )
+
+    def flatten_encode(
+        self, encoded_mut_seqs: np.ndarray, flatten_emb: bool | str
+    ) -> np.ndarray:
+        """
+        Flatten the embedding or just return the encoded mutants.
+
+        Args:
+        - encoded_mut_seqs: np.ndarray, shape [batch_size, seq_len, embed_dim]
+        - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
+            - True -> shape [batch_size, seq_len * embed_dim]
+            - "max" or "mean" -> shape [batch_size, embed_dim]
+            - False or everything else -> [batch_size, seq_len, embed_dim]
+
+        Returns:
+        - np.ndarray, shape depends on flatten_emb parameter
+        """
+        assert encoded_mut_seqs.shape[2] == self._embed_dim, "Wrong embed dim"
+
+        if flatten_emb is True:
+            # shape [batch_size, seq_len * embed_dim]
+            return encoded_mut_seqs.reshape(encoded_mut_seqs.shape[0], -1)
+
+        elif isinstance(flatten_emb, str):
+            if flatten_emb == "mean":
+                # [batch_size, embed_dim]
+                return encoded_mut_seqs.mean(axis=1)
+            elif flatten_emb == "max":
+                # [batch_size, embed_dim]
+                return encoded_mut_seqs.max(axis=1)
+
+        else:
+            print("No embedding flattening")
+            # [batch_size, seq_len, embed_dim]
+            return encoded_mut_seqs
 
     @abstractmethod
     def _encode_batch(
@@ -81,19 +119,6 @@ class AbstractEncoder(ABC):
     ) -> np.ndarray:
         """
         Encode a single batch of mut_seqs
-        """
-        pass
-
-    @abstractmethod
-    def _flatten_encode(
-        self, mut_seqs: np.ndarray, flatten_emb: bool | str
-    ) -> np.ndarray:
-        """
-        Flatten the embedding.
-
-        Args
-        - mut_seqs: np.ndarray, shape [batch_size, seq_len, embed_dim]
-        - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         """
         pass
 
@@ -223,41 +248,83 @@ class ESMEncoder(AbstractEncoder):
             encoded_mut_seqs = encoded_mut_seqs[:, :-1, :]
 
         if mut_names is not None:
-            return self._flatten_encode(encoded_mut_seqs, flatten_emb), batch_labels
+            return self.flatten_encode(encoded_mut_seqs, flatten_emb), batch_labels
         else:
-            return self._flatten_encode(encoded_mut_seqs, flatten_emb)
+            return self.flatten_encode(encoded_mut_seqs, flatten_emb)
 
-    def _flatten_encode(
-        self, encoded_mut_seqs: np.ndarray, flatten_emb: bool | str
+
+class CARPEncoder(AbstractEncoder):
+    """
+    Build a CARP encoder
+    """
+
+    def __init__(
+        self,
+        encoder_name: str,
+        embed_layer: int,
+    ):
+        """
+        Args
+        - encoder_name: str, the name of the encoder, one of the keys of CARP_INFO
+        - embed_layer: int, the layer number of the embedding
+        """
+
+        super().__init__(encoder_name, embed_layer)
+
+        # load model from torch.hub
+        print(f"Loading {self._encoder_name} using {self._embed_layer} layer embedding")
+
+        self.model, self.collater = load_model_and_alphabet(self._encoder_name)
+
+        # set model to eval mode
+        self.model.eval()
+        self.model.to(DEVICE)
+
+        self._embed_dim, self._max_emb_layer = CARP_INFO[self._encoder_name]
+
+        assert (
+            self._embed_layer <= self._max_emb_layer
+        ), f"{self._embed_layer} exceeds {self._max_emb_layer}"
+
+    def _encode_batch(
+        self,
+        mut_seqs: Sequence[str] | str,
+        flatten_emb: bool | str,
+        mut_names: Sequence[str] | str | None = None,
     ) -> np.ndarray:
         """
-        Flatten the embedding or just return the encoded mutants.
+        Encodes a batch of mutant sequences.
 
         Args:
-        - encoded_mut_seqs: np.ndarray, shape [batch_size, seq_len, embed_dim]
+        - mut_seqs: list of str or str, mutant sequences of the same length
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
-            - True -> shape [batch_size, seq_len * embed_dim]
-            - "max" or "mean" -> shape [batch_size, embed_dim]
-            - False or everything else -> [batch_size, seq_len, embed_dim]
+        - mut_names: list of str or str or None, mutant names
 
         Returns:
-        - np.ndarray, shape depends on flatten_emb parameter
+        - np.ndarray or a tuple(np.ndarray, list[str]) where the list is batch_labels
         """
-        assert encoded_mut_seqs.shape[2] == self._embed_dim, "Wrong embed dim"
 
-        if flatten_emb is True:
-            # shape [batch_size, seq_len * embed_dim]
-            return encoded_mut_seqs.reshape(encoded_mut_seqs.shape[0], -1)
+        mut_seqs = [[m] for m in mut_seqs]
 
-        elif isinstance(flatten_emb, str):
-            if flatten_emb == "mean":
-                # [batch_size, embed_dim]
-                return encoded_mut_seqs.mean(axis=1)
-            elif flatten_emb == "max":
-                # [batch_size, embed_dim]
-                return encoded_mut_seqs.max(axis=1)
+        x = self.collater(mut_seqs)[0]
 
-        else:
-            print("No embedding flattening")
-            # [batch_size, seq_len, embed_dim]
-            return encoded_mut_seqs
+        layer_name = f"layer{str(self._embed_layer)}"
+
+        activation = {}
+
+        def get_activation(name):
+            def hook(model, input, output):
+                activation[name] = output.detach()
+
+            return hook
+
+        # convert raw mutant sequences to tokens
+        self.model.model.embedder.layers[self._embed_layer].register_forward_hook(
+            get_activation(layer_name)
+        )
+
+        rep = self.model(x)
+
+        encoded_mut_seqs = activation[layer_name].cpu().numpy()
+
+        return self.flatten_encode(encoded_mut_seqs, flatten_emb)
