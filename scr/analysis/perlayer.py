@@ -30,7 +30,8 @@ class LayerLoss:
         # get rid of the last "/" if any
         self._input_path = os.path.normpath(input_path)
         # get the list of subfolders for each dataset
-        self._dataset_folders = glob(f"{self._input_path}/*/*/*")
+        self._dataset_folders = glob(f"{self._input_path}/*/*/*/*/*")
+        # glob("results/train_val_test/*/*/*/*/*")
 
         # get rid of the last "/" if any
         self._output_path = os.path.normpath(output_path)
@@ -40,11 +41,25 @@ class LayerLoss:
         self._layer_analysis_dict = {}
 
         for dataset_folder in self._dataset_folders:
+            # dataset_folder = "results/train_val_test/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
+            # get the details for the dataset such as proeng/gb1/two_vs_rest
+            task_subfolder = dataset_folder.split(self._input_path + "/")[-1]
+            # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
+            task, dataset, split, encoder_name, flatten_emb = task_subfolder.split("/")
+
             self._layer_analysis_dict[dataset_folder] = self.parse_result_dicts(
-                dataset_folder
+                dataset_folder, task, dataset, split, encoder_name, flatten_emb
             )
 
-    def parse_result_dicts(self, folder_path: str):
+    def parse_result_dicts(
+        self,
+        folder_path: str,
+        task: str,
+        dataset: str,
+        split: str,
+        encoder_name: str,
+        flatten_emb: bool | str,
+    ):
         """
         Parse the output result dictionaries for plotting
 
@@ -60,7 +75,6 @@ class LayerLoss:
         pkl_list = glob(f"{folder_path}/*.pkl")
 
         # get the max layer number for the array
-        encoder_name, _, flatten_emb = get_filename(pkl_list[0]).split("-")
         max_layer_numb = TRANSFORMER_INFO[encoder_name][1] + 1
 
         # init the ouput dict
@@ -71,7 +85,7 @@ class LayerLoss:
         # loop through the list of the pickle files
         for pkl_file in pkl_list:
             # get the layer number
-            layer_numb = int(get_filename(pkl_file).split("-")[1].split("_")[-1])
+            layer_numb = int(get_filename(pkl_file).split("-")[-1].split("_")[-1])
             # load the result dictionary
             result_dict = pickle_load(pkl_file)
 
@@ -83,18 +97,9 @@ class LayerLoss:
                 else:
                     output_numb_dict[metric][layer_numb] = result_dict[subset][kind]
 
-            # get the details for the dataset such as proeng/gb1/two_vs_rest
-            task_subflder = os.path.dirname(
-                pkl_list[0].split(self._input_path + "/")[-1]
-            )
-            task, dataset, split = task_subflder.split("/")
-
             # get some details for plotting and saving
             output_subfolder = checkNgen_folder(
-                os.path.join(
-                    self._output_path,
-                    task_subflder,
-                )
+                folder_path.replace(self._input_path, self._output_path)
             )
 
         for metric in output_numb_dict.keys():
