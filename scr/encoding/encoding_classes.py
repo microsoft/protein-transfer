@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections import Iterable, Sequence
 
 import numpy as np
 from tqdm import tqdm
