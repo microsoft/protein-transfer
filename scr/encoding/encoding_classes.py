@@ -138,6 +138,11 @@ class AbstractEncoder(ABC):
     def include_input_layer(self) -> bool:
         """If include the input layer when counting the max layer number"""
         return self._include_input_layer
+
+    @property
+    def total_emb_layer(self) -> int:
+        """Total embedding layer number"""
+        return self._max_emb_layer + self._include_input_layer
     
     @property
     def encoder_name(self) -> str:
