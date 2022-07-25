@@ -69,7 +69,6 @@ def run_epoch(
 
     return cum_loss / len(loader)
 
-
 def train(model: nn.Module,
           train_loader: DataLoader,
           val_loader: DataLoader,
@@ -78,6 +77,8 @@ def train(model: nn.Module,
           learning_rate: float = 1e-4,
           lr_decay: float = 0.1,
           epochs: int = 100,
+          tolerance: int = 10,
+          min_epoch: int = 5,
           ) -> tuple[np.ndarray, np.ndarray]:
     """
     Args:
@@ -102,6 +103,10 @@ def train(model: nn.Module,
     train_losses = np.zeros(epochs)
     val_losses = np.zeros(epochs)
 
+    # init for early stopping
+    counter = 0
+    min_val_loss = np.Inf
+
     for epoch in tqdm(range(epochs)):
         train_losses[epoch] = run_epoch(
             model=model, loader=train_loader, device=device,
@@ -113,6 +118,16 @@ def train(model: nn.Module,
         val_losses[epoch] = val_loss
 
         scheduler.step(val_loss)
+
+        # when val loss decrease, reset min loss and counter
+        if val_loss < min_val_loss:
+            min_val_loss = val_loss
+            counter = 0
+        else:
+            counter += 1
+
+        if epoch > min_epoch and counter == tolerance:
+            break
 
     return train_losses, val_losses
 
