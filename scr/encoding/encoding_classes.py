@@ -22,17 +22,15 @@ class AbstractEncoder(ABC):
     All encoders will have an "encode" function
     """
 
-    def __init__(self, encoder_name: str, embed_layer: int):
+    def __init__(self, encoder_name: str):
 
         """
         Args:
         - encoder_name: str, the name of the encoder
-        - embed_layer: int, the layer number of the embedding
         """
 
         self._encoder_name = encoder_name
-        self._embed_layer = embed_layer
-
+        
     def encode(
         self,
         mut_seqs: Sequence[str] | str,
@@ -48,6 +46,10 @@ class AbstractEncoder(ABC):
         - batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - mut_names: list of str or str or None, mutant names
+
+        Returns:
+        - generator: dict with layer number as keys and
+            encoded flattened sequence with or without labels as value
         """
 
         if isinstance(mut_seqs, str):
@@ -128,10 +130,15 @@ class AbstractEncoder(ABC):
         return self._embed_dim
 
     @property
-    def embed_layer(self) -> int:
-        """The layer nubmer of the embedding"""
-        return self._embed_layer
+    def max_emb_layer(self) -> int:
+        """The max layer nubmer of the embedding"""
+        return self._max_emb_layer
 
+    @property
+    def include_input_layer(self) -> bool:
+        """If include the input layer when counting the max layer number"""
+        return self._include_input_layer
+    
     @property
     def encoder_name(self) -> str:
         """The name of the encoding method"""
@@ -146,25 +153,29 @@ class ESMEncoder(AbstractEncoder):
     def __init__(
         self,
         encoder_name: str,
-        embed_layer: int,
         iftrimCLS: bool = True,
         iftrimEOS: bool = True,
     ):
         """
         Args
         - encoder_name: str, the name of the encoder, one of the keys of TRANSFORMER_INFO
-        - embed_layer: int, the layer number of the embedding
         - iftrimCLS: bool, whether to trim the first classifification token
         - iftrimEOS: bool, whether to trim the end of sequence token, if exists
         """
 
-        super().__init__(encoder_name, embed_layer)
+        super().__init__(encoder_name)
 
         self._iftrimCLS = iftrimCLS
         self._iftrimEOS = iftrimEOS
 
+        # get transformer dim and layer info
+        self._embed_dim, self._max_emb_layer, _ = TRANSFORMER_INFO[self._encoder_name]
+
+        # esm has the input representation
+        self._include_input_layer = True
+
         # load model from torch.hub
-        print(f"Loading {self._encoder_name} using {self._embed_layer} layer embedding")
+        print(f"Loading {self._encoder_name} upto {self._max_emb_layer} layer embedding")
         self.model, self.alphabet = torch.hub.load(
             "facebookresearch/esm:main", model=self._encoder_name
         )
@@ -173,12 +184,6 @@ class ESMEncoder(AbstractEncoder):
         # set model to eval mode
         self.model.eval()
         self.model.to(DEVICE)
-
-        self._embed_dim, self._max_emb_layer, _ = TRANSFORMER_INFO[self._encoder_name]
-
-        assert (
-            self._embed_layer <= self._max_emb_layer
-        ), f"{self._embed_layer} exceeds {self._max_emb_layer}"
 
         expected_num_layers = int(self._encoder_name.split("_")[-3][1:])
         assert (
@@ -226,31 +231,40 @@ class ESMEncoder(AbstractEncoder):
                 print(f"Sequence exceeds {TRANSFORMER_MAX_SEQ_LEN}, chopping the end")
                 batch_tokens = batch_tokens[:, :TRANSFORMER_MAX_SEQ_LEN]
 
-            encoded_mut_seqs = (
-                self.model(batch_tokens, repr_layers=[self._embed_layer])[
-                    "representations"
-                ][self._embed_layer]
-                .cpu()
-                .numpy()
-            )
+            dict_encoded_mut_seqs = self.model(
+                batch_tokens, repr_layers=list(range(self._max_emb_layer + 1))
+            )["representations"]
 
-        # https://github.com/facebookresearch/esm/blob/main/esm/data.py
-        # from_architecture
+        for layer, encoded_mut_seqs in dict_encoded_mut_seqs.items():
 
-        # trim off initial classification token [CLS]
-        # both "ESM-1" and "ESM-1b" have prepend_bos = True
-        if self._iftrimCLS and self._encoder_name.split("_")[0] in ["esm1", "esm1b"]:
-            encoded_mut_seqs = encoded_mut_seqs[:, 1:, :]
+            encoded_mut_seqs = encoded_mut_seqs.cpu().numpy()
+            # https://github.com/facebookresearch/esm/blob/main/esm/data.py
+            # from_architecture
 
-        # trim off end-of-sequence token [EOS]
-        # only "ESM-1b" has append_eos = True
-        if self._iftrimEOS and self._encoder_name.split("_")[0] == "esm1b":
-            encoded_mut_seqs = encoded_mut_seqs[:, :-1, :]
+            # trim off initial classification token [CLS]
+            # both "ESM-1" and "ESM-1b" have prepend_bos = True
+            if self._iftrimCLS and self._encoder_name.split("_")[0] in [
+                "esm1",
+                "esm1b",
+            ]:
+                encoded_mut_seqs = encoded_mut_seqs[:, 1:, :]
 
-        if mut_names is not None:
-            return self.flatten_encode(encoded_mut_seqs, flatten_emb), batch_labels
-        else:
-            return self.flatten_encode(encoded_mut_seqs, flatten_emb)
+            # trim off end-of-sequence token [EOS]
+            # only "ESM-1b" has append_eos = True
+            if self._iftrimEOS and self._encoder_name.split("_")[0] == "esm1b":
+                encoded_mut_seqs = encoded_mut_seqs[:, :-1, :]
+
+            if mut_names is not None:
+                dict_encoded_mut_seqs[layer] = (
+                    self.flatten_encode(encoded_mut_seqs, flatten_emb),
+                    batch_labels,
+                )
+            else:
+                dict_encoded_mut_seqs[layer] = self.flatten_encode(
+                    encoded_mut_seqs, flatten_emb
+                )
+
+        return dict_encoded_mut_seqs
 
 
 class CARPEncoder(AbstractEncoder):
@@ -261,18 +275,16 @@ class CARPEncoder(AbstractEncoder):
     def __init__(
         self,
         encoder_name: str,
-        embed_layer: int,
     ):
         """
         Args
         - encoder_name: str, the name of the encoder, one of the keys of CARP_INFO
-        - embed_layer: int, the layer number of the embedding
         """
 
-        super().__init__(encoder_name, embed_layer)
+        super().__init__(encoder_name)
 
         # load model from torch.hub
-        print(f"Loading {self._encoder_name} using {self._embed_layer} layer embedding")
+        print(f"Loading {self._encoder_name} upto {self._max_emb_layer} layer embedding")
 
         self.model, self.collater = load_model_and_alphabet(self._encoder_name)
 
@@ -282,9 +294,8 @@ class CARPEncoder(AbstractEncoder):
 
         self._embed_dim, self._max_emb_layer = CARP_INFO[self._encoder_name]
 
-        assert (
-            self._embed_layer <= self._max_emb_layer
-        ), f"{self._embed_layer} exceeds {self._max_emb_layer}"
+        # carp does not have the input representation
+        self._include_input_layer = False
 
     def _encode_batch(
         self,
@@ -308,8 +319,6 @@ class CARPEncoder(AbstractEncoder):
 
         x = self.collater(mut_seqs)[0]
 
-        layer_name = f"layer{str(self._embed_layer)}"
-
         activation = {}
 
         def get_activation(name):
@@ -319,12 +328,16 @@ class CARPEncoder(AbstractEncoder):
             return hook
 
         # convert raw mutant sequences to tokens
-        self.model.model.embedder.layers[self._embed_layer].register_forward_hook(
-            get_activation(layer_name)
-        )
+        for layer_numb in list(range(self._max_emb_layer)):
+            self.model.model.embedder.layers[layer_numb].register_forward_hook(
+                get_activation(layer_numb)
+            )
 
         rep = self.model(x)
 
-        encoded_mut_seqs = activation[layer_name].cpu().numpy()
+        for layer_numb, encoded_mut_seqs in activation.items():
+            activation[layer_numb] = self.flatten_encode(
+                encoded_mut_seqs.cpu().numpy(), flatten_emb
+            )
 
-        return self.flatten_encode(encoded_mut_seqs, flatten_emb)
+        return activation

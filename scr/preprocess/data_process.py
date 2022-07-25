@@ -16,7 +16,7 @@ from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO
 from scr.preprocess.seq_loader import SeqLoader
-from scr.encoding.encoding_classes import AbstractEncoder, ESMEncoder
+from scr.encoding.encoding_classes import AbstractEncoder, ESMEncoder, CARPEncoder
 
 
 def get_mut_name(mut_seq: str, parent_seq: str) -> str:
@@ -277,23 +277,35 @@ class ProtranDataset(Dataset):
         # check if pregenerated embedding
         if embed_path is not None:
             print(f"Loading pregenerated embeddings from {embed_path}")
-            encoded_sequences = pickle_load(embed_path)
+            self.x = pickle_load(embed_path)
 
         # encode the sequences without the mut_name
         else:
-            encoded_sequences = []
+            # get the encoder
+            encoder = encoder_class(encoder_name=encoder_name)
 
-            for x in encoder_class(
-                encoder_name=encoder_name, embed_layer=embed_layer
-            ).encode(
+            max_emb_layer = encoder.max_emb_layer
+            include_input_layer = encoder.include_input_layer
+
+            # init dict of encoded seq
+            output_emb = {
+                layer: [] for layer in range(max_emb_layer + include_input_layer)
+            }
+
+            for encoded_dict in encoder.encode(
                 mut_seqs=self.sequence,
                 batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 **encoder_params,
             ):
-                encoded_sequences.append(x)
 
-        self.x = torch.tensor(np.vstack(encoded_sequences), dtype=torch.float32)
+                for layer, emb in encoded_dict.items():
+                    encoded_dict[layer] = np.vstack([encoded_dict[layer], emb])
+
+        self.x = {
+            layer: torch.tensor(emb, dtype=torch.float32)
+            for layer, emb in output_emb.items()
+        }
 
         # get and format the fitness or secondary structure values
         # can be numbers or string
@@ -335,7 +347,8 @@ class ProtranDataset(Dataset):
         if column_name in self._df.columns:
             if column_name == "sequence":
                 return (
-                    self._df_dict[self._subset]["sequence"].astype(str)
+                    self._df_dict[self._subset]["sequence"]
+                    .astype(str)
                     .str[self._seq_start_idx : self._seq_end_idx]
                     .values
                 )
