@@ -12,6 +12,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
+from sklearn.preprocessing import StandardScaler
+
 from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
@@ -319,7 +321,6 @@ class ProtranDataset(Dataset):
         # can be numbers or string
         # will need to convert data type
         # make 1D tensor 2D
-        # TODO scale fitness values
         self.y = np.expand_dims(self._get_column_value("target"), 1)
 
         # add mut_name and mut_numb for relevant proeng datasets

@@ -6,6 +6,9 @@ import os
 import sys
 import pickle
 
+import numpy as np
+
+from sklearn.metrics import ndcg_score
 
 def checkNgen_folder(folder_path: str) -> None:
     """
@@ -148,3 +151,8 @@ def blockPrint():
 def enablePrint():
     """Restore printing"""
     sys.stdout = sys.__stdout__
+
+def ndcg_scale(true: np.ndarray, pred: np.ndarray):
+    """Calculate the ndcg_score with neg correction"""
+    true_scaled = true - min(true)
+    return ndcg_score(true_scaled[None, :], pred[None, :])

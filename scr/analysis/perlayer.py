@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 import os
 from glob import glob
 import numpy as np
@@ -17,14 +19,14 @@ class LayerLoss:
 
     def __init__(
         self,
-        input_path: str = "results/train_val_test",
-        output_path: str = "results/analysis_layer",
+        input_path: str = "results/sklearn",
+        output_path: str = "results/sklearn_layer",
         metric_list: list[str] = ["train_mse", "test_ndcg", "test_rho"],
     ):
         """
         Args:
-        - input_path: str = "results/train_val_test",
-        - output_path: str = "results/analysis_layer"
+        - input_path: str = "results/sklearn",
+        - output_path: str = "results/sklearn_layer"
         - metric_list: list[str] = ["train_mse", "test_ndcg", "test_rho"]
         """
         # get rid of the last "/" if any
@@ -36,9 +38,10 @@ class LayerLoss:
         # get rid of the last "/" if any
         self._output_path = os.path.normpath(output_path)
         self._metric_list = metric_list
+        self._metric_numb = len(metric_list)
 
         # init a dictionary for recording outputs
-        self._layer_analysis_dict = {}
+        self._layer_analysis_dict = defaultdict(dict)
 
         for dataset_folder in self._dataset_folders:
             # dataset_folder = "results/train_val_test/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
@@ -47,9 +50,59 @@ class LayerLoss:
             # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
             task, dataset, split, encoder_name, flatten_emb = task_subfolder.split("/")
 
-            self._layer_analysis_dict[dataset_folder] = self.parse_result_dicts(
+            self._layer_analysis_dict[f"{task}_{dataset}_{split}_{flatten_emb}"][
+                encoder_name
+            ] = self.parse_result_dicts(
                 dataset_folder, task, dataset, split, encoder_name, flatten_emb
             )
+
+        collage_folder = os.path.join(output_path, "collage")
+        checkNgen_folder(collage_folder)
+
+        for collage_name, encoder_dict in self._layer_analysis_dict.items():
+            
+            if set(list(TRANSFORMER_INFO.keys())) == set(encoder_dict.keys()):
+                # set the key rankings to default
+                encoder_names = list(TRANSFORMER_INFO.keys())
+            else:
+                encoder_names = list(set(encoder_dict.keys()))
+
+            fig, axs = plt.subplots(
+                self._metric_numb,
+                len(encoder_names),
+                sharey="row",
+                sharex="col",
+                figsize=(20, 10),
+            )
+            for m, metric in enumerate(metric_list):
+                for n, encoder_name in enumerate(encoder_names):
+                    axs[m, n].plot(encoder_dict[encoder_name][metric])
+
+            # add xlabels
+            for ax in axs[self._metric_numb - 1]:
+                ax.set_xlabel("layers", fontsize=16)
+                ax.tick_params(axis="x", labelsize=16)
+
+            # add column names
+            for ax, col in zip(axs[0], encoder_names):
+                ax.set_title(col, fontsize=16)
+
+            # add row names
+            for ax, row in zip(axs[:, 0], metric_list):
+                ax.set_ylabel(row.replace("_", " "), fontsize=16)
+                ax.tick_params(axis="y", labelsize=16)
+
+            # add whole plot level title
+            fig.suptitle(collage_name.replace("_", " "), fontsize=20, fontweight="bold")
+            fig.tight_layout()
+
+            for plot_ext in [".svg", ".png"]:
+                plt.savefig(
+                    os.path.join(collage_folder, collage_name + plot_ext),
+                    bbox_inches="tight",
+                )
+
+            plt.close()
 
     def parse_result_dicts(
         self,
@@ -67,8 +120,9 @@ class LayerLoss:
         - folder_path: str, the folder path for the datasets
 
         Returns:
-        - output_numb_dict: dict, metric name as keys and the array of losses as values
-        - output_numb_details: dict, details as folder_path, encoder_name, flatten_emb
+        - dict, encode name as key with a dict as its value
+            where metric name as keys and the array of losses as values
+        - str, details for collage plot
         """
 
         # get the list of output pickle files
@@ -120,13 +174,7 @@ class LayerLoss:
                 )
             plt.close()
 
-        output_numb_details = {
-            "folder_path": output_subfolder,
-            "encoder_name": encoder_name,
-            "flatten_emb": flatten_emb,
-        }
-
-        return output_numb_dict, output_numb_details
+        return output_numb_dict
 
     @property
     def layer_analysis_dict(self) -> dict:

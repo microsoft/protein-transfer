@@ -38,7 +38,7 @@ class RunRidge:
         seq_end_idx: bool | int = False,
         loader_batch_size: int = 64,
         worker_seed: int = RAND_SEED,
-        alphas: np.ndarray = SKLEARN_ALPHAS,
+        alphas: np.ndarray | int = SKLEARN_ALPHAS,
         ridge_state: int = RAND_SEED,
         ridge_params: dict | None = None,
         all_result_folder: str = "results/sklearn",
@@ -68,7 +68,11 @@ class RunRidge:
         self.dataset_path = dataset_path
         self.encoder_name = encoder_name
         self.flatten_emb = flatten_emb
+
+        if not isinstance(alphas, np.ndarray):
+            alphas = np.array(alphas)
         self.alphas = alphas
+        
         self.ridge_state = ridge_state
         self.ridge_params = ridge_params
         self.all_result_folder = all_result_folder
@@ -121,7 +125,7 @@ class RunRidge:
         """
         pred = []
         true = []
-        for (y, sequence, mut_name, mut_numb, *layer_emb) in loader:
+        for (y, _, _, _, *layer_emb) in loader:
             pred.append(model.predict(layer_emb[embed_layer]).squeeze())
             true.append(y.cpu().squeeze().numpy())
         return np.concatenate(pred), np.concatenate(true)
@@ -159,8 +163,10 @@ class RunRidge:
             )
 
             # fit the model for a given layer of embedding
-            for (y, sequence, mut_name, mut_numb, *layer_emb) in self.train_loader:
-                model.fit(layer_emb[embed_layer], y)
+            for (y, _, _, _, *layer_emb) in self.train_loader:
+                fitness_scaler = StandardScaler()
+                model.fit(layer_emb[embed_layer], fitness_scaler.fit_transform(y))
+                # model.fit(layer_emb[embed_layer], y)
 
             # eval the model with train and test
             train_pred, train_true = self.sk_test(
@@ -182,6 +188,7 @@ class RunRidge:
                 best_ndcg = val_ndcg
                 best_rho = val_rho
 
+            print(f"best model is {best_model}")
         return best_model
 
     def run_ridge_layer(
