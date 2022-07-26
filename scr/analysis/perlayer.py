@@ -151,10 +151,10 @@ class LayerLoss:
                 else:
                     output_numb_dict[metric][layer_numb] = result_dict[subset][kind]
 
-            # get some details for plotting and saving
-            output_subfolder = checkNgen_folder(
-                folder_path.replace(self._input_path, self._output_path)
-            )
+        # get some details for plotting and saving
+        output_subfolder = checkNgen_folder(
+            folder_path.replace(self._input_path, self._output_path)
+        )
 
         for metric in output_numb_dict.keys():
 

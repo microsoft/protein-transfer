@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import argparse
 
@@ -7,6 +9,10 @@ from scr.encoding.encoding_classes import AbstractEncoder, ESMEncoder, CARPEncod
 from scr.model.run_sklearn import RunRidge
 from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
+
+def alpha_types(alphas: np.ndarray | float):
+    if not isinstance(alphas, np.ndarray):
+        return np.array([alphas])
 
 parser = argparse.ArgumentParser(description="Protein transfer")
 
@@ -79,7 +85,7 @@ parser.add_argument(
 
 parser.add_argument(
     "--alphas",
-    type=np.ndarray,
+    type=alpha_types,
     metavar="A",
     default=SKLEARN_ALPHAS,
     help="arrays of alphas to be tested (default: SKLEARN_ALPHAS)",

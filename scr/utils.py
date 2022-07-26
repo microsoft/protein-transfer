@@ -10,7 +10,7 @@ import numpy as np
 
 from sklearn.metrics import ndcg_score
 
-def checkNgen_folder(folder_path: str) -> None:
+def checkNgen_folder(folder_path: str) -> str:
     """
     Check if the folder or the subfolder exists
     to create a new directory if not
@@ -23,7 +23,7 @@ def checkNgen_folder(folder_path: str) -> None:
         for p, _ in enumerate(split_list):
             subfolder_path = "/".join(split_list[: p + 1])
             if not os.path.exists(subfolder_path):
-                print(f"Making {subfolder_path}...")
+                print(f"Making {subfolder_path} ...")
                 os.mkdir(subfolder_path)
         return folder_path
 

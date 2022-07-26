@@ -70,7 +70,7 @@ class RunRidge:
         self.flatten_emb = flatten_emb
 
         if not isinstance(alphas, np.ndarray):
-            alphas = np.array(alphas)
+            alphas = np.array([alphas])
         self.alphas = alphas
         
         self.ridge_state = ridge_state
