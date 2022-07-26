@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Sequence
+from collections import Sequence, defaultdict
 
 import os
 from glob import glob
@@ -14,7 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.params.sys import RAND_SEED
-from scr.params.emb import TRANSFORMER_INFO
+from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.preprocess.seq_loader import SeqLoader
 from scr.encoding.encoding_classes import AbstractEncoder, ESMEncoder, CARPEncoder
 
@@ -48,6 +48,12 @@ class AddMutInfo:
     """A class for appending mutation info for mainly protein engineering tasks"""
 
     def __init__(self, parent_seq_path: str, csv_path: str):
+
+        """
+        Args:
+        - parent_seq_path: str, path for the parent sequence
+        - csv_path: str, path for the fitness csv file
+        """
 
         # Load the parent sequence from the fasta file
         self._parent_seq = SeqLoader(parent_seq_path=parent_seq_path)
@@ -118,8 +124,10 @@ class TaskProcess:
         Summarize all files in the data folder
 
         Returns:
-        - A dataframe with "task", "dataset", "split", "csv_path", "fasta_path", "pkl_path" as columns, ie.
-            (proeng, gb1, low_vs_high, data/proeng/gb1/low_vs_high.csv, data/proeng/gb1/5LDE_1.fasta)
+        - A dataframe with "task", "dataset", "split",
+            "csv_path", "fasta_path", "pkl_path" as columns, ie.
+            (proeng, gb1, low_vs_high, data/proeng/gb1/low_vs_high.csv,
+            data/proeng/gb1/5LDE_1.fasta)
             note that csv_path is the list of lmdb files for the structure task
         """
         dataset_folders = glob(f"{self._data_folder}*/*")
@@ -199,7 +207,6 @@ class ProtranDataset(Dataset):
         subset: str,
         encoder_class: AbstractEncoder,
         encoder_name: str,
-        embed_layer: int,
         embed_batch_size: int = 0,
         flatten_emb: bool | str = False,
         embed_path: str = None,
@@ -211,11 +218,11 @@ class ProtranDataset(Dataset):
         """
         Args:
         - dataset_path: str, full path to the dataset, in pkl or panda readable format
-            columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
+            columns include: sequence, target, set, validation,
+            mut_name (optional), mut_numb (optional)
         - subset: str, train, val, test
         - encoder_class: AbstractEncoder, the encoder class
         - encoder_name: str, the name of the encoder
-        - embed_layer: int, the layer number of the embedding
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_path: str = None, path to presaved embedding
@@ -274,43 +281,45 @@ class ProtranDataset(Dataset):
         # will need to convert data type
         self.sequence = self._get_column_value("sequence")
 
+        # get the encoder
+        self._encoder = encoder_class(encoder_name=encoder_name)
+        self._total_emb_layer = self._encoder.total_emb_layer
+
         # check if pregenerated embedding
         if embed_path is not None:
             print(f"Loading pregenerated embeddings from {embed_path}")
-            self.x = pickle_load(embed_path)
+            encoded_dict = pickle_load(embed_path)
 
         # encode the sequences without the mut_name
         else:
-            # get the encoder
-            encoder = encoder_class(encoder_name=encoder_name)
+            # init an empty dict with empty list to append emb
+            encoded_dict = defaultdict(list)
 
-            max_emb_layer = encoder.max_emb_layer
-            include_input_layer = encoder.include_input_layer
-
-            # init dict of encoded seq
-            output_emb = {
-                layer: [] for layer in range(max_emb_layer + include_input_layer)
-            }
-
-            for encoded_dict in encoder.encode(
+            # use the encoder generator for batch emb
+            # assume no labels included
+            for encoded_batch_dict in self._encoder.encode(
                 mut_seqs=self.sequence,
                 batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 **encoder_params,
             ):
 
-                for layer, emb in encoded_dict.items():
-                    encoded_dict[layer] = np.vstack([encoded_dict[layer], emb])
+                for layer, emb in encoded_batch_dict.items():
+                    encoded_dict[layer].append(emb)
 
-        self.x = {
-            layer: torch.tensor(emb, dtype=torch.float32)
-            for layer, emb in output_emb.items()
-        }
+        # assign each layer as its own variable
+        for layer, emb in encoded_dict.items():
+            setattr(
+                self,
+                "layer" + str(layer),
+                torch.tensor(np.vstack(emb), dtype=torch.float32),
+            )
 
         # get and format the fitness or secondary structure values
         # can be numbers or string
         # will need to convert data type
         # make 1D tensor 2D
+        # TODO scale fitness values
         self.y = np.expand_dims(self._get_column_value("target"), 1)
 
         # add mut_name and mut_numb for relevant proeng datasets
@@ -329,20 +338,30 @@ class ProtranDataset(Dataset):
 
         """
         Return the item in the order of
-        encoded sequence (x), target (y), sequence, mut_name (optional), mut_numb (optional)
+        target (y), sequence, mut_name (optional), mut_numb (optional),
+        embedding per layer upto the max number of layer for the encoder
+
+        Args:
+        - idx: int
         """
 
         return (
-            self.x[idx],
             self.y[idx],
             self.sequence[idx],
             self.mut_name[idx],
             self.mut_numb[idx],
+            *(
+                getattr(self, "layer" + str(layer))[idx]
+                for layer in range(self._total_emb_layer)
+            ),
         )
 
     def _get_column_value(self, column_name: str) -> np.ndarray:
         """
         Check and return the column values of the selected dataframe subset
+
+        Args:
+        - column_name: str, the name of the dataframe column
         """
         if column_name in self._df.columns:
             if column_name == "sequence":
@@ -379,7 +398,6 @@ class ProtranDataset(Dataset):
 def split_protrain_loader(
     dataset_path: str,
     encoder_name: str,
-    embed_layer: int,
     embed_batch_size: int = 128,
     flatten_emb: bool | str = False,
     embed_path: str | None = None,
@@ -396,9 +414,9 @@ def split_protrain_loader(
 
     Args:
     - dataset_path: str, full path to the dataset, in pkl or panda readable format
-        columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
+        columns include: sequence, target, set, validation,
+        mut_name (optional), mut_numb (optional)
     - encoder_name: str, the name of the encoder
-    - embed_layer: int, the layer number of the embedding
     - embed_batch_size: int, set to 0 to encode all in a single batch
     - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
     - embed_path: str = None, path to presaved embedding
@@ -412,13 +430,17 @@ def split_protrain_loader(
 
     assert set(subset_list) <= set(
         ["train", "val", "test"]
-    ), "subset_list can only contrain terms with in be 'train', 'val', or 'test'"
+    ), "subset_list can only contain terms with in be 'train', 'val', or 'test'"
 
     # specify no shuffling for validation and test
     if_shuffle_list = [True if subset == "train" else False for subset in subset_list]
 
     if encoder_name in TRANSFORMER_INFO.keys():
         encoder_class = ESMEncoder
+    elif encoder_name in CARP_INFO.keys():
+        encoder_class = CARPEncoder
+    else:
+        raise ValueError(f"unacceptable encoder_name: {encoder_name}")
 
     return (
         DataLoader(
@@ -427,7 +449,6 @@ def split_protrain_loader(
                 subset=subset,
                 encoder_class=encoder_class,
                 encoder_name=encoder_name,
-                embed_layer=embed_layer,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_path=embed_path,
