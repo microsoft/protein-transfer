@@ -207,7 +207,6 @@ class ProtranDataset(Dataset):
         self,
         dataset_path: str,
         subset: str,
-        encoder_class: AbstractEncoder,
         encoder_name: str,
         embed_batch_size: int = 0,
         flatten_emb: bool | str = False,
@@ -223,7 +222,6 @@ class ProtranDataset(Dataset):
             columns include: sequence, target, set, validation,
             mut_name (optional), mut_numb (optional)
         - subset: str, train, val, test
-        - encoder_class: AbstractEncoder, the encoder class
         - encoder_name: str, the name of the encoder
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
@@ -283,6 +281,14 @@ class ProtranDataset(Dataset):
         # will need to convert data type
         self.sequence = self._get_column_value("sequence")
 
+        # get the encoder class
+        if encoder_name in TRANSFORMER_INFO.keys():
+            encoder_class = ESMEncoder
+        elif encoder_name in CARP_INFO.keys():
+            encoder_class = CARPEncoder
+        else:
+            raise ValueError(f"unacceptable encoder_name: {encoder_name}")
+        
         # get the encoder
         self._encoder = encoder_class(encoder_name=encoder_name)
         self._total_emb_layer = self._encoder.total_emb_layer
@@ -436,19 +442,11 @@ def split_protrain_loader(
     # specify no shuffling for validation and test
     if_shuffle_list = [True if subset == "train" else False for subset in subset_list]
 
-    if encoder_name in TRANSFORMER_INFO.keys():
-        encoder_class = ESMEncoder
-    elif encoder_name in CARP_INFO.keys():
-        encoder_class = CARPEncoder
-    else:
-        raise ValueError(f"unacceptable encoder_name: {encoder_name}")
-
     return (
         DataLoader(
             dataset=ProtranDataset(
                 dataset_path=dataset_path,
                 subset=subset,
-                encoder_class=encoder_class,
                 encoder_name=encoder_name,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,

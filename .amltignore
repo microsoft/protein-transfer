@@ -8,9 +8,6 @@
 */*.png
 **/*.png
 
-data/proeng/aav/two_vs_many.csv
-data/proeng/aav/one_vs_many.csv
-data/structure/secondary_structure/secondary_structure_train.lmdb/data.mdb
 
 # exceptions to the rule
 !README.md

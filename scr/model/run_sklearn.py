@@ -11,13 +11,11 @@ from sklearn.metrics import ndcg_score, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import spearmanr
 
-from torch.utils.data import DataLoader
-
 from scr.utils import get_folder_file_names, pickle_save
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
 from scr.encoding.encoding_classes import ESMEncoder, CARPEncoder
-from scr.preprocess.data_process import split_protrain_loader
+from scr.preprocess.data_process import ProtranDataset
 
 # seed
 random.seed(RAND_SEED)
@@ -36,7 +34,7 @@ class RunRidge:
         embed_path: str | None = None,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
-        loader_batch_size: int = 64,
+        loader_batch_size: int = 0,
         worker_seed: int = RAND_SEED,
         alphas: np.ndarray | int = SKLEARN_ALPHAS,
         ridge_state: int = RAND_SEED,
@@ -72,24 +70,25 @@ class RunRidge:
         if not isinstance(alphas, np.ndarray):
             alphas = np.array([alphas])
         self.alphas = alphas
-        
+
         self.ridge_state = ridge_state
         self.ridge_params = ridge_params
         self.all_result_folder = all_result_folder
 
         # loader has ALL embedding layers
-        self.train_loader, self.val_loader, self.test_loader = split_protrain_loader(
-            dataset_path=self.dataset_path,
-            encoder_name=self.encoder_name,
-            embed_batch_size=embed_batch_size,
-            flatten_emb=self.flatten_emb,
-            embed_path=embed_path,
-            seq_start_idx=seq_start_idx,
-            seq_end_idx=seq_end_idx,
-            subset_list=["train", "val", "test"],
-            loader_batch_size=loader_batch_size,
-            worker_seed=worker_seed,
-            **encoder_params,
+        self.train_ds, self.val_ds, self.test_ds = (
+            ProtranDataset(
+                dataset_path=dataset_path,
+                subset=subset,
+                encoder_name=encoder_name,
+                embed_batch_size=embed_batch_size,
+                flatten_emb=flatten_emb,
+                embed_path=embed_path,
+                seq_start_idx=seq_start_idx,
+                seq_end_idx=seq_end_idx,
+                **encoder_params,
+            )
+            for subset in ["train", "val", "test"]
         )
 
         all_ridge_results = {}
@@ -109,7 +108,7 @@ class RunRidge:
         self._all_ridge_results = all_ridge_results
 
     def sk_test(
-        self, model: sklearn.linear_model, loader: DataLoader, embed_layer: int
+        self, model: sklearn.linear_model, ds: ProtranDataset, embed_layer: int
     ):
         """
         A function for testing sklearn models for a specific layer of embeddings
@@ -123,12 +122,8 @@ class RunRidge:
         - np.concatenate(pred): np.ndarray, 1D predicted fitness values
         - np.concatenate(true): np.ndarry, 1D true fitness values
         """
-        pred = []
-        true = []
-        for (y, _, _, _, *layer_emb) in loader:
-            pred.append(model.predict(layer_emb[embed_layer]).squeeze())
-            true.append(y.cpu().squeeze().numpy())
-        return np.concatenate(pred), np.concatenate(true)
+        
+        return model.predict(getattr(ds, "layer" + str(embed_layer)).cpu().numpy()).squeeze(), ds.y.squeeze()
 
     def pick_model(
         self,
@@ -163,19 +158,20 @@ class RunRidge:
             )
 
             # fit the model for a given layer of embedding
-            for (y, _, _, _, *layer_emb) in self.train_loader:
-                fitness_scaler = StandardScaler()
-                model.fit(layer_emb[embed_layer], fitness_scaler.fit_transform(y))
-                # model.fit(layer_emb[embed_layer], y)
+            fitness_scaler = StandardScaler()
+            model.fit(
+                getattr(self.train_ds, "layer" + str(embed_layer)).cpu().numpy(),
+                fitness_scaler.fit_transform(self.train_ds.y),
+            )
 
             # eval the model with train and test
             train_pred, train_true = self.sk_test(
-                model, self.train_loader, embed_layer=embed_layer
+                model, self.train_ds, embed_layer=embed_layer
             )
             val_pred, val_true = self.sk_test(
-                model, self.val_loader, embed_layer=embed_layer
+                model, self.val_ds, embed_layer=embed_layer
             )
-
+            
             # calc the metrics
             train_mse = mean_squared_error(train_true, train_pred)
             val_ndcg = ndcg_score(val_true[None, :], val_pred[None, :])
@@ -188,7 +184,7 @@ class RunRidge:
                 best_ndcg = val_ndcg
                 best_rho = val_rho
 
-            print(f"best model is {best_model}")
+        print(f"best model is {best_model}")
         return best_model
 
     def run_ridge_layer(
@@ -230,14 +226,12 @@ class RunRidge:
         result_dict = {}
 
         # now test the model with the test data
-        for subset, loader in zip(
+        for subset, ds in zip(
             ["train", "val", "test"],
-            [self.train_loader, self.val_loader, self.test_loader],
+            [self.train_ds, self.val_ds, self.test_ds],
         ):
-            pred, true = self.sk_test(
-                best_model, self.val_loader, embed_layer=embed_layer
-            )
-
+            pred, true = self.sk_test(best_model, ds, embed_layer=embed_layer)
+            
             result_dict[subset] = {
                 "mse": mean_squared_error(true, pred),
                 "pred": pred,
