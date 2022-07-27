@@ -9,6 +9,7 @@ from glob import glob
 import numpy as np
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 
 from scr.params.emb import TRANSFORMER_INFO
 from scr.utils import pickle_load, get_filename, checkNgen_folder
@@ -60,7 +61,7 @@ class LayerLoss:
         checkNgen_folder(collage_folder)
 
         for collage_name, encoder_dict in self._layer_analysis_dict.items():
-            
+
             if set(list(TRANSFORMER_INFO.keys())) == set(encoder_dict.keys()):
                 # set the key rankings to default
                 encoder_names = list(TRANSFORMER_INFO.keys())
@@ -91,6 +92,9 @@ class LayerLoss:
             for ax, row in zip(axs[:, 0], metric_list):
                 ax.set_ylabel(row.replace("_", " "), fontsize=16)
                 ax.tick_params(axis="y", labelsize=16)
+
+            # set the plot yticks
+            plt.gca().yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
 
             # add whole plot level title
             fig.suptitle(collage_name.replace("_", " "), fontsize=20, fontweight="bold")

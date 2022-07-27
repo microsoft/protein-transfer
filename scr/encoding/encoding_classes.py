@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 
 import torch
+from torch.nn.init import xavier_uniform_
 from sequence_models.pretrained import load_model_and_alphabet
 
 from scr.params.emb import TRANSFORMER_INFO, TRANSFORMER_MAX_SEQ_LEN, CARP_INFO
@@ -22,15 +23,35 @@ class AbstractEncoder(ABC):
     All encoders will have an "encode" function
     """
 
-    def __init__(self, encoder_name: str):
+    def __init__(self, encoder_name: str, reset_param: bool = False):
 
         """
         Args:
         - encoder_name: str, the name of the encoder
+        - reset_param: bool = False, if update the full model to xavier_uniform
         """
 
         self._encoder_name = encoder_name
-        
+        self._reset_param = reset_param
+    
+    def reset_parameters(model: torch.nn.Module):
+        """
+        Initiate parameters in the PyTorch model. Following:
+        https://pytorch.org/docs/stable/_modules/torch/nn/modules/transformer.html#Transformer
+
+        Args:
+        - model: torch.nn.Module, the input model
+
+        Returns:
+        - torch.nn.Module, the model with all params set with xavier_uniform
+        """
+
+        for p in model.parameters():
+            if p.dim() > 1:
+                xavier_uniform_(p)
+    
+        return model
+
     def encode(
         self,
         mut_seqs: Sequence[str] | str,
@@ -168,7 +189,7 @@ class ESMEncoder(AbstractEncoder):
         - iftrimEOS: bool, whether to trim the end of sequence token, if exists
         """
 
-        super().__init__(encoder_name)
+        super().__init__(encoder_name, reset_param)
 
         self._iftrimCLS = iftrimCLS
         self._iftrimEOS = iftrimEOS
@@ -185,6 +206,10 @@ class ESMEncoder(AbstractEncoder):
             "facebookresearch/esm:main", model=self._encoder_name
         )
         self.batch_converter = self.alphabet.get_batch_converter()
+
+        # if reset weights
+        if self._reset_param:
+            self.model = self.reset_parameters(model=self.model)
 
         # set model to eval mode
         self.model.eval()
@@ -286,12 +311,16 @@ class CARPEncoder(AbstractEncoder):
         - encoder_name: str, the name of the encoder, one of the keys of CARP_INFO
         """
 
-        super().__init__(encoder_name)
+        super().__init__(encoder_name, reset_param)
 
         # load model from torch.hub
         print(f"Loading {self._encoder_name} upto {self._max_emb_layer} layer embedding")
 
         self.model, self.collater = load_model_and_alphabet(self._encoder_name)
+
+        # if reset weights
+        if self._reset_param:
+            self.model = self.reset_parameters(model=self.model)
 
         # set model to eval mode
         self.model.eval()
@@ -323,6 +352,10 @@ class CARPEncoder(AbstractEncoder):
         mut_seqs = [[m] for m in mut_seqs]
 
         x = self.collater(mut_seqs)[0]
+
+        # alternatively check out the article called:
+        # The One PyTorch Trick Which You Should Know
+        # How hooks can improve your workflow significantly
 
         activation = {}
 
