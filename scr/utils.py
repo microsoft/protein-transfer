@@ -154,5 +154,6 @@ def enablePrint():
 
 def ndcg_scale(true: np.ndarray, pred: np.ndarray):
     """Calculate the ndcg_score with neg correction"""
-    true_scaled = true - min(true)
+    if min(true) < 0:
+        true_scaled = true - min(true)
     return ndcg_score(true_scaled[None, :], pred[None, :])

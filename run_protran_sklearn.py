@@ -32,6 +32,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--reset_param",
+    type=bool,
+    metavar="RP",
+    default=False,
+    help="if update the full model to xavier_uniform (default: False)",
+)
+
+parser.add_argument(
     "--embed_batch_size",
     type=int,
     metavar="EBS",
@@ -121,6 +129,7 @@ args = parser.parse_args()
 RunRidge(
     dataset_path=args.dataset_path,
     encoder_name=args.encoder_name,
+    reset_param=args.reset_param,
     embed_batch_size=args.embed_batch_size,
     flatten_emb=args.flatten_emb,
     embed_path=args.embed_path,

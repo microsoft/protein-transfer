@@ -12,8 +12,6 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from sklearn.preprocessing import StandardScaler
-
 from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
@@ -208,6 +206,7 @@ class ProtranDataset(Dataset):
         dataset_path: str,
         subset: str,
         encoder_name: str,
+        reset_param: bool = False,
         embed_batch_size: int = 0,
         flatten_emb: bool | str = False,
         embed_path: str = None,
@@ -223,6 +222,7 @@ class ProtranDataset(Dataset):
             mut_name (optional), mut_numb (optional)
         - subset: str, train, val, test
         - encoder_name: str, the name of the encoder
+        - reset_param: bool = False, if update the full model to xavier_uniform
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_path: str = None, path to presaved embedding
@@ -290,7 +290,7 @@ class ProtranDataset(Dataset):
             raise ValueError(f"unacceptable encoder_name: {encoder_name}")
         
         # get the encoder
-        self._encoder = encoder_class(encoder_name=encoder_name)
+        self._encoder = encoder_class(encoder_name=encoder_name, reset_param=reset_param)
         self._total_emb_layer = self._encoder.total_emb_layer
 
         # check if pregenerated embedding
@@ -405,6 +405,7 @@ class ProtranDataset(Dataset):
 def split_protrain_loader(
     dataset_path: str,
     encoder_name: str,
+    reset_param: bool = False,
     embed_batch_size: int = 128,
     flatten_emb: bool | str = False,
     embed_path: str | None = None,
@@ -424,6 +425,7 @@ def split_protrain_loader(
         columns include: sequence, target, set, validation,
         mut_name (optional), mut_numb (optional)
     - encoder_name: str, the name of the encoder
+    - reset_param: bool = False, if update the full model to xavier_uniform
     - embed_batch_size: int, set to 0 to encode all in a single batch
     - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
     - embed_path: str = None, path to presaved embedding
@@ -448,6 +450,7 @@ def split_protrain_loader(
                 dataset_path=dataset_path,
                 subset=subset,
                 encoder_name=encoder_name,
+                reset_param=reset_param,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_path=embed_path,

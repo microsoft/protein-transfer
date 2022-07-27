@@ -7,11 +7,11 @@ import random
 import numpy as np
 
 from sklearn.linear_model import Ridge
-from sklearn.metrics import ndcg_score, mean_squared_error
+from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import spearmanr
 
-from scr.utils import get_folder_file_names, pickle_save
+from scr.utils import get_folder_file_names, pickle_save, ndcg_scale
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
 from scr.encoding.encoding_classes import ESMEncoder, CARPEncoder
@@ -29,6 +29,7 @@ class RunRidge:
         self,
         dataset_path: str,
         encoder_name: str,
+        reset_param: bool = False,
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
         embed_path: str | None = None,
@@ -49,6 +50,7 @@ class RunRidge:
             columns include: sequence, target, set, validation,
             mut_name (optional), mut_numb (optional)
         - encoder_name: str, the name of the encoder
+        - reset_param: bool = False, if update the full model to xavier_uniform
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_path: str = None, path to presaved embedding
@@ -65,6 +67,7 @@ class RunRidge:
 
         self.dataset_path = dataset_path
         self.encoder_name = encoder_name
+        self.reset_param = reset_param
         self.flatten_emb = flatten_emb
 
         if not isinstance(alphas, np.ndarray):
@@ -75,12 +78,16 @@ class RunRidge:
         self.ridge_params = ridge_params
         self.all_result_folder = all_result_folder
 
+        if self.reset_param and "-rand" not in self.all_result_folder:
+            self.all_result_folder = f"{self.all_result_folder}-rand" 
+
         # loader has ALL embedding layers
         self.train_ds, self.val_ds, self.test_ds = (
             ProtranDataset(
                 dataset_path=dataset_path,
                 subset=subset,
                 encoder_name=encoder_name,
+                reset_param=reset_param,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_path=embed_path,
@@ -94,10 +101,10 @@ class RunRidge:
         all_ridge_results = {}
 
         if self.encoder_name in TRANSFORMER_INFO.keys():
-            total_emb_layer = ESMEncoder(encoder_name=self.encoder_name).total_emb_layer
+            total_emb_layer = ESMEncoder(encoder_name=encoder_name, reset_param=reset_param).total_emb_layer
         elif self.encoder_name in CARP_INFO.keys():
             total_emb_layer = CARPEncoder(
-                encoder_name=self.encoder_name
+                encoder_name=self.encoder_name, reset_param=reset_param
             ).total_emb_layer
 
         for layer in range(total_emb_layer):
@@ -174,7 +181,7 @@ class RunRidge:
             
             # calc the metrics
             train_mse = mean_squared_error(train_true, train_pred)
-            val_ndcg = ndcg_score(val_true[None, :], val_pred[None, :])
+            val_ndcg = ndcg_scale(val_true, val_pred)
             val_rho = spearmanr(val_true, val_pred)[0]
 
             # update the model if it has lower train_mse and higher val_ndcg
@@ -236,7 +243,7 @@ class RunRidge:
                 "mse": mean_squared_error(true, pred),
                 "pred": pred,
                 "true": true,
-                "ndcg": ndcg_score(true[None, :], pred[None, :]),
+                "ndcg": ndcg_scale(true, pred),
                 "rho": spearmanr(true, pred),
             }
 

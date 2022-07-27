@@ -34,7 +34,7 @@ class AbstractEncoder(ABC):
         self._encoder_name = encoder_name
         self._reset_param = reset_param
     
-    def reset_parameters(model: torch.nn.Module):
+    def reset_parameters(self, model: torch.nn.Module):
         """
         Initiate parameters in the PyTorch model. Following:
         https://pytorch.org/docs/stable/_modules/torch/nn/modules/transformer.html#Transformer
@@ -179,12 +179,14 @@ class ESMEncoder(AbstractEncoder):
     def __init__(
         self,
         encoder_name: str,
+        reset_param: bool = False,
         iftrimCLS: bool = True,
         iftrimEOS: bool = True,
     ):
         """
         Args
         - encoder_name: str, the name of the encoder, one of the keys of TRANSFORMER_INFO
+        - reset_param: bool = False, if update the full model to xavier_uniform
         - iftrimCLS: bool, whether to trim the first classifification token
         - iftrimEOS: bool, whether to trim the end of sequence token, if exists
         """
@@ -305,10 +307,12 @@ class CARPEncoder(AbstractEncoder):
     def __init__(
         self,
         encoder_name: str,
+        reset_param: bool = False,
     ):
         """
         Args
         - encoder_name: str, the name of the encoder, one of the keys of CARP_INFO
+        - reset_param: bool = False, if update the full model to xavier_uniform
         """
 
         super().__init__(encoder_name, reset_param)
