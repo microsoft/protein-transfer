@@ -30,13 +30,12 @@ class RunRidge:
         dataset_path: str,
         encoder_name: str,
         reset_param: bool = False,
+        resample_param: bool = False,
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
         embed_path: str | None = None,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
-        loader_batch_size: int = 0,
-        worker_seed: int = RAND_SEED,
         alphas: np.ndarray | int = SKLEARN_ALPHAS,
         ridge_state: int = RAND_SEED,
         ridge_params: dict | None = None,
@@ -50,14 +49,13 @@ class RunRidge:
             columns include: sequence, target, set, validation,
             mut_name (optional), mut_numb (optional)
         - encoder_name: str, the name of the encoder
-        - reset_param: bool = False, if update the full model to xavier_uniform
+        - reset_param: bool = False, if update the full model to xavier_uniform_
+        - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_path: str = None, path to presaved embedding
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
-        - loader_batch_size: int, the batch size for train, val, and test dataloader
-        - worker_seed: int, the seed for dataloader
         - alphas: np.ndarray, arrays of alphas to be tested
         - ridge_state: int = RAND_SEED, seed the ridge regression
         - ridge_params: dict | None = None, other ridge regression args
@@ -68,6 +66,7 @@ class RunRidge:
         self.dataset_path = dataset_path
         self.encoder_name = encoder_name
         self.reset_param = reset_param
+        self.resample_param = resample_param
         self.flatten_emb = flatten_emb
 
         if not isinstance(alphas, np.ndarray):
@@ -79,7 +78,10 @@ class RunRidge:
         self.all_result_folder = all_result_folder
 
         if self.reset_param and "-rand" not in self.all_result_folder:
-            self.all_result_folder = f"{self.all_result_folder}-rand" 
+            self.all_result_folder = f"{self.all_result_folder}-rand"
+
+        if self.resample_param and "-stat" not in self.all_result_folder:
+            self.all_result_folder = f"{self.all_result_folder}-stat"
 
         # loader has ALL embedding layers
         self.train_ds, self.val_ds, self.test_ds = (
@@ -88,6 +90,7 @@ class RunRidge:
                 subset=subset,
                 encoder_name=encoder_name,
                 reset_param=reset_param,
+                resample_param=resample_param,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_path=embed_path,
@@ -101,10 +104,16 @@ class RunRidge:
         all_ridge_results = {}
 
         if self.encoder_name in TRANSFORMER_INFO.keys():
-            total_emb_layer = ESMEncoder(encoder_name=encoder_name, reset_param=reset_param).total_emb_layer
+            total_emb_layer = ESMEncoder(
+                encoder_name=encoder_name,
+                reset_param=reset_param,
+                resample_param=resample_param,
+            ).total_emb_layer
         elif self.encoder_name in CARP_INFO.keys():
             total_emb_layer = CARPEncoder(
-                encoder_name=self.encoder_name, reset_param=reset_param
+                encoder_name=self.encoder_name,
+                reset_param=reset_param,
+                resample_param=resample_param,
             ).total_emb_layer
 
         for layer in range(total_emb_layer):
@@ -129,8 +138,13 @@ class RunRidge:
         - np.concatenate(pred): np.ndarray, 1D predicted fitness values
         - np.concatenate(true): np.ndarry, 1D true fitness values
         """
-        
-        return model.predict(getattr(ds, "layer" + str(embed_layer)).cpu().numpy()).squeeze(), ds.y.squeeze()
+
+        return (
+            model.predict(
+                getattr(ds, "layer" + str(embed_layer)).cpu().numpy()
+            ).squeeze(),
+            ds.y.squeeze(),
+        )
 
     def pick_model(
         self,
@@ -178,7 +192,7 @@ class RunRidge:
             val_pred, val_true = self.sk_test(
                 model, self.val_ds, embed_layer=embed_layer
             )
-            
+
             # calc the metrics
             train_mse = mean_squared_error(train_true, train_pred)
             val_ndcg = ndcg_scale(val_true, val_pred)
@@ -238,7 +252,7 @@ class RunRidge:
             [self.train_ds, self.val_ds, self.test_ds],
         ):
             pred, true = self.sk_test(best_model, ds, embed_layer=embed_layer)
-            
+
             result_dict[subset] = {
                 "mse": mean_squared_error(true, pred),
                 "pred": pred,

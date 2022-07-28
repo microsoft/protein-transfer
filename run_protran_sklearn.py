@@ -34,9 +34,17 @@ parser.add_argument(
 parser.add_argument(
     "--reset_param",
     type=bool,
-    metavar="RP",
+    metavar="RIP",
     default=False,
-    help="if update the full model to xavier_uniform (default: False)",
+    help="if update the full model to xavier_uniform_ (default: False)",
+)
+
+parser.add_argument(
+    "--resample_param",
+    type=bool,
+    metavar="STP",
+    default=False,
+    help="if update the full model to xavier_normal_ (default: False)",
 )
 
 parser.add_argument(
@@ -130,6 +138,7 @@ RunRidge(
     dataset_path=args.dataset_path,
     encoder_name=args.encoder_name,
     reset_param=args.reset_param,
+    resample_param=args.resample_param,
     embed_batch_size=args.embed_batch_size,
     flatten_emb=args.flatten_emb,
     embed_path=args.embed_path,

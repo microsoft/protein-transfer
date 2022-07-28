@@ -16,7 +16,12 @@ from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.preprocess.seq_loader import SeqLoader
-from scr.encoding.encoding_classes import AbstractEncoder, ESMEncoder, CARPEncoder
+from scr.encoding.encoding_classes import (
+    AbstractEncoder,
+    ESMEncoder,
+    CARPEncoder,
+    OnehotEncoder,
+)
 
 
 def get_mut_name(mut_seq: str, parent_seq: str) -> str:
@@ -207,6 +212,7 @@ class ProtranDataset(Dataset):
         subset: str,
         encoder_name: str,
         reset_param: bool = False,
+        resample_param: bool = False,
         embed_batch_size: int = 0,
         flatten_emb: bool | str = False,
         embed_path: str = None,
@@ -222,7 +228,8 @@ class ProtranDataset(Dataset):
             mut_name (optional), mut_numb (optional)
         - subset: str, train, val, test
         - encoder_name: str, the name of the encoder
-        - reset_param: bool = False, if update the full model to xavier_uniform
+        - reset_param: bool = False, if update the full model to xavier_uniform_
+        - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_path: str = None, path to presaved embedding
@@ -287,10 +294,12 @@ class ProtranDataset(Dataset):
         elif encoder_name in CARP_INFO.keys():
             encoder_class = CARPEncoder
         else:
-            raise ValueError(f"unacceptable encoder_name: {encoder_name}")
-        
+            encoder_class = OnehotEncoder
+
         # get the encoder
-        self._encoder = encoder_class(encoder_name=encoder_name, reset_param=reset_param)
+        self._encoder = encoder_class(
+            encoder_name=encoder_name, reset_param=reset_param, resample_param=resample_param
+        )
         self._total_emb_layer = self._encoder.total_emb_layer
 
         # check if pregenerated embedding
@@ -406,6 +415,7 @@ def split_protrain_loader(
     dataset_path: str,
     encoder_name: str,
     reset_param: bool = False,
+    resample_param: bool = False,
     embed_batch_size: int = 128,
     flatten_emb: bool | str = False,
     embed_path: str | None = None,
@@ -425,7 +435,8 @@ def split_protrain_loader(
         columns include: sequence, target, set, validation,
         mut_name (optional), mut_numb (optional)
     - encoder_name: str, the name of the encoder
-    - reset_param: bool = False, if update the full model to xavier_uniform
+    - reset_param: bool = False, if update the full model to xavier_uniform_
+    - resample_param: bool = False, if update the full model to xavier_normal_
     - embed_batch_size: int, set to 0 to encode all in a single batch
     - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
     - embed_path: str = None, path to presaved embedding
@@ -451,6 +462,7 @@ def split_protrain_loader(
                 subset=subset,
                 encoder_name=encoder_name,
                 reset_param=reset_param,
+                resample_param=resample_param,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_path=embed_path,
