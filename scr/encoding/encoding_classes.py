@@ -12,6 +12,7 @@ import torch
 from torch.nn.init import xavier_uniform_
 from sequence_models.pretrained import load_model_and_alphabet
 
+from scr.params.aa import AA_NUMB, AA_TO_IND
 from scr.params.emb import TRANSFORMER_INFO, TRANSFORMER_MAX_SEQ_LEN, CARP_INFO
 from scr.params.sys import DEVICE
 
@@ -23,17 +24,17 @@ class AbstractEncoder(ABC):
     All encoders will have an "encode" function
     """
 
-    def __init__(self, encoder_name: str, reset_param: bool = False):
+    def __init__(self, encoder_name: str = "", reset_param: bool = False):
 
         """
         Args:
-        - encoder_name: str, the name of the encoder
+        - encoder_name: str, the name of the encoder, default empty for onehot
         - reset_param: bool = False, if update the full model to xavier_uniform
         """
 
         self._encoder_name = encoder_name
         self._reset_param = reset_param
-    
+
     def reset_parameters(self, model: torch.nn.Module):
         """
         Initiate parameters in the PyTorch model. Following:
@@ -46,10 +47,12 @@ class AbstractEncoder(ABC):
         - torch.nn.Module, the model with all params set with xavier_uniform
         """
 
+        print(f"Reinit params for {self._encoder_name} ...")
+
         for p in model.parameters():
             if p.dim() > 1:
                 xavier_uniform_(p)
-    
+
         return model
 
     def encode(
@@ -117,7 +120,10 @@ class AbstractEncoder(ABC):
         """
         assert encoded_mut_seqs.shape[2] == self._embed_dim, "Wrong embed dim"
 
-        if flatten_emb is True:
+        if (
+            flatten_emb in [True, "flatten", "flattened", ""]
+            or self._encoder_name == "onehot"
+        ):
             # shape [batch_size, seq_len * embed_dim]
             return encoded_mut_seqs.reshape(encoded_mut_seqs.shape[0], -1)
 
@@ -164,11 +170,51 @@ class AbstractEncoder(ABC):
     def total_emb_layer(self) -> int:
         """Total embedding layer number"""
         return self._max_emb_layer + self._include_input_layer
-    
+
     @property
     def encoder_name(self) -> str:
         """The name of the encoding method"""
         return self._encoder_name
+
+
+class OnehotEncoder(AbstractEncoder):
+    """
+    Build a onehot encoder
+    """
+
+    def __init__(self, encoder_name: str = "", reset_param: bool = False):
+
+        super().__init__(encoder_name, reset_param)
+
+        if encoder_name not in (TRANSFORMER_INFO.keys() and CARP_INFO.keys()):
+            self._encoder_name = "onehot"
+            self._embed_dim, self._max_emb_layer = AA_NUMB, 0
+            self._include_input_layer = False
+
+        # load model from torch.hub
+        print(
+            f"Generating {self._encoder_name} upto {self._max_emb_layer} layer embedding ..."
+        )
+
+        if reset_param:
+            self._reset_param = False
+            print(
+                f"Onehot encoding reset param not allowed. /n \
+                    Setting reset_param to {self._reset_param} ..."
+            )
+
+    def _encode_batch(
+        self,
+        mut_seqs: Sequence[str] | str,
+        flatten_emb: bool | str,
+        mut_names: Sequence[str] | str | None = None,
+    ) -> np.ndarray:
+
+        encoded_mut_seqs = []
+
+        for mut_seq in mut_seqs:
+            encoded_mut_seqs.append(np.eye(AA_NUMB)[[AA_TO_IND[aa] for aa in mut_seq]])
+        return {0: self.flatten_encode(np.array(encoded_mut_seqs), flatten_emb)}
 
 
 class ESMEncoder(AbstractEncoder):
@@ -203,7 +249,10 @@ class ESMEncoder(AbstractEncoder):
         self._include_input_layer = True
 
         # load model from torch.hub
-        print(f"Loading {self._encoder_name} upto {self._max_emb_layer} layer embedding")
+        print(
+            f"Generating {self._encoder_name} upto {self._max_emb_layer} layer embedding ..."
+        )
+
         self.model, self.alphabet = torch.hub.load(
             "facebookresearch/esm:main", model=self._encoder_name
         )
@@ -317,9 +366,6 @@ class CARPEncoder(AbstractEncoder):
 
         super().__init__(encoder_name, reset_param)
 
-        # load model from torch.hub
-        print(f"Loading {self._encoder_name} upto {self._max_emb_layer} layer embedding")
-
         self.model, self.collater = load_model_and_alphabet(self._encoder_name)
 
         # if reset weights
@@ -334,6 +380,11 @@ class CARPEncoder(AbstractEncoder):
 
         # carp does not have the input representation
         self._include_input_layer = False
+
+        # load model from torch.hub
+        print(
+            f"Generating {self._encoder_name} upto {self._max_emb_layer} layer embedding ..."
+        )
 
     def _encode_batch(
         self,
