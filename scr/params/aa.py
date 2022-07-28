@@ -65,6 +65,9 @@ ALL_AAS = AA_PROP_DICT.keys()
 AA_NUMB = len(ALL_AAS)
 ALLOWED_AAS = set(ALL_AAS)
 
+# Create a dictionary that links each amino acid to an index
+AA_TO_IND = {aa: i for i, aa in enumerate(ALL_AAS)}
+
 # Convert the AA_PROP dictionary to dataframe
 AA_PROP_DF = pd.DataFrame(
     AA_PROP_DICT.values(), index=ALL_AAS, columns=["property"]
