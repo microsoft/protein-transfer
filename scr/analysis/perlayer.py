@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
-from scr.params.emb import TRANSFORMER_INFO
+from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.utils import pickle_load, get_filename, checkNgen_folder
 
 
@@ -43,6 +43,7 @@ class LayerLoss:
 
         # init a dictionary for recording outputs
         self._layer_analysis_dict = defaultdict(dict)
+        self._rand_layer_analysis_dict = defaultdict(dict)
 
         for dataset_folder in self._dataset_folders:
             # dataset_folder = "results/train_val_test/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
@@ -51,13 +52,28 @@ class LayerLoss:
             # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
             task, dataset, split, encoder_name, flatten_emb = task_subfolder.split("/")
 
+            # parse results for plotting the collage
             self._layer_analysis_dict[f"{task}_{dataset}_{split}_{flatten_emb}"][
                 encoder_name
             ] = self.parse_result_dicts(
                 dataset_folder, task, dataset, split, encoder_name, flatten_emb
             )
 
-        collage_folder = os.path.join(output_path, "collage")
+            # check if reset param experimental results exist
+            reset_param_path = f"{self._input_path}-rand"
+            if os.path.exists(reset_param_path):
+                self._rand_layer_analysis_dict[
+                    f"{task}_{dataset}_{split}_{flatten_emb}"
+                ][encoder_name] = self.parse_result_dicts(
+                    dataset_folder.replace(self._input_path, reset_param_path),
+                    task,
+                    dataset,
+                    split,
+                    encoder_name,
+                    flatten_emb,
+                )
+
+        collage_folder = os.path.join(self._output_path, "collage")
         checkNgen_folder(collage_folder)
 
         for collage_name, encoder_dict in self._layer_analysis_dict.items():
@@ -65,6 +81,11 @@ class LayerLoss:
             if set(list(TRANSFORMER_INFO.keys())) == set(encoder_dict.keys()):
                 # set the key rankings to default
                 encoder_names = list(TRANSFORMER_INFO.keys())
+                encoder_label = "esm"
+            elif set(list(CARP_INFO.keys())) == set(encoder_dict.keys()):
+                # set the key rankings to default
+                encoder_names = list(CARP_INFO.keys())
+                encoder_label = "carp"
             else:
                 encoder_names = list(set(encoder_dict.keys()))
 
@@ -77,7 +98,17 @@ class LayerLoss:
             )
             for m, metric in enumerate(metric_list):
                 for n, encoder_name in enumerate(encoder_names):
-                    axs[m, n].plot(encoder_dict[encoder_name][metric])
+                    axs[m, n].plot(
+                        encoder_dict[encoder_name][metric], label=encoder_label
+                    )
+                    axs[m, n].plot(
+                        self._rand_layer_analysis_dict[collage_name][encoder_name][
+                            metric
+                        ],
+                        label="random init",
+                        color="#7f7f7f",
+                        linestyle="dotted",
+                    )
 
             # add xlabels
             for ax in axs[self._metric_numb - 1]:
@@ -96,8 +127,21 @@ class LayerLoss:
             # set the plot yticks
             plt.gca().yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
 
+            # add legend
+            handles, labels = axs[0, 0].get_legend_handles_labels()
+            fig.legend(
+                handles,
+                labels,
+                loc="upper left",
+                bbox_to_anchor=[0.05, 1.025],
+                fontsize=16,
+                frameon=False,
+            )
+
             # add whole plot level title
-            fig.suptitle(collage_name.replace("_", " "), fontsize=20, fontweight="bold")
+            fig.suptitle(
+                collage_name.replace("_", " "), y=1.0025, fontsize=24, fontweight="bold"
+            )
             fig.tight_layout()
 
             for plot_ext in [".svg", ".png"]:
