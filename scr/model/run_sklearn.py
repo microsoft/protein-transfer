@@ -131,7 +131,7 @@ class RunRidge:
 
         Args:
         - model: sklearn.linear_model, trained model
-        - loader: DataLoader, train, val, or test data loader
+        - ds: ProtranDataset, train, val, or test dataset
         - embed_layer: int, specific layer of the embedding
 
         Returns:

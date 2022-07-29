@@ -84,22 +84,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--loader_batch_size",
-    type=int,
-    metavar="LBS",
-    default=64,
-    help="the batch size for train, val, and test dataloader (default: False)",
-)
-
-parser.add_argument(
-    "--worker_seed",
-    type=int,
-    metavar="WS",
-    default=RAND_SEED,
-    help="the seed for dataloader (default: RAND_SEED)",
-)
-
-parser.add_argument(
     "--alphas",
     type=alpha_types,
     metavar="A",
@@ -144,8 +128,6 @@ RunRidge(
     embed_path=args.embed_path,
     seq_start_idx=args.seq_start_idx,
     seq_end_idx=args.seq_end_idx,
-    loader_batch_size=args.loader_batch_size,
-    worker_seed=args.worker_seed,
     alphas=args.alphas,
     ridge_state=args.ridge_state,
     ridge_params=args.ridge_params,
