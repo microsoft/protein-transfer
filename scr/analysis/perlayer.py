@@ -44,6 +44,7 @@ class LayerLoss:
         # init a dictionary for recording outputs
         self._layer_analysis_dict = defaultdict(dict)
         self._rand_layer_analysis_dict = defaultdict(dict)
+        self._stat_layer_analysis_dict = defaultdict(dict)
 
         for dataset_folder in self._dataset_folders:
             # dataset_folder = "results/train_val_test/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
@@ -61,11 +62,27 @@ class LayerLoss:
 
             # check if reset param experimental results exist
             reset_param_path = f"{self._input_path}-rand"
+
             if os.path.exists(reset_param_path):
                 self._rand_layer_analysis_dict[
                     f"{task}_{dataset}_{split}_{flatten_emb}"
                 ][encoder_name] = self.parse_result_dicts(
                     dataset_folder.replace(self._input_path, reset_param_path),
+                    task,
+                    dataset,
+                    split,
+                    encoder_name,
+                    flatten_emb,
+                )
+            
+            # check if resample param experimental results exist
+            resample_param_path = f"{self._input_path}-stat"
+
+            if os.path.exists(resample_param_path):
+                self._stat_layer_analysis_dict[
+                    f"{task}_{dataset}_{split}_{flatten_emb}"
+                ][encoder_name] = self.parse_result_dicts(
+                    dataset_folder.replace(self._input_path, resample_param_path),
                     task,
                     dataset,
                     split,
@@ -101,13 +118,25 @@ class LayerLoss:
                     axs[m, n].plot(
                         encoder_dict[encoder_name][metric], label=encoder_label
                     )
+
+                    # overlay random init
                     axs[m, n].plot(
                         self._rand_layer_analysis_dict[collage_name][encoder_name][
                             metric
                         ],
                         label="random init",
-                        color="#7f7f7f",
-                        linestyle="dotted",
+                        color="#D3D3D3", # light grey
+                        # linestyle="dotted",
+                    )
+
+                    # overlay stat init
+                    axs[m, n].plot(
+                        self._stat_layer_analysis_dict[collage_name][encoder_name][
+                            metric
+                        ],
+                        label="stat transfer",
+                        color="#A9A9A9", # dark grey
+                        # linestyle="dotted",
                     )
 
             # add xlabels

@@ -11,8 +11,22 @@ from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 
 def alpha_types(alphas: np.ndarray | float):
+    """
+    Set the type for the ridge regression alphas
+
+    Args:
+    - alphas: np.ndarray | float
+    """
     if not isinstance(alphas, np.ndarray):
         return np.array([alphas])
+
+def get_default_output_path():
+    """Set default output folder path"""
+    if os.getenv("AMLT_OUTPUT_DIR") is None:
+        return "results/sklearn"
+    else:
+        return os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "results/sklearn")
+
 
 parser = argparse.ArgumentParser(description="Protein transfer")
 
@@ -109,7 +123,7 @@ parser.add_argument(
 parser.add_argument(
     "--all_result_folder",
     type=str,
-    default=os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "results/sklearn"),
+    default=get_default_output_path(),
     metavar="O",
     help="the parent folder for all results (default: 'results/sklearn')",
 )

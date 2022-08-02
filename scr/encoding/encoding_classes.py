@@ -135,7 +135,10 @@ class AbstractEncoder(ABC):
         Returns:
         - np.ndarray, shape depends on flatten_emb parameter
         """
-        assert encoded_mut_seqs.shape[2] == self._embed_dim, "Wrong embed dim"
+
+        print(encoded_mut_seqs.shape, self._embed_dim)
+        
+        assert encoded_mut_seqs.shape[-1] == self._embed_dim, "Wrong embed dim"
 
         if (
             flatten_emb in [True, "flatten", "flattened", ""]
@@ -215,7 +218,7 @@ class OnehotEncoder(AbstractEncoder):
 
         if encoder_name not in (TRANSFORMER_INFO.keys() and CARP_INFO.keys()):
             self._encoder_name = "onehot"
-            self._embed_dim, self._max_emb_layer = AA_NUMB, 0
+            self._embed_dim, self._max_emb_layer = AA_NUMB, 1
             self._include_input_layer = False
 
         # load model from torch.hub
