@@ -281,8 +281,10 @@ class ProtranDataset(Dataset):
         # not specified seq end will be the full sequence length
         if seq_end_idx == False:
             self._seq_end_idx = -1
+            self._max_seq_len = self._df.sequence.str.len().max()
         else:
             self._seq_end_idx = int(seq_end_idx)
+            self._max_seq_len = self._seq_end_idx - self._seq_start_idx
 
         # get unencoded string of input sequence
         # will need to convert data type
@@ -295,10 +297,11 @@ class ProtranDataset(Dataset):
             encoder_class = CARPEncoder
         else:
             encoder_class = OnehotEncoder
+            encoder_params["max_seq_len"] = self._max_seq_len
 
         # get the encoder
         self._encoder = encoder_class(
-            encoder_name=encoder_name, reset_param=reset_param, resample_param=resample_param
+            encoder_name=encoder_name, reset_param=reset_param, resample_param=resample_param, **encoder_params,
         )
         self._total_emb_layer = self._encoder.total_emb_layer
 
@@ -318,7 +321,6 @@ class ProtranDataset(Dataset):
                 mut_seqs=self.sequence,
                 batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
-                **encoder_params,
             ):
 
                 for layer, emb in encoded_batch_dict.items():
@@ -409,6 +411,11 @@ class ProtranDataset(Dataset):
     def df_test(self) -> pd.DataFrame:
         """Return the dataset for training only"""
         return self._df_test
+
+    @property
+    def max_seq_len(self) -> int:
+        """Longest sequence length"""
+        return self._max_seq_len
 
 
 def split_protrain_loader(

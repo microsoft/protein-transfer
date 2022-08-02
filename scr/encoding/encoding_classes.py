@@ -136,8 +136,6 @@ class AbstractEncoder(ABC):
         - np.ndarray, shape depends on flatten_emb parameter
         """
 
-        print(encoded_mut_seqs.shape, self._embed_dim)
-        
         assert encoded_mut_seqs.shape[-1] == self._embed_dim, "Wrong embed dim"
 
         if (
@@ -204,6 +202,7 @@ class OnehotEncoder(AbstractEncoder):
 
     def __init__(
         self,
+        max_seq_len: int,
         encoder_name: str = "",
         reset_param: bool = False,
         resample_param: bool = False,
@@ -211,15 +210,18 @@ class OnehotEncoder(AbstractEncoder):
         """
         Args
         - encoder_name: str, the name of the encoder, one of the keys of CARP_INFO
+        - max_seq_len: int, the longest sequence length
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
         """
         super().__init__(encoder_name, reset_param, resample_param)
 
+        self.max_seq_len = max_seq_len
+
         if encoder_name not in (TRANSFORMER_INFO.keys() and CARP_INFO.keys()):
             self._encoder_name = "onehot"
-            self._embed_dim, self._max_emb_layer = AA_NUMB, 1
-            self._include_input_layer = False
+            self._embed_dim, self._max_emb_layer = AA_NUMB, 0
+            self._include_input_layer = True
 
         # load model from torch.hub
         print(
@@ -244,7 +246,13 @@ class OnehotEncoder(AbstractEncoder):
         encoded_mut_seqs = []
 
         for mut_seq in mut_seqs:
-            encoded_mut_seqs.append(np.eye(AA_NUMB)[[AA_TO_IND[aa] for aa in mut_seq]])
+            # padding: (top, bottom), (left, right)
+            encoded_mut_seqs.append(
+                np.pad(
+                    np.array(np.eye(AA_NUMB)[[AA_TO_IND[aa] for aa in mut_seq]]),
+                    pad_width=((0, self.max_seq_len - len(mut_seq)), (0, 0)),
+                )
+            )
         return {0: self.flatten_encode(np.array(encoded_mut_seqs), flatten_emb)}
 
 

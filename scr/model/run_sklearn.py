@@ -104,19 +104,20 @@ class RunRidge:
         all_ridge_results = {}
 
         if self.encoder_name in TRANSFORMER_INFO.keys():
-            encoder_class = ESMEncoder
+            total_emb_layer = TRANSFORMER_INFO[encoder_name][1] + 1
         elif self.encoder_name in CARP_INFO.keys():
-            encoder_class = CARPEncoder
+            total_emb_layer = CARP_INFO[encoder_name][1]
         else:
             # for onehot
             self.encoder_name = "onehot"
-            encoder_class = OnehotEncoder
+            total_emb_layer = 1
 
-        total_emb_layer = encoder_class(
+        """total_emb_layer = encoder_class(
                 encoder_name=self.encoder_name,
                 reset_param=reset_param,
                 resample_param=resample_param,
-            ).total_emb_layer
+                **encoder_params
+            ).total_emb_layer"""
 
         for layer in range(total_emb_layer):
             all_ridge_results[layer] = self.run_ridge_layer(
