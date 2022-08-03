@@ -42,6 +42,7 @@ class LayerLoss:
         self._metric_numb = len(metric_list)
 
         # init a dictionary for recording outputs
+        self._onehot_baseline_dict = defaultdict(dict)
         self._layer_analysis_dict = defaultdict(dict)
         self._rand_layer_analysis_dict = defaultdict(dict)
         self._stat_layer_analysis_dict = defaultdict(dict)
@@ -53,7 +54,7 @@ class LayerLoss:
             # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
             task, dataset, split, encoder_name, flatten_emb = task_subfolder.split("/")
 
-            # parse results for plotting the collage
+            # parse results for plotting the collage and onehot
             self._layer_analysis_dict[f"{task}_{dataset}_{split}_{flatten_emb}"][
                 encoder_name
             ] = self.parse_result_dicts(
@@ -74,7 +75,7 @@ class LayerLoss:
                     encoder_name,
                     flatten_emb,
                 )
-            
+
             # check if resample param experimental results exist
             resample_param_path = f"{self._input_path}-stat"
 
@@ -90,10 +91,29 @@ class LayerLoss:
                     flatten_emb,
                 )
 
+            # check if resample param experimental results exist
+            onehot_path = f"{self._input_path}-onehot"
+
+            if os.path.exists(onehot_path):
+                self._onehot_baseline_dict[
+                    f"{task}_{dataset}_{split}"
+                ] = self.parse_result_dicts(
+                    dataset_folder.replace(self._input_path, onehot_path)
+                    .replace(encoder_name, "onehot")
+                    .replace(flatten_emb, "flatten"),
+                    task,
+                    dataset,
+                    split,
+                    "onehot",
+                    "flatten",
+                )
+            
         collage_folder = os.path.join(self._output_path, "collage")
         checkNgen_folder(collage_folder)
 
         for collage_name, encoder_dict in self._layer_analysis_dict.items():
+
+            onehot_name = "_".join(collage_name.split("_")[:-1])
 
             if set(list(TRANSFORMER_INFO.keys())) == set(encoder_dict.keys()):
                 # set the key rankings to default
@@ -118,6 +138,14 @@ class LayerLoss:
                     axs[m, n].plot(
                         encoder_dict[encoder_name][metric], label=encoder_label
                     )
+                    
+                    # overlay onehot baseline
+                    axs[m, n].axhline(
+                        self._onehot_baseline_dict[onehot_name][metric],
+                        label="onehot",
+                        color="#D3D3D3",  # light grey
+                        linestyle="dotted",
+                    )
 
                     # overlay random init
                     axs[m, n].plot(
@@ -125,8 +153,7 @@ class LayerLoss:
                             metric
                         ],
                         label="random init",
-                        color="#D3D3D3", # light grey
-                        # linestyle="dotted",
+                        color="#D3D3D3",  # light grey
                     )
 
                     # overlay stat init
@@ -135,7 +162,7 @@ class LayerLoss:
                             metric
                         ],
                         label="stat transfer",
-                        color="#A9A9A9", # dark grey
+                        color="#A9A9A9",  # dark grey
                         # linestyle="dotted",
                     )
 
@@ -165,6 +192,7 @@ class LayerLoss:
                 bbox_to_anchor=[0.05, 1.025],
                 fontsize=16,
                 frameon=False,
+                ncol=2,
             )
 
             # add whole plot level title
@@ -206,7 +234,12 @@ class LayerLoss:
         pkl_list = glob(f"{folder_path}/*.pkl")
 
         # get the max layer number for the array
-        max_layer_numb = TRANSFORMER_INFO[encoder_name][1] + 1
+        if encoder_name in TRANSFORMER_INFO.keys():
+            max_layer_numb = TRANSFORMER_INFO[encoder_name][1] + 1
+        elif encoder_name in CARP_INFO.keys():
+            max_layer_numb = CARP_INFO[encoder_name][1]
+        else:
+            max_layer_numb = 1
 
         # init the ouput dict
         output_numb_dict = {
