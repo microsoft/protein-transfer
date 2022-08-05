@@ -14,7 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from scr.utils import pickle_save, pickle_load, replace_ext
 from scr.params.sys import RAND_SEED
-from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
+from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, MAX_SEQ_LEN
 from scr.preprocess.seq_loader import SeqLoader
 from scr.encoding.encoding_classes import (
     AbstractEncoder,
@@ -301,7 +301,10 @@ class ProtranDataset(Dataset):
 
         # get the encoder
         self._encoder = encoder_class(
-            encoder_name=encoder_name, reset_param=reset_param, resample_param=resample_param, **encoder_params,
+            encoder_name=encoder_name,
+            reset_param=reset_param,
+            resample_param=resample_param,
+            **encoder_params,
         )
         self._total_emb_layer = self._encoder.total_emb_layer
 
@@ -387,6 +390,12 @@ class ProtranDataset(Dataset):
                     self._df_dict[self._subset]["sequence"]
                     .astype(str)
                     .str[self._seq_start_idx : self._seq_end_idx]
+                    .apply(
+                        lambda x: x[: int(MAX_SEQ_LEN // 2)]
+                        + x[-int(MAX_SEQ_LEN // 2) :]
+                        if len(x) > MAX_SEQ_LEN
+                        else x
+                    )
                     .values
                 )
             else:

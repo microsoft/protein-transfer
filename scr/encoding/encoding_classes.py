@@ -13,7 +13,7 @@ from torch.nn.init import xavier_uniform_, xavier_normal_
 from sequence_models.pretrained import load_model_and_alphabet
 
 from scr.params.aa import AA_NUMB, AA_TO_IND
-from scr.params.emb import TRANSFORMER_INFO, TRANSFORMER_MAX_SEQ_LEN, CARP_INFO
+from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.sys import DEVICE
 
 
@@ -348,9 +348,9 @@ class ESMEncoder(AbstractEncoder):
         # Turn off gradients and pass the batch through
         with torch.no_grad():
             # shape [batch_size, seq_len + pad, embed_dim]
-            if batch_tokens.shape[1] > TRANSFORMER_MAX_SEQ_LEN:
-                print(f"Sequence exceeds {TRANSFORMER_MAX_SEQ_LEN}, chopping the end")
-                batch_tokens = batch_tokens[:, :TRANSFORMER_MAX_SEQ_LEN]
+            """if batch_tokens.shape[1] > TRANSFORMER_MAX_SEQ_LEN:
+                print(f"Sequence exceeds {TRANSFORMER_MAX_SEQ_LEN}, taking the beginning and the end")
+                batch_tokens = batch_tokens[:, :TRANSFORMER_MAX_SEQ_LEN]"""
 
             dict_encoded_mut_seqs = self.model(
                 batch_tokens, repr_layers=list(range(self._max_emb_layer + 1))
