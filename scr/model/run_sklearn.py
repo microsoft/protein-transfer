@@ -21,7 +21,6 @@ from scr.preprocess.data_process import ProtranDataset
 random.seed(RAND_SEED)
 np.random.seed(RAND_SEED)
 
-
 class RunRidge:
     """A class for running ridge regression"""
 
