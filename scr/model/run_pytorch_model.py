@@ -17,7 +17,7 @@ from scr.preprocess.data_process import split_protrain_loader
 from scr.model.pytorch_model import LinearRegression
 from scr.model.train_test import train, test
 from scr.vis.learning_vis import plot_lc
-from scr.utils import get_folder_file_names, pickle_save
+from scr.utils import get_folder_file_names, pickle_save, get_default_output_path
 
 def run_pytorch(
     dataset_path: str,
@@ -33,6 +33,9 @@ def run_pytorch(
     learning_rate: float = 1e-4,
     lr_decay: float = 0.1,
     epochs: int = 100,
+    early_stop: bool = True,
+    tolerance: int = 10,
+    min_epoch: int = 5,
     device: torch.device | str = DEVICE,
     all_plot_folder: str = "results/learning_curves",
     all_result_folder: str = "results/train_val_test",
@@ -113,6 +116,9 @@ def run_pytorch(
         learning_rate=learning_rate,
         lr_decay=lr_decay,
         epochs=epochs,
+        early_stop=early_stop,
+        tolerance=tolerance,
+        min_epoch=min_epoch,
     )
 
     # record the losses
@@ -145,7 +151,7 @@ def run_pytorch(
         }
 
     dataset_subfolder, file_name = get_folder_file_names(
-        parent_folder=all_result_folder,
+        parent_folder=get_default_output_path(all_result_folder),
         dataset_path=dataset_path,
         encoder_name=encoder_name,
         embed_layer=embed_layer,

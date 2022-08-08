@@ -143,7 +143,7 @@ class RunRidge:
 
         return (
             model.predict(
-                getattr(ds, "layer" + str(embed_layer)).cpu().numpy()
+                getattr(ds, "layer" + str(embed_layer))
             ).squeeze(),
             ds.y.squeeze(),
         )
@@ -183,7 +183,7 @@ class RunRidge:
             # fit the model for a given layer of embedding
             fitness_scaler = StandardScaler()
             model.fit(
-                getattr(self.train_ds, "layer" + str(embed_layer)).cpu().numpy(),
+                getattr(self.train_ds, "layer" + str(embed_layer)),
                 fitness_scaler.fit_transform(self.train_ds.y),
             )
 

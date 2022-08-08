@@ -77,6 +77,7 @@ def train(model: nn.Module,
           learning_rate: float = 1e-4,
           lr_decay: float = 0.1,
           epochs: int = 100,
+          early_stop: bool = True,
           tolerance: int = 10,
           min_epoch: int = 5,
           ) -> tuple[np.ndarray, np.ndarray]:
@@ -90,6 +91,7 @@ def train(model: nn.Module,
     - learning_rate: float
     - lr_decay: float, factor by which to decay LR on plateau
     - epochs: int, number of epochs to train for
+    - early_stop: bool = True,
 
     Returns: 
     - tuple of np.ndarray, (train_losses, val_losses)
@@ -119,15 +121,16 @@ def train(model: nn.Module,
 
         scheduler.step(val_loss)
 
-        # when val loss decrease, reset min loss and counter
-        if val_loss < min_val_loss:
-            min_val_loss = val_loss
-            counter = 0
-        else:
-            counter += 1
+        if early_stop:
+            # when val loss decrease, reset min loss and counter
+            if val_loss < min_val_loss:
+                min_val_loss = val_loss
+                counter = 0
+            else:
+                counter += 1
 
-        if epoch > min_epoch and counter == tolerance:
-            break
+            if epoch > min_epoch and counter == tolerance:
+                break
 
     return train_losses, val_losses
 

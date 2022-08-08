@@ -100,6 +100,30 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--early_stop",
+    type=bool,
+    default=True,
+    metavar="ES",
+    help="if initate early stopping (default: True)",
+)
+
+parser.add_argument(
+    "--tolerance",
+    type=int,
+    default=10,
+    metavar="T",
+    help="tolerance for early stopping (default: 10)",
+)
+
+parser.add_argument(
+    "--min_epoch",
+    type=int,
+    default=5,
+    metavar="ME",
+    help="minimal number of epochs for early stopping (default: 5)",
+)
+
+parser.add_argument(
     "--device",
     default=DEVICE,
     metavar="D",
@@ -109,7 +133,7 @@ parser.add_argument(
 parser.add_argument(
     "--all_plot_folder",
     type=str,
-    default=os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "results/learning_curves"),
+    default="results/learning_curves",
     metavar="LC",
     help="the parent folder for all learning curves (default: 'results/learning_curves')",
 )  
@@ -117,7 +141,7 @@ parser.add_argument(
 parser.add_argument(
     "--all_result_folder",
     type=str,
-    default=os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "results/train_val_test"),
+    default="results/train_val_test",
     metavar="O",
     help="the parent folder for all results (default: 'results/train_val_test')",
 )
@@ -142,6 +166,9 @@ for layer in range(0, TRANSFORMER_INFO[args.encoder_name][1] + 1):
         learning_rate=args.learning_rate,
         lr_decay=args.lr_decay,
         epochs=args.epochs,
+        early_stop=args.early_stop,
+        tolerance=args.tolerance,
+        min_epoch=args.min_epoch,
         device=args.device,
         all_plot_folder=args.all_plot_folder,
         all_result_folder=args.all_result_folder,

@@ -10,6 +10,13 @@ import numpy as np
 
 from sklearn.metrics import ndcg_score
 
+def get_default_output_path(default_output_path : str = "results/sklearn"):
+    """Set default output folder path"""
+    if os.getenv("AMLT_OUTPUT_DIR") is None:
+        return default_output_path
+    else:
+        return os.path.join(os.getenv("AMLT_OUTPUT_DIR"), default_output_path)
+
 def checkNgen_folder(folder_path: str) -> str:
     """
     Check if the folder or the subfolder exists

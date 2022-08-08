@@ -9,6 +9,7 @@ from scr.encoding.encoding_classes import AbstractEncoder, ESMEncoder, CARPEncod
 from scr.model.run_sklearn import RunRidge
 from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
+from scr.utils import get_default_output_path
 
 def alpha_types(alphas: np.ndarray | float):
     """
@@ -19,14 +20,6 @@ def alpha_types(alphas: np.ndarray | float):
     """
     if not isinstance(alphas, np.ndarray):
         return np.array([alphas])
-
-def get_default_output_path():
-    """Set default output folder path"""
-    if os.getenv("AMLT_OUTPUT_DIR") is None:
-        return "results/sklearn"
-    else:
-        return os.path.join(os.getenv("AMLT_OUTPUT_DIR"), "results/sklearn")
-
 
 parser = argparse.ArgumentParser(description="Protein transfer")
 
@@ -123,7 +116,7 @@ parser.add_argument(
 parser.add_argument(
     "--all_result_folder",
     type=str,
-    default=get_default_output_path(),
+    default="results/sklearn",
     metavar="O",
     help="the parent folder for all results (default: 'results/sklearn')",
 )
@@ -145,6 +138,6 @@ RunRidge(
     alphas=args.alphas,
     ridge_state=args.ridge_state,
     ridge_params=args.ridge_params,
-    all_result_folder=args.all_result_folder,
+    all_result_folder=get_default_output_path(args.all_result_folder),
      #**encoder_params,
 )
