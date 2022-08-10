@@ -10,12 +10,14 @@ import numpy as np
 
 from sklearn.metrics import ndcg_score
 
-def get_default_output_path(default_output_path : str = "results/sklearn"):
+
+def get_default_output_path(default_output_path: str = "results/sklearn"):
     """Set default output folder path"""
     if os.getenv("AMLT_OUTPUT_DIR") is None:
         return default_output_path
     else:
         return os.path.join(os.getenv("AMLT_OUTPUT_DIR"), default_output_path)
+
 
 def checkNgen_folder(folder_path: str) -> str:
     """
@@ -47,6 +49,7 @@ def checkNgen_folder(folder_path: str) -> str:
 
         return folder_path
 
+
 def get_filename(file_path: str) -> str:
     """
     Get the filename without the extension from a full path
@@ -61,7 +64,7 @@ def get_filename(file_path: str) -> str:
 
 
 def replace_ext(input_path: str, ext: str) -> str:
-    
+
     """
     Replace a file extention of a path to another
 
@@ -72,11 +75,12 @@ def replace_ext(input_path: str, ext: str) -> str:
     Returns:
     - str, the output path with the new file extension
     """
-    
+
     if ext[0] == ".":
         return os.path.splitext(input_path)[0] + ext
     else:
         return os.path.splitext(input_path)[0] + "." + ext
+
 
 def get_task_data_split(dataset_path: str,) -> list[str]:
     """
@@ -91,6 +95,7 @@ def get_task_data_split(dataset_path: str,) -> list[str]:
     - list[str]: [task, dataset, split]
     """
     return os.path.splitext(dataset_path)[0].split("/")[1:]
+
 
 def get_folder_file_names(
     parent_folder: str,
@@ -116,7 +121,10 @@ def get_folder_file_names(
     """
     # path for the subfolder
     dataset_subfolder = os.path.join(
-        parent_folder, "/".join(os.path.splitext(dataset_path)[0].split("/")[1:]), encoder_name, flatten_emb
+        parent_folder,
+        "/".join(os.path.splitext(dataset_path)[0].split("/")[1:]),
+        encoder_name,
+        flatten_emb,
     )
 
     # check and generate the folder
@@ -125,6 +133,7 @@ def get_folder_file_names(
     file_name = f"{encoder_name}-{flatten_emb}-layer_{embed_layer}"
 
     return dataset_subfolder, file_name
+
 
 def pickle_save(what2save, where2save: str) -> None:
 
@@ -139,6 +148,7 @@ def pickle_save(what2save, where2save: str) -> None:
     with open(where2save, "wb") as f:
         pickle.dump(what2save, f)
 
+
 def pickle_load(path2load: str):
 
     """
@@ -151,13 +161,16 @@ def pickle_load(path2load: str):
     with open(path2load, "rb") as f:
         return pickle.load(f)
 
+
 def blockPrint():
     """Block printing"""
     sys.stdout = open(os.devnull, "w")
 
+
 def enablePrint():
     """Restore printing"""
     sys.stdout = sys.__stdout__
+
 
 def ndcg_scale(true: np.ndarray, pred: np.ndarray):
     """Calculate the ndcg_score with neg correction"""

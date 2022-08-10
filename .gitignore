@@ -10,11 +10,16 @@
 *.png
 */*.png
 **/*.png
+*.h5
+*/*.h5
+**/*.h5
 
 data
 data/
 results
 results/
+embeddings
+embeddings/
 
 # exceptions to the rule
 !README.md

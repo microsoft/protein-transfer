@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Collection
 from collections import Iterable, Sequence
 
 import numpy as np
@@ -475,3 +476,33 @@ class CARPEncoder(AbstractEncoder):
             )
 
         return activation
+
+
+
+def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
+
+    """
+    A function return processed encoder_name and total_emb_layer
+
+    Args:
+    - encoder_name: str, input encoder_name
+
+    Returns:
+    - encoder_name: str, change anything not a transformer or carp encoder to onehot
+    - encoder_class: AbstractEncoder, encoder class 
+    - total_emb_layer: int, number of embedding layers
+    """
+
+    if encoder_name in TRANSFORMER_INFO.keys():
+        total_emb_layer = TRANSFORMER_INFO[encoder_name][1] + 1
+        encoder_class = ESMEncoder
+    elif encoder_name in CARP_INFO.keys():
+        total_emb_layer = CARP_INFO[encoder_name][1]
+        encoder_class = CARPEncoder
+    else:
+        # for onehot
+        encoder_name = "onehot"
+        encoder_class = OnehotEncoder
+        total_emb_layer = 1
+
+    return encoder_name, encoder_class, total_emb_layer
