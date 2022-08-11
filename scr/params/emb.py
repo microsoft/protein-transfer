@@ -1,6 +1,7 @@
 """Embedding constants"""
 
-MAX_SEQ_LEN = 1024
+# the longest seq for esm1b is 1022 with CLS and EOS
+MAX_SEQ_LEN = 1022
 
 # encoder_name: (embedding dim, num layers, token dim)
 TRANSFORMER_INFO = {

@@ -478,7 +478,6 @@ class CARPEncoder(AbstractEncoder):
         return activation
 
 
-
 def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
 
     """
