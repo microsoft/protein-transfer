@@ -70,7 +70,7 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--embed_path",
+    "--embed_folder",
     metavar="EP",
     default=None,
     help="path to presaved embedding (default: None)",
@@ -132,7 +132,7 @@ RunRidge(
     resample_param=args.resample_param,
     embed_batch_size=args.embed_batch_size,
     flatten_emb=args.flatten_emb,
-    embed_path=args.embed_path,
+    embed_folder=args.embed_folder,
     seq_start_idx=args.seq_start_idx,
     seq_end_idx=args.seq_end_idx,
     alphas=args.alphas,

@@ -32,7 +32,7 @@ class RunRidge:
         resample_param: bool = False,
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
-        embed_path: str | None = None,
+        embed_folder: str | None = None,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
         alphas: np.ndarray | int = SKLEARN_ALPHAS,
@@ -52,7 +52,7 @@ class RunRidge:
         - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
-        - embed_path: str = None, path to presaved embedding
+        - embed_folder: str = None, path to presaved embedding
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
         - alphas: np.ndarray, arrays of alphas to be tested
@@ -92,7 +92,7 @@ class RunRidge:
                 resample_param=resample_param,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
-                embed_path=embed_path,
+                embed_folder=embed_folder,
                 seq_start_idx=seq_start_idx,
                 seq_end_idx=seq_end_idx,
                 **encoder_params,

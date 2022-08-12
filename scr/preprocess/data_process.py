@@ -6,6 +6,7 @@ from collections import Sequence, defaultdict
 
 import os
 from glob import glob
+import tables
 import pandas as pd
 import numpy as np
 
@@ -201,6 +202,7 @@ class TaskProcess:
         """A summary table for all files in the data folder"""
         return self._sum_file_df
 
+
 class ProtranDataset(Dataset):
 
     """A dataset class for processing protein transfer data"""
@@ -214,7 +216,7 @@ class ProtranDataset(Dataset):
         resample_param: bool = False,
         embed_batch_size: int = 0,
         flatten_emb: bool | str = False,
-        embed_path: str = None,
+        embed_folder: str = None,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
         if_encode_all: bool = True,
@@ -223,7 +225,8 @@ class ProtranDataset(Dataset):
 
         """
         Args:
-        - dataset_path: str, full path to the dataset, in pkl or panda readable format
+        - dataset_path: str, full path to the dataset, in pkl or panda readable format, ie
+            "data/proeng/gb1/low_vs_high.csv"
             columns include: sequence, target, set, validation,
             mut_name (optional), mut_numb (optional)
         - subset: str, train, val, test
@@ -232,7 +235,10 @@ class ProtranDataset(Dataset):
         - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
-        - embed_path: str = None, path to presaved embedding
+        - embed_folder: str = None, path to presaved embedding folder, ie
+            "embeddings/proeng/gb1/low_vs_high"
+            for which then can add the subset to be, ie
+            "embeddings/proeng/gb1/low_vs_high/esm1_t6_43M_UR50S/mean/test/embedding.h5"
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
         - encoder_params: kwarg, additional parameters for encoding
@@ -291,45 +297,45 @@ class ProtranDataset(Dataset):
         self.sequence = self._get_column_value("sequence")
 
         self.if_encode_all = if_encode_all
-        if self.if_encode_all:
-            # get the encoder class
-            if encoder_name in TRANSFORMER_INFO.keys():
-                encoder_class = ESMEncoder
-            elif encoder_name in CARP_INFO.keys():
-                encoder_class = CARPEncoder
-            else:
-                encoder_class = OnehotEncoder
-                encoder_params["max_seq_len"] = self._max_seq_len
+        self._embed_folder = embed_folder
 
-            # get the encoder
-            self._encoder = encoder_class(
-                encoder_name=encoder_name,
-                reset_param=reset_param,
-                resample_param=resample_param,
-                **encoder_params,
-            )
-            self._total_emb_layer = self._encoder.total_emb_layer
+        self._encoder_name = encoder_name
+        self._flatten_emb = flatten_emb
 
-            # check if pregenerated embedding
-            if embed_path is not None:
-                print(f"Loading pregenerated embeddings from {embed_path}")
-                encoded_dict = pickle_load(embed_path)
+        # get the encoder class
+        if self._encoder_name in TRANSFORMER_INFO.keys():
+            encoder_class = ESMEncoder
+        elif self._encoder_name in CARP_INFO.keys():
+            encoder_class = CARPEncoder
+        else:
+            encoder_class = OnehotEncoder
+            encoder_params["max_seq_len"] = self._max_seq_len
 
+        # get the encoder
+        self._encoder = encoder_class(
+            encoder_name=self._encoder_name,
+            reset_param=reset_param,
+            resample_param=resample_param,
+            **encoder_params,
+        )
+        self._total_emb_layer = self._encoder.total_emb_layer
+
+        # encode all and load in memory
+        if self.if_encode_all and self._embed_folder is None:
             # encode the sequences without the mut_name
-            else:
-                # init an empty dict with empty list to append emb
-                encoded_dict = defaultdict(list)
+            # init an empty dict with empty list to append emb
+            encoded_dict = defaultdict(list)
 
-                # use the encoder generator for batch emb
-                # assume no labels included
-                for encoded_batch_dict in self._encoder.encode(
-                    mut_seqs=self.sequence,
-                    batch_size=embed_batch_size,
-                    flatten_emb=flatten_emb,
-                ):
+            # use the encoder generator for batch emb
+            # assume no labels included
+            for encoded_batch_dict in self._encoder.encode(
+                mut_seqs=self.sequence,
+                batch_size=embed_batch_size,
+                flatten_emb=self._flatten_emb,
+            ):
 
-                    for layer, emb in encoded_batch_dict.items():
-                        encoded_dict[layer].append(emb)
+                for layer, emb in encoded_batch_dict.items():
+                    encoded_dict[layer].append(emb)
 
             # assign each layer as its own variable
             for layer, emb in encoded_dict.items():
@@ -368,7 +374,7 @@ class ProtranDataset(Dataset):
         Args:
         - idx: int
         """
-        if self.if_encode_all:
+        if self.if_encode_all and self._embed_folder is None:
             return (
                 self.y[idx],
                 self.sequence[idx],
@@ -379,6 +385,34 @@ class ProtranDataset(Dataset):
                     for layer in range(self._total_emb_layer)
                 ),
             )
+        elif self._embed_folder is not None:
+            # load the .h5 file with the embeddings
+            """
+            gb1_emb = tables.open_file("embeddings/proeng/gb1/low_vs_high/esm1_t6_43M_UR50S/mean/test/embedding.h5")
+            gb1_emb.flush()
+            gb1_emb.root.layer0[0:5]
+            """
+            emb_table = tables.open_file(
+                os.path.join(
+                    self._embed_folder,
+                    self._encoder_name,
+                    self._flatten_emb,
+                    self._subset,
+                    "embedding.h5",
+                )
+            )
+            emb_table.flush()
+
+            return (
+                self.y[idx],
+                self.sequence[idx],
+                self.mut_name[idx],
+                self.mut_numb[idx],
+                *(
+                    getattr(emb_table.root, "layer" + str(layer))[idx]
+                    for layer in range(self._total_emb_layer)
+                ),
+            )
         else:
             return (
                 self.y[idx],
@@ -386,7 +420,6 @@ class ProtranDataset(Dataset):
                 self.mut_name[idx],
                 self.mut_numb[idx],
             )
-
 
     def _get_column_value(self, column_name: str) -> np.ndarray:
         """
@@ -445,7 +478,7 @@ def split_protrain_loader(
     resample_param: bool = False,
     embed_batch_size: int = 128,
     flatten_emb: bool | str = False,
-    embed_path: str | None = None,
+    embed_folder: str | None = None,
     seq_start_idx: bool | int = False,
     seq_end_idx: bool | int = False,
     subset_list: list[str] = ["train", "val", "test"],
@@ -459,7 +492,8 @@ def split_protrain_loader(
     A function encode and load the data from a path
 
     Args:
-    - dataset_path: str, full path to the dataset, in pkl or panda readable format
+    - dataset_path: str, full path to the dataset, in pkl or panda readable format, ie
+        "data/proeng/gb1/low_vs_high.csv"
         columns include: sequence, target, set, validation,
         mut_name (optional), mut_numb (optional)
     - encoder_name: str, the name of the encoder
@@ -467,7 +501,7 @@ def split_protrain_loader(
     - resample_param: bool = False, if update the full model to xavier_normal_
     - embed_batch_size: int, set to 0 to encode all in a single batch
     - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
-    - embed_path: str = None, path to presaved embedding
+    - embed_folder: str = None, path to presaved embedding
     - seq_start_idx: bool | int = False, the index for the start of the sequence
     - seq_end_idx: bool | int = False, the index for the end of the sequence
     - subset_list: list of str, train, val, test
@@ -493,7 +527,7 @@ def split_protrain_loader(
                 resample_param=resample_param,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
-                embed_path=embed_path,
+                embed_folder=embed_folder,
                 seq_start_idx=seq_start_idx,
                 seq_end_idx=seq_end_idx,
                 if_encode_all=if_encode_all,
