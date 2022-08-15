@@ -83,6 +83,7 @@ class Run_Pytorch:
         - seq_end_idx: bool | int = False, the index for the end of the sequence
         - loader_batch_size: int, the batch size for train, val, and test dataloader
         - worker_seed: int, the seed for dataloader
+        - if_encode_all: bool = True, if encode full dataset all layers on the fly
         - learning_rate: float
         - lr_decay: float, factor by which to decay LR on plateau
         - epochs: int, number of epochs to train for
@@ -138,13 +139,10 @@ class Run_Pytorch:
 
         future_path = {}
         # add the thredpool max_workers=None
-        with futures.ProcessPoolExecutor() as pool:
+        with futures.ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as pool:
             # for each layer train the model and save the model
             for embed_layer in tqdm(range(total_emb_layer)):
-                pool.submit(
-                    self.run_pytorch_layer,
-                    embed_layer
-                )
+                pool.submit(self.run_pytorch_layer, embed_layer)
 
     def run_pytorch_layer(self, embed_layer):
         model = LinearRegression(
@@ -188,7 +186,7 @@ class Run_Pytorch:
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,
             flatten_emb=self._flatten_emb,
-            all_plot_folder=self._all_plot_folder,
+            all_plot_folder=get_default_output_path(self._all_plot_folder),
         )
 
         # now test the model with the test data

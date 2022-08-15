@@ -97,6 +97,32 @@ class AddMutInfo:
         """Return the processed dataframe"""
         return self._df
 
+def std_ssdf(
+    ssdf_path: str = "data/structure/secondary_structure/tape_ss3.csv",
+) -> None:
+    """
+    A function that standardize secondary structure dataset
+    to set up as columns as sequence, target, set, validation
+    where set is train or test and add validation as true
+    """
+    folder_path = os.path.dirname(ssdf_path)
+
+    df = pd.read_csv(ssdf_path)
+
+    # add validation column
+    df["validation"] = df["split"].apply(lambda x: True if x == "valid" else "")
+    # now replace valid to train
+    df = df.replace("valid", "train")
+    # rename all columns
+    df.columns = ["sequence", "target", "set", "validation"]
+
+    # get all kinds of test sets
+    ss_tests = set(df["set"].unique()) - set(["train"])
+
+    for ss_test in ss_tests:
+        df.loc[~df["set"].isin(set(ss_tests) - set([ss_test]))].replace(
+            ss_test, "test"
+        ).to_csv(os.path.join(folder_path, ss_test + ".csv"))
 
 class TaskProcess:
     """A class for handling different downstream tasks"""
@@ -241,6 +267,7 @@ class ProtranDataset(Dataset):
             "embeddings/proeng/gb1/low_vs_high/esm1_t6_43M_UR50S/mean/test/embedding.h5"
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
+        - if_encode_all: bool = True, if encode full dataset all layers on the fly
         - encoder_params: kwarg, additional parameters for encoding
         """
 
@@ -507,6 +534,7 @@ def split_protrain_loader(
     - subset_list: list of str, train, val, test
     - loader_batch_size: int, the batch size for train, val, and test dataloader
     - worker_seed: int, the seed for dataloader
+    - if_encode_all: bool = True, if encode full dataset all layers on the fly
     - encoder_params: kwarg, additional parameters for encoding
     """
 
