@@ -16,6 +16,8 @@
 
 data
 data/
+test
+test/
 results
 results/
 embeddings
