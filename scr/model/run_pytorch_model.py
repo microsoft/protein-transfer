@@ -38,6 +38,7 @@ class Run_Pytorch:
         loader_batch_size: int = 64,
         worker_seed: int = RAND_SEED,
         if_encode_all: bool = True,
+        if_multiprocess: bool = False,
         learning_rate: float = 1e-4,
         lr_decay: float = 0.1,
         epochs: int = 100,
@@ -137,12 +138,19 @@ class Run_Pytorch:
         elif encoder_class == CARPEncoder:
             self._encoder_info_dict = CARP_INFO
 
-        future_path = {}
-        # add the thredpool max_workers=None
-        with futures.ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as pool:
-            # for each layer train the model and save the model
-            for embed_layer in tqdm(range(total_emb_layer)):
-                pool.submit(self.run_pytorch_layer, embed_layer)
+        print(if_multiprocess)
+        if if_multiprocess:
+            print("Running different emb layer in parallel...")
+            # add the thredpool max_workers=None
+            with futures.ProcessPoolExecutor(max_workers=os.cpu_count() - 1) as pool:
+                # for each layer train the model and save the model
+                for embed_layer in tqdm(range(total_emb_layer)):
+                    pool.submit(self.run_pytorch_layer, embed_layer)
+
+        else:
+            for embed_layer in range(total_emb_layer):
+                print(f"Running pytorch model for layer {embed_layer}")
+                self.run_pytorch_layer(embed_layer)
 
     def run_pytorch_layer(self, embed_layer):
         model = LinearRegression(
@@ -195,7 +203,11 @@ class Run_Pytorch:
             [self._train_loader, self._val_loader, self._test_loader],
         ):
             mse, pred, true = test(
-                model=model, loader=loader, device=self._device, criterion=criterion
+                model=model,
+                loader=loader,
+                embed_layer=embed_layer,
+                device=self._device,
+                criterion=criterion,
             )
 
             result_dict[subset] = {

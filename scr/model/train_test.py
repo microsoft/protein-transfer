@@ -62,9 +62,9 @@ def run_epoch(
 
     with torch.set_grad_enabled(is_train):
         # if not if_encode_all:
-        # for each batch: y, sequence, mut_name, mut_numb, layer0, ...
+        # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
         for batch in loader:
-            x = batch[embed_layer + 4]
+            x = batch[4][embed_layer]
             y = batch[0]
 
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
@@ -216,8 +216,8 @@ def test(
     with torch.no_grad():
 
         for i, batch in enumerate(tqdm(loader)):
-            # for each batch: y, sequence, mut_name, mut_numb, layer0, ...
-            x = batch[embed_layer + 4]
+            # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
+            x = batch[4][embed_layer]
             y = batch[0]
 
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)

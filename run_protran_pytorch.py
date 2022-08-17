@@ -97,6 +97,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--if_multiprocess",
+    type=bool,
+    metavar="MP",
+    default=False,
+    help="if running all layers in parallel (default: False)",
+)
+
+parser.add_argument(
     "--learning_rate",
     type=float,
     metavar="LR",
@@ -115,9 +123,9 @@ parser.add_argument(
 parser.add_argument(
     "--epochs",
     type=int,
-    default=100,
+    default=20,
     metavar="N",
-    help="number of epochs to train (default: 100)",
+    help="number of epochs to train (default: 20)",
 )
 
 parser.add_argument(
@@ -184,6 +192,7 @@ Run_Pytorch(
     loader_batch_size=args.loader_batch_size,
     worker_seed=args.worker_seed,
     if_encode_all=args.if_encode_all,
+    if_multiprocess=args.if_multiprocess,
     learning_rate=args.learning_rate,
     lr_decay=args.lr_decay,
     epochs=args.epochs,

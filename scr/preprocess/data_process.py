@@ -97,6 +97,7 @@ class AddMutInfo:
         """Return the processed dataframe"""
         return self._df
 
+
 def std_ssdf(
     ssdf_path: str = "data/structure/secondary_structure/tape_ss3.csv",
 ) -> None:
@@ -115,6 +116,8 @@ def std_ssdf(
     df = df.replace("valid", "train")
     # rename all columns
     df.columns = ["sequence", "target", "set", "validation"]
+    # convert the string into numpy array
+    df["target"] = df["target"].apply(lambda x: np.array(x[1:-1].split(", ")))
 
     # get all kinds of test sets
     ss_tests = set(df["set"].unique()) - set(["train"])
@@ -122,7 +125,8 @@ def std_ssdf(
     for ss_test in ss_tests:
         df.loc[~df["set"].isin(set(ss_tests) - set([ss_test]))].replace(
             ss_test, "test"
-        ).to_csv(os.path.join(folder_path, ss_test + ".csv"))
+        ).to_csv(os.path.join(folder_path, ss_test + ".csv"), index=False)
+
 
 class TaskProcess:
     """A class for handling different downstream tasks"""
@@ -428,17 +432,22 @@ class ProtranDataset(Dataset):
                     "embedding.h5",
                 )
             )
+
             emb_table.flush()
+
+            layer_embs = [
+                getattr(emb_table.root, "layer" + str(layer))[idx]
+                for layer in range(self._total_emb_layer)
+            ]
+
+            emb_table.close()
 
             return (
                 self.y[idx],
                 self.sequence[idx],
                 self.mut_name[idx],
                 self.mut_numb[idx],
-                *(
-                    getattr(emb_table.root, "layer" + str(layer))[idx]
-                    for layer in range(self._total_emb_layer)
-                ),
+                layer_embs,
             )
         else:
             return (
