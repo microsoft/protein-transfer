@@ -8,6 +8,10 @@
 */*.png
 **/*.png
 
+<!-- *.h5
+*/*.h5
+**/*.h5 -->
+
 sandbox/**
 
 data/proeng/gb1/*

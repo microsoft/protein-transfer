@@ -114,7 +114,7 @@ class GenerateEmbeddings:
                 resample_param=resample_param,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
-                embed_path=None,
+                embed_folder=None,
                 seq_start_idx=seq_start_idx,
                 seq_end_idx=seq_end_idx,
                 if_encode_all=False,

@@ -138,7 +138,6 @@ class Run_Pytorch:
         elif encoder_class == CARPEncoder:
             self._encoder_info_dict = CARP_INFO
 
-        print(if_multiprocess)
         if if_multiprocess:
             print("Running different emb layer in parallel...")
             # add the thredpool max_workers=None

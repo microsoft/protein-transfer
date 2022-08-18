@@ -110,15 +110,16 @@ def std_ssdf(
 
     df = pd.read_csv(ssdf_path)
 
+    # convert the string into numpy array
+    # df["ss3"] = df["ss3"].apply(lambda x: np.array(x[1:-1].split(", ")))
+
     # add validation column
     df["validation"] = df["split"].apply(lambda x: True if x == "valid" else "")
     # now replace valid to train
     df = df.replace("valid", "train")
     # rename all columns
     df.columns = ["sequence", "target", "set", "validation"]
-    # convert the string into numpy array
-    df["target"] = df["target"].apply(lambda x: np.array(x[1:-1].split(", ")))
-
+    
     # get all kinds of test sets
     ss_tests = set(df["set"].unique()) - set(["train"])
 
@@ -126,6 +127,52 @@ def std_ssdf(
         df.loc[~df["set"].isin(set(ss_tests) - set([ss_test]))].replace(
             ss_test, "test"
         ).to_csv(os.path.join(folder_path, ss_test + ".csv"), index=False)
+
+
+class DatasetInfo:
+    """
+    A class returns the information of a dataset
+    """
+
+    def __init__(self, dataset_path: str) -> None:
+        """
+        Args:
+        - dataset_path: str, the path for the csv
+        """
+        self._df = pd.read_csv(dataset_path)
+
+    def get_model_type(self) -> str:
+        # pick linear regression if y numerical
+        if self._df.target.dtype.kind in "iufc":
+            return "LinearRegression"
+        else:
+            # ss3
+            if "[" in self._df.target[0]:
+                return "MultiLabelMultiClass"
+            # annotation
+            else:
+                return "LinearClassifier"
+
+    def get_numb_class(self) -> int:
+        """
+        A function to get number of class
+        """
+        # annotation class number
+        if self.model_type == "LinearClassifier":
+            return self._df.target.nunique()
+        # ss3 or ss8 secondary structure states plus padding
+        elif self.model_type == "MultiLabelMultiClass":
+            return len(np.unique(np.array(self._df["target"][0][1:-1].split(", ")))) + 1
+
+    @property
+    def model_type(self) -> str:
+        """Return the pytorch model type"""
+        return self.get_model_type()
+
+    @property
+    def numb_class(self) -> int:
+        """Return number of classes for classification"""
+        return self.get_numb_class()
 
 
 class TaskProcess:
