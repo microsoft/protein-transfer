@@ -121,7 +121,7 @@ def std_ssdf(
     df = df.replace("valid", "train")
     # rename all columns
     df.columns = ["sequence", "target", "set", "validation"]
-    
+
     # get all kinds of test sets
     ss_tests = set(df["set"].unique()) - set(["train"])
 
@@ -534,14 +534,13 @@ class ProtranDataset(Dataset):
                     )
                     .values
                 )
-            elif column_name == "taget":
-                if self._model_type == "LinearClassifier":
-                    print("Converting classes into int...")
-                    le = LabelEncoder()
-                    return le.fit_transform(y.values.flatten())
-                elif self._model_type == "MultiLabelMultiClass":
-                    print("Converting ss3/ss8 into np.array...")
-                    return y.apply(lambda x: np.array(x[1:-1].split(", "))).values
+            elif column_name == "target" and self._model_type == "LinearClassifier":
+                print("Converting classes into int...")
+                le = LabelEncoder()
+                return le.fit_transform(y.values.flatten())
+            elif column_name == "target" and self._model_type == "MultiLabelMultiClass":
+                print("Converting ss3/ss8 into np.array...")
+                return y.apply(lambda x: np.array(x[1:-1].split(", "))).values
             else:
                 return y.values
 
