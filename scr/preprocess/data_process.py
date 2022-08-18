@@ -10,6 +10,8 @@ import tables
 import pandas as pd
 import numpy as np
 
+from sklearn.preprocessing import LabelEncoder
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 
@@ -329,6 +331,10 @@ class ProtranDataset(Dataset):
         # without such info
         else:
             self._df = pd.read_csv(dataset_path)
+            self._ds_info = DatasetInfo(dataset_path)
+            self._model_type = self._ds_info.model_type
+            self._numb_class = self._ds_info.numb_class
+
             self._add_mut_info = False
 
         assert "set" in self._df.columns, f"set is not a column in {dataset_path}"
@@ -512,9 +518,12 @@ class ProtranDataset(Dataset):
         - column_name: str, the name of the dataframe column
         """
         if column_name in self._df.columns:
+            y = self._df_dict[self._subset][column_name]
+
             if column_name == "sequence":
                 return (
-                    self._df_dict[self._subset]["sequence"]
+                    # self._df_dict[self._subset]["sequence"]
+                    y
                     .astype(str)
                     .str[self._seq_start_idx : self._seq_end_idx]
                     .apply(
@@ -525,8 +534,16 @@ class ProtranDataset(Dataset):
                     )
                     .values
                 )
+            elif column_name == "taget":
+                if self._model_type == "LinearClassifier":
+                    print("Converting classes into int...")
+                    le = LabelEncoder()
+                    return le.fit_transform(y.values.flatten())
+                elif self._model_type == "MultiLabelMultiClass":
+                    print("Converting ss3/ss8 into np.array...")
+                    return y.apply(lambda x: np.array(x[1:-1].split(", "))).values
             else:
-                return self._df_dict[self._subset][column_name].values
+                return y.values
 
     @property
     def df_full(self) -> pd.DataFrame:
