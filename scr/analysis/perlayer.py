@@ -22,13 +22,16 @@ class LayerLoss:
         self,
         input_path: str = "results/sklearn",
         output_path: str = "results/sklearn_layer",
-        metric_list: list[str] = ["train_mse", "test_ndcg", "test_rho"],
+        metric_dict: dict[list[str]] = {
+            "proeng": ["train_mse", "test_ndcg", "test_rho"],
+            "annotation": ["train_cross-entropy", "test_acc", "test_rocauc"],
+        },
     ):
         """
         Args:
         - input_path: str = "results/sklearn",
         - output_path: str = "results/sklearn_layer"
-        - metric_list: list[str] = ["train_mse", "test_ndcg", "test_rho"]
+        - metric_dict: list[str] = ["train_mse", "test_ndcg", "test_rho"]
         """
         # get rid of the last "/" if any
         self._input_path = os.path.normpath(input_path)
@@ -38,8 +41,7 @@ class LayerLoss:
 
         # get rid of the last "/" if any
         self._output_path = os.path.normpath(output_path)
-        self._metric_list = metric_list
-        self._metric_numb = len(metric_list)
+        self._metric_dict = metric_dict
 
         # init a dictionary for recording outputs
         self._onehot_baseline_dict = defaultdict(dict)
@@ -53,6 +55,9 @@ class LayerLoss:
             task_subfolder = dataset_folder.split(self._input_path + "/")[-1]
             # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
             task, dataset, split, encoder_name, flatten_emb = task_subfolder.split("/")
+
+            # get number of metircs
+            metric_numb = len(self._metric_dict[task])
 
             # parse results for plotting the collage and onehot
             self._layer_analysis_dict[f"{task}_{dataset}_{split}_{flatten_emb}"][
@@ -75,6 +80,9 @@ class LayerLoss:
                     encoder_name,
                     flatten_emb,
                 )
+                add_rand = True
+            else:
+                add_rand = False
 
             # check if resample param experimental results exist
             resample_param_path = f"{self._input_path}-stat"
@@ -90,6 +98,9 @@ class LayerLoss:
                     encoder_name,
                     flatten_emb,
                 )
+                add_stat = True
+            else:
+                add_stat = False
 
             # check if resample param experimental results exist
             onehot_path = f"{self._input_path}-onehot"
@@ -107,7 +118,10 @@ class LayerLoss:
                     "onehot",
                     "flatten",
                 )
-            
+                add_onehot = True
+            else:
+                add_onehot = False
+
         collage_folder = os.path.join(self._output_path, "collage")
         checkNgen_folder(collage_folder)
 
@@ -127,47 +141,50 @@ class LayerLoss:
                 encoder_names = list(set(encoder_dict.keys()))
 
             fig, axs = plt.subplots(
-                self._metric_numb,
+                metric_numb,
                 len(encoder_names),
                 sharey="row",
                 sharex="col",
                 figsize=(20, 10),
             )
-            for m, metric in enumerate(metric_list):
+            for m, metric in enumerate(self._metric_dict[task]):
                 for n, encoder_name in enumerate(encoder_names):
                     axs[m, n].plot(
                         encoder_dict[encoder_name][metric], label=encoder_label
                     )
-                    
+
                     # overlay onehot baseline
-                    axs[m, n].axhline(
-                        self._onehot_baseline_dict[onehot_name][metric],
-                        label="onehot",
-                        color="#D3D3D3",  # light grey
-                        linestyle="dotted",
-                    )
+                    if add_onehot:
+                        axs[m, n].axhline(
+                            self._onehot_baseline_dict[onehot_name][metric],
+                            label="onehot",
+                            color="#D3D3D3",  # light grey
+                            linestyle="dotted",
+                        )
 
                     # overlay random init
-                    axs[m, n].plot(
-                        self._rand_layer_analysis_dict[collage_name][encoder_name][
-                            metric
-                        ],
-                        label="random init",
-                        color="#D3D3D3",  # light grey
-                    )
+                    if add_rand:
+                        axs[m, n].plot(
+                            self._rand_layer_analysis_dict[collage_name][encoder_name][
+                                metric
+                            ],
+                            label="random init",
+                            color="#D3D3D3",  # light grey
+                        )
 
                     # overlay stat init
-                    axs[m, n].plot(
-                        self._stat_layer_analysis_dict[collage_name][encoder_name][
-                            metric
-                        ],
-                        label="stat transfer",
-                        color="#A9A9A9",  # dark grey
-                        # linestyle="dotted",
-                    )
+                    if add_stat:
+                        axs[m, n].plot(
+                            self._stat_layer_analysis_dict[collage_name][encoder_name][
+                                metric
+                            ],
+                            label="stat transfer",
+                            color="#A9A9A9",  # dark grey
+                            # linestyle="dotted",
+                        )
 
             # add xlabels
-            for ax in axs[self._metric_numb - 1]:
+            for ax in axs[metric_numb - 1]:
                 ax.set_xlabel("layers", fontsize=16)
                 ax.tick_params(axis="x", labelsize=16)
 
@@ -176,7 +193,7 @@ class LayerLoss:
                 ax.set_title(col, fontsize=16)
 
             # add row names
-            for ax, row in zip(axs[:, 0], metric_list):
+            for ax, row in zip(axs[:, 0], self._metric_dict[task]):
                 ax.set_ylabel(row.replace("_", " "), fontsize=16)
                 ax.tick_params(axis="y", labelsize=16)
 
@@ -243,7 +260,7 @@ class LayerLoss:
 
         # init the ouput dict
         output_numb_dict = {
-            metric: np.zeros([max_layer_numb]) for metric in self._metric_list
+            metric: np.zeros([max_layer_numb]) for metric in self._metric_dict[task]
         }
 
         # loop through the list of the pickle files
@@ -254,7 +271,7 @@ class LayerLoss:
             result_dict = pickle_load(pkl_file)
 
             # populate the processed dictionary
-            for metric in self._metric_list:
+            for metric in self._metric_dict[task]:
                 subset, kind = metric.split("_")
                 if kind == "rho":
                     output_numb_dict[metric][layer_numb] = result_dict[subset][kind][0]

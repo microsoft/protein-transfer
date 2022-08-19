@@ -9,15 +9,17 @@ from concurrent import futures
 import torch
 import torch.nn as nn
 
-from sklearn.metrics import ndcg_score
+from sklearn.metrics import ndcg_score, accuracy_score, roc_auc_score
+
 from scipy.stats import spearmanr
 
 from scr.params.sys import RAND_SEED, DEVICE
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 
-from scr.preprocess.data_process import split_protrain_loader
+from scr.preprocess.data_process import split_protrain_loader, DatasetInfo
 from scr.encoding.encoding_classes import get_emb_info, ESMEncoder, CARPEncoder
-from scr.model.pytorch_model import LinearRegression
+from scr.model.pytorch_model import LinearRegression, LinearClassifier
+
 from scr.model.train_test import train, test
 from scr.vis.learning_vis import plot_lc
 from scr.utils import get_folder_file_names, pickle_save, get_default_output_path
@@ -51,24 +53,6 @@ class Run_Pytorch:
         **encoder_params,
     ) -> None:
 
-        self._dataset_path = dataset_path
-        self._encoder_name = encoder_name
-        self._reset_param = reset_param
-        self._resample_param = resample_param
-        self._embed_batch_size = embed_batch_size
-        self._flatten_emb = flatten_emb
-
-        self._learning_rate = learning_rate
-        self._lr_decay = lr_decay
-        self._epochs = epochs
-        self._early_stop = early_stop
-        self._tolerance = tolerance
-        self._min_epoch = min_epoch
-        self._device = device
-        self._all_plot_folder = all_plot_folder
-        self._all_result_folder = all_result_folder
-        self._encoder_params = encoder_params
-
         """
         A function for running pytorch model
 
@@ -84,7 +68,6 @@ class Run_Pytorch:
         - seq_end_idx: bool | int = False, the index for the end of the sequence
         - loader_batch_size: int, the batch size for train, val, and test dataloader
         - worker_seed: int, the seed for dataloader
-        - if_encode_all: bool = True, if encode full dataset all layers on the fly
         - learning_rate: float
         - lr_decay: float, factor by which to decay LR on plateau
         - epochs: int, number of epochs to train for
@@ -113,6 +96,28 @@ class Run_Pytorch:
                     "rho": SpearmanrResults(correlation=float, pvalue=float)}
 
         """
+
+        self._dataset_path = dataset_path
+        self._encoder_name = encoder_name
+        self._reset_param = reset_param
+        self._resample_param = resample_param
+        self._embed_batch_size = embed_batch_size
+        self._flatten_emb = flatten_emb
+
+        self._learning_rate = learning_rate
+        self._lr_decay = lr_decay
+        self._epochs = epochs
+        self._early_stop = early_stop
+        self._tolerance = tolerance
+        self._min_epoch = min_epoch
+        self._device = device
+        self._all_plot_folder = all_plot_folder
+        self._all_result_folder = all_result_folder
+        self._encoder_params = encoder_params
+
+        self._ds_info = DatasetInfo(self._dataset_path)
+        self._model_type = self._ds_info.model_type
+        self._numb_class = self._ds_info.numb_class
 
         self._train_loader, self._val_loader, self._test_loader = split_protrain_loader(
             dataset_path=self._dataset_path,
@@ -152,12 +157,23 @@ class Run_Pytorch:
                 self.run_pytorch_layer(embed_layer)
 
     def run_pytorch_layer(self, embed_layer):
-        model = LinearRegression(
-            input_dim=self._encoder_info_dict[self._encoder_name][0], output_dim=1
-        )
+
+        # init model based on datasets
+        if self._model_type == "LinearRegression":
+            model = LinearRegression(
+                input_dim=self._encoder_info_dict[self._encoder_name][0], output_dim=1
+            )
+            criterion = nn.MSELoss()
+
+        elif self._model_type == "LinearClassifier":
+            model = LinearClassifier(
+                input_dim=self._encoder_info_dict[self._encoder_name][0],
+                numb_class=self._numb_class,
+            )
+            criterion = nn.CrossEntropyLoss()
+
         model.to(self._device, non_blocking=True)
 
-        criterion = nn.MSELoss()
         criterion.to(self._device, non_blocking=True)
 
         train_losses, val_losses = train(
@@ -201,7 +217,8 @@ class Run_Pytorch:
             ["train", "val", "test"],
             [self._train_loader, self._val_loader, self._test_loader],
         ):
-            mse, pred, true = test(
+
+            loss, pred, cls, true = test(
                 model=model,
                 loader=loader,
                 embed_layer=embed_layer,
@@ -209,13 +226,28 @@ class Run_Pytorch:
                 criterion=criterion,
             )
 
-            result_dict[subset] = {
-                "mse": mse,
-                "pred": pred,
-                "true": true,
-                "ndcg": ndcg_score(true[None, :], pred[None, :]),
-                "rho": spearmanr(true, pred),
-            }
+            if model.model_name == "LinearRegression":
+                result_dict[subset] = {
+                    "mse": loss,
+                    "pred": pred,
+                    "true": true,
+                    "ndcg": ndcg_score(true[None, :], pred[None, :]),
+                    "rho": spearmanr(true, pred),
+                }
+
+            elif model.model_name == "LinearClassifier":
+                result_dict[subset] = {
+                    "cross-entropy": loss,
+                    "pred": pred,
+                    "true": true,
+                    "acc": accuracy_score(true, cls),
+                    "rocauc": roc_auc_score(
+                        true,
+                        nn.Softmax(dim=1)(torch.from_numpy(pred)).numpy(),
+                        multi_class="ovo",
+                    )
+                    # "rocauc": eval_rocauc(true, pred),
+                }
 
         dataset_subfolder, file_name = get_folder_file_names(
             parent_folder=get_default_output_path(self._all_result_folder),

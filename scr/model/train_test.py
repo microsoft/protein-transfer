@@ -9,6 +9,9 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from sklearn.metrics import mean_squared_error, log_loss, accuracy_score, roc_auc_score
+from sklearn.preprocessing import LabelEncoder
+
 from scr.params.sys import RAND_SEED, DEVICE
 
 # seed everything
@@ -18,6 +21,45 @@ torch.manual_seed(RAND_SEED)
 torch.cuda.manual_seed(RAND_SEED)
 torch.cuda.manual_seed_all(RAND_SEED)
 torch.backends.cudnn.deterministic = True
+
+
+def get_x_y(
+    model, device, batch, embed_layer: int,
+):
+    """
+    A function process x and y from the loader
+
+    Args:
+    -
+
+    Returns:
+    - x
+    - y
+    """
+
+    # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
+    x = batch[4][embed_layer]
+    y = batch[0]
+
+    """
+    # process y depends on model type
+    # annotation classification
+    if model.model_name == "LinearClassifier":
+        le = LabelEncoder()
+        y = le.fit_transform(y.flatten())
+    """
+
+    # ss3 / ss8 type
+    if model.model_name == "MultiLabelMultiClass":
+        # convert the y into np.arrays with -1 padding to the same length
+        y = np.stack(
+            [
+                np.pad(i, pad_width=(0, x.shape[1] - len(i)), constant_values=-1,)
+                for i in y
+            ]
+        )
+
+    return x.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
 
 def run_epoch(
@@ -64,15 +106,41 @@ def run_epoch(
         # if not if_encode_all:
         # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
         for batch in loader:
+            x, y = get_x_y(model, device, batch, embed_layer)
+
+            """
             x = batch[4][embed_layer]
             y = batch[0]
 
+            # process y depends on model type
+            # annotation classification
+            if model.model_name == "LinearClassifier":
+                le = LabelEncoder()
+                y = le.fit_transform(y.flatten())
+            # ss3 / ss8 type
+            elif model.model_name == "MultiLabelMultiClass":
+                # convert the y into np.arrays with -1 padding to the same length
+                y = np.stack(
+                    [
+                        np.pad(
+                            np.array(i[1:-1].split(", ")),
+                            pad_width=(0, x.shape[1] - len(i)),
+                            constant_values=-1,
+                        )
+                        for i in y
+                    ]
+                )
+
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
+            """
 
             outputs = model(x)
 
             if criterion is not None:
-                loss = criterion(outputs, y.float())
+                if model.model_name == "LinearRegression":
+                    loss = criterion(outputs, y.float())
+                elif model.model_name == "LinearClassifier":
+                    loss = criterion(outputs, y.squeeze())
 
                 if optimizer is not None:
                     optimizer.zero_grad()
@@ -104,6 +172,7 @@ def train(
     min_epoch: int = 5,
     **encoder_params,
 ) -> tuple[np.ndarray, np.ndarray]:
+
     """
     Args:
     - model: nn.Module, already moved to device
@@ -121,6 +190,7 @@ def train(
         train/val_losses: np.ndarray, shape [epochs], entries are average loss
         over batches for that epoch
     """
+
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=lr_decay
@@ -210,29 +280,62 @@ def test(
 
     cum_loss = 0.0
 
-    preds = []
+    pred_probs = []
+    pred_classes = []
     labels = []
 
     with torch.no_grad():
 
         for i, batch in enumerate(tqdm(loader)):
             # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
+            x, y = get_x_y(model, device, batch, embed_layer)
+
+            """
             x = batch[4][embed_layer]
             y = batch[0]
 
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
+            """
 
             # forward + backward + optimize
             outputs = model(x)
-            preds.append(outputs.detach().cpu().squeeze().numpy())
+
+            # append results
             labels.append(y.detach().cpu().squeeze().numpy())
 
+            # append class
+            if model.model_name == "LinearClassifier":
+                pred_classes.append(
+                    outputs.detach()
+                    .cpu()
+                    .data.max(1, keepdim=True)[1]
+                    .squeeze()
+                    .numpy()
+                )
+                # pred_probs.append(outputs.detach().cpu().squeeze().numpy())
+            # else:
+            pred_probs.append(outputs.detach().cpu().squeeze().numpy())
+
             if criterion is not None:
-                loss = criterion(outputs, y)
+                if model.model_name == "LinearRegression":
+                    loss = criterion(outputs, y)
+                elif model.model_name == "LinearClassifier":
+                    loss = criterion(outputs, y.squeeze())
                 cum_loss += loss.item()
 
                 if ((i + 1) % print_every == 0) or (i + 1 == len(loader)):
                     tqdm.write(msg.format(step=i + 1, loss=cum_loss / len(loader)))
 
     avg_loss = cum_loss / len(loader)
-    return avg_loss, np.concatenate(preds), np.concatenate(labels)
+
+    if pred_classes == []:
+        pred_classes_conc = pred_classes
+    else:
+        pred_classes_conc = np.concatenate(pred_classes)
+
+    return (
+        avg_loss,
+        np.concatenate(pred_probs),
+        pred_classes_conc,
+        np.concatenate(labels),
+    )
