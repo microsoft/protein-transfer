@@ -22,6 +22,10 @@ results
 results/
 embeddings
 embeddings/
+embeddings-rand
+embeddings-rand/
+embeddings-stat
+embeddings-stat/
 
 # exceptions to the rule
 !README.md

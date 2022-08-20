@@ -15,6 +15,7 @@ from scr.utils import get_folder_file_names, pickle_save, ndcg_scale
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
 from scr.encoding.encoding_classes import ESMEncoder, CARPEncoder, OnehotEncoder
+
 from scr.preprocess.data_process import ProtranDataset
 
 # seed
@@ -34,8 +35,10 @@ class RunRidge:
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
         embed_folder: str | None = None,
+        all_embed_layers: bool = False,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
+        if_encode_all: bool = True,
         alphas: np.ndarray | int = SKLEARN_ALPHAS,
         ridge_state: int = RAND_SEED,
         ridge_params: dict | None = None,
@@ -67,7 +70,14 @@ class RunRidge:
         self.encoder_name = encoder_name
         self.reset_param = reset_param
         self.resample_param = resample_param
+        self.embed_batch_size = embed_batch_size
         self.flatten_emb = flatten_emb
+        self.embed_folder = embed_folder
+        self.all_embed_layers = all_embed_layers
+        self.seq_start_idx = seq_start_idx
+        self.seq_end_idx = seq_end_idx
+        self.if_encode_all = if_encode_all
+        self.encoder_params = encoder_params
 
         if not isinstance(alphas, np.ndarray):
             alphas = np.array([alphas])
@@ -83,24 +93,6 @@ class RunRidge:
         if self.resample_param and "-stat" not in self.all_result_folder:
             self.all_result_folder = f"{self.all_result_folder}-stat"
 
-        # loader has ALL embedding layers
-        self.train_ds, self.val_ds, self.test_ds = (
-            ProtranDataset(
-                dataset_path=dataset_path,
-                subset=subset,
-                encoder_name=encoder_name,
-                reset_param=reset_param,
-                resample_param=resample_param,
-                embed_batch_size=embed_batch_size,
-                flatten_emb=flatten_emb,
-                embed_folder=embed_folder,
-                seq_start_idx=seq_start_idx,
-                seq_end_idx=seq_end_idx,
-                **encoder_params,
-            )
-            for subset in ["train", "val", "test"]
-        )
-
         all_ridge_results = {}
 
         if self.encoder_name in TRANSFORMER_INFO.keys():
@@ -112,17 +104,30 @@ class RunRidge:
             self.encoder_name = "onehot"
             total_emb_layer = 1
 
-        """total_emb_layer = encoder_class(
-                encoder_name=self.encoder_name,
-                reset_param=reset_param,
-                resample_param=resample_param,
-                **encoder_params
-            ).total_emb_layer"""
+        if self.all_embed_layers:
+            print("loading all embed layers...")
+            # loader has ALL embedding layers
+            self.train_ds, self.val_ds, self.test_ds = (
+                ProtranDataset(
+                    dataset_path=self.dataset_path,
+                    subset=subset,
+                    encoder_name=self.encoder_name,
+                    reset_param=self.reset_param,
+                    resample_param=self.resample_param,
+                    embed_batch_size=self.embed_batch_size,
+                    flatten_emb=self.flatten_emb,
+                    embed_folder=self.embed_folder,
+                    embed_layer=self.embed_layer,
+                    seq_start_idx=self.seq_start_idx,
+                    seq_end_idx=self.seq_end_idx,
+                    if_encode_all=self.if_encode_all,
+                    **self.encoder_params,
+                )
+                for subset in ["train", "val", "test"]
+            )
 
         for layer in range(total_emb_layer):
-            all_ridge_results[layer] = self.run_ridge_layer(
-                embed_layer=layer,
-            )
+            all_ridge_results[layer] = self.run_ridge_layer(embed_layer=layer,)
 
         self._all_ridge_results = all_ridge_results
 
@@ -141,18 +146,12 @@ class RunRidge:
         - np.concatenate(pred): np.ndarray, 1D predicted fitness values
         - np.concatenate(true): np.ndarry, 1D true fitness values
         """
-
         return (
-            model.predict(
-                getattr(ds, "layer" + str(embed_layer))
-            ).squeeze(),
+            model.predict(getattr(ds, "layer" + str(embed_layer))).squeeze(),
             ds.y.squeeze(),
         )
 
-    def pick_model(
-        self,
-        embed_layer: int,
-    ):
+    def pick_model(self, embed_layer: int, train_ds: Dataset, val_ds: Dataset):
         """
         A function for picking the best model for given alaphs, meaning
         lower train_mse and higher test_ndcg
@@ -183,18 +182,21 @@ class RunRidge:
 
             # fit the model for a given layer of embedding
             fitness_scaler = StandardScaler()
+
+            if self.all_embed_layers:
+                train_ds = self.train_ds
+                val_ds = self.val_ds
+
             model.fit(
-                getattr(self.train_ds, "layer" + str(embed_layer)),
-                fitness_scaler.fit_transform(self.train_ds.y),
+                getattr(train_ds, "layer" + str(embed_layer)),
+                fitness_scaler.fit_transform(train_ds.y),
             )
 
             # eval the model with train and test
             train_pred, train_true = self.sk_test(
-                model, self.train_ds, embed_layer=embed_layer
+                model, train_ds, embed_layer=embed_layer
             )
-            val_pred, val_true = self.sk_test(
-                model, self.val_ds, embed_layer=embed_layer
-            )
+            val_pred, val_true = self.sk_test(model, val_ds, embed_layer=embed_layer)
 
             # calc the metrics
             train_mse = mean_squared_error(train_true, train_pred)
@@ -212,8 +214,7 @@ class RunRidge:
         return best_model
 
     def run_ridge_layer(
-        self,
-        embed_layer: int,
+        self, embed_layer: int,
     ):
 
         """
@@ -241,19 +242,40 @@ class RunRidge:
                     "rho": SpearmanrResults(correlation=float, pvalue=float)}
         """
 
+        # set up the datasets
+        if self.all_embed_layers:
+            ds_list = [self.train_ds, self.val_ds, self.test_ds]
+        else:
+            print(f"Getting embed for {embed_layer}...")
+            ds_list = [
+                ProtranDataset(
+                    dataset_path=self.dataset_path,
+                    subset=subset,
+                    encoder_name=self.encoder_name,
+                    reset_param=self.reset_param,
+                    resample_param=self.resample_param,
+                    embed_batch_size=self.embed_batch_size,
+                    flatten_emb=self.flatten_emb,
+                    embed_folder=self.embed_folder,
+                    embed_layer=embed_layer,
+                    seq_start_idx=self.seq_start_idx,
+                    seq_end_idx=self.seq_end_idx,
+                    if_encode_all=self.if_encode_all,
+                    **self.encoder_params,
+                )
+                for subset in ["train", "val", "test"]
+            ]
+
         # train and get the best alpha
         best_model = self.pick_model(
-            embed_layer=embed_layer,
+            embed_layer=embed_layer, train_ds=ds_list[0], val_ds=ds_list[1]
         )
 
         # init dict for resulted outputs
         result_dict = {}
 
         # now test the model with the test data
-        for subset, ds in zip(
-            ["train", "val", "test"],
-            [self.train_ds, self.val_ds, self.test_ds],
-        ):
+        for subset, ds in zip(["train", "val", "test"], ds_list):
             pred, true = self.sk_test(best_model, ds, embed_layer=embed_layer)
 
             result_dict[subset] = {
@@ -320,7 +342,7 @@ class RunSK:
         resample_param: bool = False,
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
-        embed_path: str | None = None,
+        embed_folder: str | None = None,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
         alphas: np.ndarray | int = SKLEARN_ALPHAS,
@@ -340,7 +362,7 @@ class RunSK:
         - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
-        - embed_path: str = None, path to presaved embedding
+        - embed_folder: str = None, path to presaved embedding
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
         - alphas: np.ndarray, arrays of alphas to be tested
@@ -380,7 +402,7 @@ class RunSK:
                 resample_param=resample_param,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
-                embed_path=embed_path,
+                embed_folder=embed_folder,
                 seq_start_idx=seq_start_idx,
                 seq_end_idx=seq_end_idx,
                 **encoder_params,
