@@ -296,6 +296,7 @@ class ProtranDataset(Dataset):
         embed_batch_size: int = 0,
         flatten_emb: bool | str = False,
         embed_folder: str = None,
+        embed_layer: int | None = None,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
         if_encode_all: bool = True,
@@ -403,6 +404,7 @@ class ProtranDataset(Dataset):
             **encoder_params,
         )
         self._total_emb_layer = self._encoder.total_emb_layer
+        self._embed_layer = embed_layer
 
         # encode all and load in memory
         if self.if_encode_all and self._embed_folder is None:
@@ -430,6 +432,28 @@ class ProtranDataset(Dataset):
                     # torch.tensor(np.vstack(emb), dtype=torch.float32),
                 )
 
+        # load full one layer embedding
+        if self._embed_folder is not None and self._embed_layer is not None:
+
+            emb_table = tables.open_file(
+                os.path.join(
+                    self._embed_folder,
+                    self._encoder_name,
+                    self._flatten_emb,
+                    self._subset,
+                    "embedding.h5",
+                )
+            )
+
+            emb_table.flush()
+
+            setattr(
+                self,
+                "layer" + str(self._embed_layer),
+                getattr(emb_table.root, "layer" + str(self._embed_layer))[:],
+            )
+
+            emb_table.close()
         # get and format the fitness or secondary structure values
         # can be numbers or string
         # will need to convert data type
@@ -476,32 +500,52 @@ class ProtranDataset(Dataset):
             gb1_emb.flush()
             gb1_emb.root.layer0[0:5]
             """
-            emb_table = tables.open_file(
-                os.path.join(
-                    self._embed_folder,
-                    self._encoder_name,
-                    self._flatten_emb,
-                    self._subset,
-                    "embedding.h5",
+            # return all
+            if self._embed_layer is None:
+
+                emb_table = tables.open_file(
+                    os.path.join(
+                        self._embed_folder,
+                        self._encoder_name,
+                        self._flatten_emb,
+                        self._subset,
+                        "embedding.h5",
+                    )
                 )
-            )
 
-            emb_table.flush()
+                emb_table.flush()
 
-            layer_embs = [
-                getattr(emb_table.root, "layer" + str(layer))[idx]
-                for layer in range(self._total_emb_layer)
-            ]
+                layer_embs = [
+                    getattr(emb_table.root, "layer" + str(layer))[idx]
+                    for layer in range(self._total_emb_layer)
+                ]
 
-            emb_table.close()
+                emb_table.close()
 
-            return (
-                self.y[idx],
-                self.sequence[idx],
-                self.mut_name[idx],
-                self.mut_numb[idx],
-                layer_embs,
-            )
+                return (
+                    self.y[idx],
+                    self.sequence[idx],
+                    self.mut_name[idx],
+                    self.mut_numb[idx],
+                    layer_embs,
+                )
+            # only pick particular embeding layer
+            else:
+                """
+                setattr(
+                    self,
+                    "layer" + str(self._embed_layer),
+                    getattr(emb_table.root, "layer" + str(self._embed_layer)),
+                )"""
+
+                return (
+                    self.y[idx],
+                    self.sequence[idx],
+                    self.mut_name[idx],
+                    self.mut_numb[idx],
+                    # getattr(emb_table.root, "layer" + str(self._embed_layer))[idx]
+                    getattr(self, "layer" + str(self._embed_layer))[idx],
+                )
         else:
             return (
                 self.y[idx],
@@ -523,8 +567,7 @@ class ProtranDataset(Dataset):
             if column_name == "sequence":
                 return (
                     # self._df_dict[self._subset]["sequence"]
-                    y
-                    .astype(str)
+                    y.astype(str)
                     .str[self._seq_start_idx : self._seq_end_idx]
                     .apply(
                         lambda x: x[: int(MAX_SEQ_LEN // 2)]
@@ -578,6 +621,7 @@ def split_protrain_loader(
     embed_batch_size: int = 128,
     flatten_emb: bool | str = False,
     embed_folder: str | None = None,
+    embed_layer: int | None = None,
     seq_start_idx: bool | int = False,
     seq_end_idx: bool | int = False,
     subset_list: list[str] = ["train", "val", "test"],
@@ -628,6 +672,7 @@ def split_protrain_loader(
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_folder=embed_folder,
+                embed_layer=embed_layer,
                 seq_start_idx=seq_start_idx,
                 seq_end_idx=seq_end_idx,
                 if_encode_all=if_encode_all,
