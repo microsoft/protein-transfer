@@ -35,7 +35,7 @@ class RunRidge:
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
         embed_folder: str | None = None,
-        all_embed_layers: bool = False,
+        all_embed_layers: bool = True,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
         if_encode_all: bool = True,
@@ -57,8 +57,10 @@ class RunRidge:
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_folder: str = None, path to presaved embedding
+        - all_embed_layers: bool = True, if include all embed layers
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
+        - if_encode_all: bool = True, if encode all embed layers all at once
         - alphas: np.ndarray, arrays of alphas to be tested
         - ridge_state: int = RAND_SEED, seed the ridge regression
         - ridge_params: dict | None = None, other ridge regression args
@@ -117,7 +119,7 @@ class RunRidge:
                     embed_batch_size=self.embed_batch_size,
                     flatten_emb=self.flatten_emb,
                     embed_folder=self.embed_folder,
-                    embed_layer=self.embed_layer,
+                    embed_layer=None,
                     seq_start_idx=self.seq_start_idx,
                     seq_end_idx=self.seq_end_idx,
                     if_encode_all=self.if_encode_all,
@@ -146,12 +148,14 @@ class RunRidge:
         - np.concatenate(pred): np.ndarray, 1D predicted fitness values
         - np.concatenate(true): np.ndarry, 1D true fitness values
         """
+
         return (
             model.predict(getattr(ds, "layer" + str(embed_layer))).squeeze(),
+            # getattr(train_ds, "layer" + str(embed_layer))
             ds.y.squeeze(),
         )
 
-    def pick_model(self, embed_layer: int, train_ds: Dataset, val_ds: Dataset):
+    def pick_model(self, embed_layer: int, train_ds: ProtranDataset, val_ds: ProtranDataset):
         """
         A function for picking the best model for given alaphs, meaning
         lower train_mse and higher test_ndcg

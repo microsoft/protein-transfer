@@ -18,7 +18,7 @@ for encoder_name in TRANSFORMER_INFO.keys():
         if_encode_all=False,
         alphas = SKLEARN_ALPHAS,
         ridge_state= RAND_SEED,
-        ridge_params= None,
+        ridge_params= {"normalize": True},
         all_result_folder = "test/sklearn",
         # **encoder_params,
     )
@@ -38,7 +38,7 @@ for encoder_name in TRANSFORMER_INFO.keys():
         if_encode_all=False,
         alphas = SKLEARN_ALPHAS,
         ridge_state= RAND_SEED,
-        ridge_params= None,
+        ridge_params= {"normalize": True},
         all_result_folder = "test/sklearn",
         # **encoder_params,
     )

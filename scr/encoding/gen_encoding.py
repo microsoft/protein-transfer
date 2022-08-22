@@ -4,6 +4,7 @@ import os
 import tables
 
 from scr.utils import get_folder_file_names, checkNgen_folder
+from scr.params.emb import MAX_SEQ_LEN
 from scr.encoding.encoding_classes import get_emb_info, OnehotEncoder
 from scr.preprocess.data_process import ProtranDataset
 
@@ -61,7 +62,13 @@ class GenerateEmbeddings:
             self.encoder_name
         )
 
-        assert encoder_class != OnehotEncoder, "Generate onehot on the fly instead"
+        # assert encoder_class != OnehotEncoder, "Generate onehot on the fly instead"
+        # add in the max_seq_len for Onehot
+        if encoder_class == OnehotEncoder:
+            encoder_params["max_seq_len"] = MAX_SEQ_LEN
+            embed_rescale = MAX_SEQ_LEN
+        else:
+            embed_rescale = 1
 
         # get the encoder
         self._encoder = encoder_class(
@@ -70,9 +77,8 @@ class GenerateEmbeddings:
             resample_param=resample_param,
             **encoder_params,
         )
-
         # get the dim of the array to be saved
-        earray_dim = (0, self._encoder.embed_dim)
+        earray_dim = (0, self._encoder.embed_dim * embed_rescale)
 
         dataset_folder, _ = get_folder_file_names(
             parent_folder=self.embed_folder,

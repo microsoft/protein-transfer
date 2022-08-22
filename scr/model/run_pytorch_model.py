@@ -13,11 +13,12 @@ from sklearn.metrics import ndcg_score, accuracy_score, roc_auc_score
 
 from scipy.stats import spearmanr
 
+from scr.params.aa import AA_NUMB
 from scr.params.sys import RAND_SEED, DEVICE
-from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
+from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, MAX_SEQ_LEN
 
 from scr.preprocess.data_process import split_protrain_loader, DatasetInfo
-from scr.encoding.encoding_classes import get_emb_info, ESMEncoder, CARPEncoder
+from scr.encoding.encoding_classes import OnehotEncoder, ESMEncoder, CARPEncoder, get_emb_info
 from scr.model.pytorch_model import LinearRegression, LinearClassifier
 
 from scr.model.train_test import train, test
@@ -99,6 +100,10 @@ class Run_Pytorch:
 
         self._dataset_path = dataset_path
         self._encoder_name = encoder_name
+
+        if self._encoder_name not in (list(TRANSFORMER_INFO.keys()) + list(CARP_INFO.keys())):
+            self._encoder_name = "onehot"
+
         self._reset_param = reset_param
         self._resample_param = resample_param
         self._embed_batch_size = embed_batch_size
@@ -142,6 +147,9 @@ class Run_Pytorch:
             self._encoder_info_dict = TRANSFORMER_INFO
         elif encoder_class == CARPEncoder:
             self._encoder_info_dict = CARP_INFO
+        elif encoder_class == OnehotEncoder:
+            #TODO aultoto
+            self._encoder_info_dict = {"onehot": (MAX_SEQ_LEN*22, )}
 
         if if_multiprocess:
             print("Running different emb layer in parallel...")

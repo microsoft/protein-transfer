@@ -137,7 +137,7 @@ class AbstractEncoder(ABC):
         - np.ndarray, shape depends on flatten_emb parameter
         """
 
-        assert encoded_mut_seqs.shape[-1] == self._embed_dim, "Wrong embed dim"
+        assert encoded_mut_seqs.shape[-1] == self._embed_dim, f"encode last dim {encoded_mut_seqs.shape[-1]} != embed dim {self._embed_dim}"
 
         if (
             flatten_emb in [True, "flatten", "flattened", ""]
@@ -254,6 +254,7 @@ class OnehotEncoder(AbstractEncoder):
                     pad_width=((0, self.max_seq_len - len(mut_seq)), (0, 0)),
                 )
             )
+
         return {0: self.flatten_encode(np.array(encoded_mut_seqs), flatten_emb)}
 
 

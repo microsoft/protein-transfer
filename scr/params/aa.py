@@ -7,6 +7,7 @@ import pandas as pd
 # Amino acid code conversion
 AA_DICT = {
     "Ala": "A",
+    "Asx": "B",
     "Cys": "C",
     "Asp": "D",
     "Glu": "E",
@@ -48,6 +49,7 @@ AA_PROP_DICT = {
     "T": "Polar uncharged",
     "N": "Polar uncharged",
     "Q": "Polar uncharged",
+    "B": "Polar",
     "C": "Special",
     "X": "Unknown",
     "U": "Special",

@@ -8,14 +8,14 @@
 */*.png
 **/*.png
 
-<!-- *.h5
+*.h5
 */*.h5
-**/*.h5 -->
+**/*.h5
 
 sandbox/**
 
-data/proeng/gb1/*
-data/proeng/aav/*
+<!-- data/proeng/gb1/*
+data/proeng/aav/* -->
 data/structure/**
 
 results/train_val_test/**

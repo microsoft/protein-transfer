@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+import json
 import argparse
 
 import numpy as np
@@ -77,6 +77,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--all_embed_layers",
+    type=bool,
+    metavar="AEL",
+    default=True,
+    help="if include all embed layers (default: True)",
+)
+
+parser.add_argument(
     "--seq_start_idx",
     metavar="SSI",
     default=False,
@@ -88,6 +96,14 @@ parser.add_argument(
     metavar="SEI",
     default=False,
     help="the index for the end of the sequence (default: False)",
+)
+
+parser.add_argument(
+    "--if_encode_all",
+    type=bool,
+    metavar="EA",
+    default=True,
+    help="if encode all embed layers all at once (default: True)",
 )
 
 parser.add_argument(
@@ -108,6 +124,7 @@ parser.add_argument(
 
 parser.add_argument(
     "--ridge_params",
+    type=json.loads,
     metavar="RP",
     default=None,
     help="additional argument for ridge regression (default: None)",
@@ -133,8 +150,10 @@ RunRidge(
     embed_batch_size=args.embed_batch_size,
     flatten_emb=args.flatten_emb,
     embed_folder=args.embed_folder,
+    all_embed_layers=args.all_embed_layers,
     seq_start_idx=args.seq_start_idx,
     seq_end_idx=args.seq_end_idx,
+    if_encode_all=args.if_encode_all,
     alphas=args.alphas,
     ridge_state=args.ridge_state,
     ridge_params=args.ridge_params,

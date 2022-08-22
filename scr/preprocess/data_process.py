@@ -407,7 +407,8 @@ class ProtranDataset(Dataset):
         self._embed_layer = embed_layer
 
         # encode all and load in memory
-        if self.if_encode_all and self._embed_folder is None:
+        if self.if_encode_all or (self._embed_folder is None and self._embed_layer is None):
+            print("Encoding all...")
             # encode the sequences without the mut_name
             # init an empty dict with empty list to append emb
             encoded_dict = defaultdict(list)
@@ -429,7 +430,6 @@ class ProtranDataset(Dataset):
                     self,
                     "layer" + str(layer),
                     np.vstack(emb)
-                    # torch.tensor(np.vstack(emb), dtype=torch.float32),
                 )
 
         # load full one layer embedding
@@ -565,6 +565,7 @@ class ProtranDataset(Dataset):
             y = self._df_dict[self._subset][column_name]
 
             if column_name == "sequence":
+
                 return (
                     # self._df_dict[self._subset]["sequence"]
                     y.astype(str)

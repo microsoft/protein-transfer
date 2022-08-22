@@ -122,6 +122,7 @@ class LayerLoss:
             else:
                 add_onehot = False
 
+        # combine different model into one big plot with different encoders
         collage_folder = os.path.join(self._output_path, "collage")
         checkNgen_folder(collage_folder)
 
@@ -139,6 +140,7 @@ class LayerLoss:
                 encoder_label = "carp"
             else:
                 encoder_names = list(set(encoder_dict.keys()))
+                encoder_label = "pretrained"
 
             fig, axs = plt.subplots(
                 metric_numb,
@@ -147,7 +149,8 @@ class LayerLoss:
                 sharex="col",
                 figsize=(20, 10),
             )
-            for m, metric in enumerate(self._metric_dict[task]):
+            for m, metric in enumerate(self._metric_dict[collage_name.split("_")[0]]):
+
                 for n, encoder_name in enumerate(encoder_names):
                     axs[m, n].plot(
                         encoder_dict[encoder_name][metric], label=encoder_label
@@ -268,7 +271,10 @@ class LayerLoss:
             # get the layer number
             layer_numb = int(get_filename(pkl_file).split("-")[-1].split("_")[-1])
             # load the result dictionary
-            result_dict = pickle_load(pkl_file)
+            try:
+                result_dict = pickle_load(pkl_file)
+            except Exception as e:
+                print(f"{pkl_file} with err: ", e)
 
             # populate the processed dictionary
             for metric in self._metric_dict[task]:
