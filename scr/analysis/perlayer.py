@@ -161,7 +161,7 @@ class LayerLoss:
                         axs[m, n].axhline(
                             self._onehot_baseline_dict[onehot_name][metric],
                             label="onehot",
-                            color="#D3D3D3",  # light grey
+                            color="#000000",  # black or #D3D3D3 light grey 
                             linestyle="dotted",
                         )
 
