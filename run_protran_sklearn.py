@@ -80,8 +80,8 @@ parser.add_argument(
     "--all_embed_layers",
     type=bool,
     metavar="AEL",
-    default=True,
-    help="if include all embed layers (default: True)",
+    default=False,
+    help="if include all embed layers (default: False)",
 )
 
 parser.add_argument(
@@ -102,8 +102,8 @@ parser.add_argument(
     "--if_encode_all",
     type=bool,
     metavar="EA",
-    default=True,
-    help="if encode all embed layers all at once (default: True)",
+    default=False,
+    help="if encode all embed layers all at once (default: False)",
 )
 
 parser.add_argument(

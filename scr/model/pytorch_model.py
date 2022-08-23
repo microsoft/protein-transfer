@@ -42,12 +42,15 @@ class LinearClassifier(nn.Module):
         """Return the name of the model"""
         return "LinearClassifier"
 
-
 class MultiLabelMultiClass(nn.Module):
     """Multi label multi class"""
 
-    def __init__(self) -> None:
-        super(MultiLabelMultiClass).__init__()
+    def __init__(self, input_dim: int, numb_class: int) -> None:
+        super(MultiLabelMultiClass, self).__init__()
+        self.linear = nn.Linear(input_dim, numb_class)
+
+    def forward(self, x: torch.tensor) -> torch.tensor:
+        return self.linear(x)
 
     @property
     def model_name(self) -> str:

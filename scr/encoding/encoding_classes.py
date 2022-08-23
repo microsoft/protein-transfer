@@ -141,7 +141,6 @@ class AbstractEncoder(ABC):
 
         if (
             flatten_emb in [True, "flatten", "flattened", ""]
-            or self._encoder_name == "onehot"
         ):
             # shape [batch_size, seq_len * embed_dim]
             return encoded_mut_seqs.reshape(encoded_mut_seqs.shape[0], -1)
@@ -155,7 +154,7 @@ class AbstractEncoder(ABC):
                 return encoded_mut_seqs.max(axis=1)
 
         else:
-            print("No embedding flattening")
+            # print("No embedding flattening")
             # [batch_size, seq_len, embed_dim]
             return encoded_mut_seqs
 

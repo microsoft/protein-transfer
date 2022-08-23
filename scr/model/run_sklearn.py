@@ -464,7 +464,7 @@ class RunSK:
             if self.sklearn_params is None:
                 self.sklearn_params = {}
                 self.sklearn_params["multi_class"] = "multinomial"
-                self.sklearn_params["max_iter"] = 1000
+                self.sklearn_params["max_iter"] = 10000
 
         all_sklearn_results = {}
 

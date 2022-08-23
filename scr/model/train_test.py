@@ -139,7 +139,7 @@ def run_epoch(
             if criterion is not None:
                 if model.model_name == "LinearRegression":
                     loss = criterion(outputs, y.float())
-                elif model.model_name == "LinearClassifier":
+                elif model.model_name == "LinearClassifier" or "MultiLabelMultiClass":
                     loss = criterion(outputs, y.squeeze())
 
                 if optimizer is not None:
@@ -304,7 +304,7 @@ def test(
             labels.append(y.detach().cpu().squeeze().numpy())
 
             # append class
-            if model.model_name == "LinearClassifier":
+            if model.model_name == "LinearClassifier" or "MultiLabelMultiClass":
                 pred_classes.append(
                     outputs.detach()
                     .cpu()
@@ -319,7 +319,7 @@ def test(
             if criterion is not None:
                 if model.model_name == "LinearRegression":
                     loss = criterion(outputs, y)
-                elif model.model_name == "LinearClassifier":
+                elif model.model_name == "LinearClassifier" or "MultiLabelMultiClass":
                     loss = criterion(outputs, y.squeeze())
                 cum_loss += loss.item()
 
