@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import Sequence, defaultdict
+from collections import defaultdict
 
 import os
 from glob import glob
@@ -131,6 +131,23 @@ def std_ssdf(
         ).to_csv(os.path.join(folder_path, ss_test + ".csv"), index=False)
 
 
+def split_train_val_test_df(df: pd.DataFrame) -> list[pd.DataFrame]:
+    """
+    Return split dataframe for training, validation, and testing
+
+    Args:
+    - df: pd.DataFrame, input dataframe
+
+    Returns:
+    - a list of dataframes for train, val, test
+    """
+    return (
+        df.loc[(df["set"] == "train") & (df["validation"] != True)],
+        df.loc[(df["set"] == "train") & (df["validation"] == True)],
+        df.loc[(df["set"] == "test")],
+    )
+
+
 class DatasetInfo:
     """
     A class returns the information of a dataset
@@ -221,59 +238,70 @@ class TaskProcess:
         list_for_df = []
         for dataset_folder in dataset_folders:
             _, task, dataset = dataset_folder.split("/")
+
+            csv_paths = glob(f"{dataset_folder}/*.csv")
+
             if task == "structure":
-                structure_file_list = [
-                    file_path
-                    for file_path in glob(f"{dataset_folder}/*.*")
-                    if os.path.basename(os.path.splitext(file_path)[0]).split("_")[-1]
-                    in ["train", "valid", "cb513"]
-                ]
-                list_for_df.append(
-                    tuple([task, dataset, "cb513", structure_file_list, "", ""])
-                )
-            else:
-                csv_paths = glob(f"{dataset_folder}/*.csv")
-                fasta_paths = glob(f"{dataset_folder}/*.fasta")
-                pkl_paths = glob(f"{dataset_folder}/*.pkl")
+                csv_paths = set(csv_paths) - set(glob(f"{dataset_folder}/tape_ss3.csv"))
 
-                assert len(csv_paths) >= 1, "Less than one csv"
-                assert len(fasta_paths) <= 1, "More than one fasta"
+            fasta_paths = glob(f"{dataset_folder}/*.fasta")
+            pkl_paths = glob(f"{dataset_folder}/*.pkl")
 
-                for csv_path in csv_paths:
-                    # if parent seq fasta exists
-                    if len(fasta_paths) == 1:
-                        fasta_path = fasta_paths[0]
+            assert len(csv_paths) >= 1, "Less than one csv"
+            assert len(fasta_paths) <= 1, "More than one fasta"
 
-                        # if no existing pkl file, generate and save
-                        if len(pkl_paths) == 0:
-                            print(f"Adding mutation info to {csv_path}...")
-                            pkl_path = AddMutInfo(
-                                parent_seq_path=fasta_path, csv_path=csv_path
-                            ).pkl_path
-                        # pkl file exits
-                        else:
-                            pkl_path = replace_ext(input_path=csv_path, ext=".pkl")
-                    # no parent fasta no pkl file
+            for csv_path in csv_paths:
+                # if parent seq fasta exists
+                if len(fasta_paths) == 1:
+                    fasta_path = fasta_paths[0]
+
+                    # if no existing pkl file, generate and save
+                    if len(pkl_paths) == 0:
+                        print(f"Adding mutation info to {csv_path}...")
+                        pkl_path = AddMutInfo(
+                            parent_seq_path=fasta_path, csv_path=csv_path
+                        ).pkl_path
+                    # pkl file exits
                     else:
-                        fasta_path = ""
-                        pkl_path = ""
+                        pkl_path = replace_ext(input_path=csv_path, ext=".pkl")
+                # no parent fasta no pkl file
+                else:
+                    fasta_path = ""
+                    pkl_path = ""
 
-                    list_for_df.append(
-                        tuple(
-                            [
-                                task,
-                                dataset,
-                                os.path.basename(os.path.splitext(csv_path)[0]),
-                                csv_path,
-                                fasta_path,
-                                pkl_path,
-                            ]
-                        )
+                train_df, val_df, test_df = split_train_val_test_df(
+                    pd.read_csv(csv_path)
+                )
+
+                list_for_df.append(
+                    tuple(
+                        [
+                            task,
+                            dataset,
+                            os.path.basename(os.path.splitext(csv_path)[0]),
+                            len(train_df),
+                            len(val_df),
+                            len(test_df),
+                            csv_path,
+                            fasta_path,
+                            pkl_path,
+                        ]
                     )
+                )
 
         return pd.DataFrame(
             list_for_df,
-            columns=["task", "dataset", "split", "csv_path", "fasta_path", "pkl_path"],
+            columns=[
+                "task",
+                "dataset",
+                "split",
+                "train_numb",
+                "val_numb",
+                "test_numb",
+                "csv_path",
+                "fasta_path",
+                "pkl_path",
+            ],
         )
 
     @property
@@ -343,6 +371,7 @@ class ProtranDataset(Dataset):
             "validation" in self._df.columns
         ), f"validation is not a column in {dataset_path}"
 
+        """
         self._df_train = self._df.loc[
             (self._df["set"] == "train") & (self._df["validation"] != True)
         ]
@@ -350,6 +379,9 @@ class ProtranDataset(Dataset):
             (self._df["set"] == "train") & (self._df["validation"] == True)
         ]
         self._df_test = self._df.loc[(self._df["set"] == "test")]
+        """
+
+        self._df_train, self._df_val, self._df_test = split_train_val_test_df(self._df)
 
         self._df_dict = {
             "train": self._df_train,
@@ -407,7 +439,9 @@ class ProtranDataset(Dataset):
         self._embed_layer = embed_layer
 
         # encode all and load in memory
-        if self.if_encode_all or (self._embed_folder is None and self._embed_layer is None):
+        if self.if_encode_all or (
+            self._embed_folder is None and self._embed_layer is None
+        ):
             print("Encoding all...")
             # encode the sequences without the mut_name
             # init an empty dict with empty list to append emb
@@ -426,11 +460,7 @@ class ProtranDataset(Dataset):
 
             # assign each layer as its own variable
             for layer, emb in encoded_dict.items():
-                setattr(
-                    self,
-                    "layer" + str(layer),
-                    np.vstack(emb)
-                )
+                setattr(self, "layer" + str(layer), np.vstack(emb))
 
         # load full one layer embedding
         if self._embed_folder is not None and self._embed_layer is not None:
@@ -446,6 +476,8 @@ class ProtranDataset(Dataset):
             )
 
             emb_table.flush()
+
+            print(f"setting attr for layer {self._embed_layer}")
 
             setattr(
                 self,

@@ -161,7 +161,7 @@ class LayerLoss:
                         axs[m, n].axhline(
                             self._onehot_baseline_dict[onehot_name][metric],
                             label="onehot",
-                            color="#000000",  # black or #D3D3D3 light grey 
+                            color="#000000",  # black or #D3D3D3 light grey
                             linestyle="dotted",
                         )
 
@@ -196,7 +196,9 @@ class LayerLoss:
                 ax.set_title(col, fontsize=16)
 
             # add row names
-            for ax, row in zip(axs[:, 0], self._metric_dict[task]):
+            for ax, row in zip(
+                axs[:, 0], self._metric_dict[collage_name.split("_")[0]]
+            ):
                 ax.set_ylabel(row.replace("_", " "), fontsize=16)
                 ax.tick_params(axis="y", labelsize=16)
 
