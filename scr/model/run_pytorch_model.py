@@ -18,8 +18,17 @@ from scr.params.sys import RAND_SEED, DEVICE
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, MAX_SEQ_LEN
 
 from scr.preprocess.data_process import split_protrain_loader, DatasetInfo
-from scr.encoding.encoding_classes import OnehotEncoder, ESMEncoder, CARPEncoder, get_emb_info
-from scr.model.pytorch_model import LinearRegression, LinearClassifier
+from scr.encoding.encoding_classes import (
+    OnehotEncoder,
+    ESMEncoder,
+    CARPEncoder,
+    get_emb_info,
+)
+from scr.model.pytorch_model import (
+    LinearRegression,
+    LinearClassifier,
+    MultiLabelMultiClass,
+)
 
 from scr.model.train_test import train, test
 from scr.vis.learning_vis import plot_lc
@@ -101,7 +110,9 @@ class Run_Pytorch:
         self._dataset_path = dataset_path
         self._encoder_name = encoder_name
 
-        if self._encoder_name not in (list(TRANSFORMER_INFO.keys()) + list(CARP_INFO.keys())):
+        if self._encoder_name not in (
+            list(TRANSFORMER_INFO.keys()) + list(CARP_INFO.keys())
+        ):
             self._encoder_name = "onehot"
 
         self._reset_param = reset_param
@@ -148,8 +159,11 @@ class Run_Pytorch:
         elif encoder_class == CARPEncoder:
             self._encoder_info_dict = CARP_INFO
         elif encoder_class == OnehotEncoder:
-            #TODO aultoto
-            self._encoder_info_dict = {"onehot": (MAX_SEQ_LEN*22, )}
+            # TODO aultoto
+            if self._flatten_emb == False:
+                self._encoder_info_dict = {"onehot": (AA_NUMB,)}
+            else:
+                self._encoder_info_dict = {"onehot": (MAX_SEQ_LEN * 22,)}
 
         if if_multiprocess:
             print("Running different emb layer in parallel...")
@@ -180,9 +194,18 @@ class Run_Pytorch:
             )
             criterion = nn.CrossEntropyLoss()
 
+        elif self._model_type == "MultiLabelMultiClass":
+            model = MultiLabelMultiClass(
+                input_dim=self._encoder_info_dict[self._encoder_name][0],
+                numb_class=self._numb_class,
+            )
+            # criterion = nn.CrossEntropyLoss()
+            criterion = nn.BCELoss()
+
         model.to(self._device, non_blocking=True)
 
         criterion.to(self._device, non_blocking=True)
+        # print("in layer before train")
 
         train_losses, val_losses = train(
             model=model,
@@ -210,13 +233,16 @@ class Run_Pytorch:
             "losses": {"train_losses": train_losses, "val_losses": val_losses}
         }
 
+        if self._flatten_emb == False:
+            flatten_emb_name = "noflatten"
+
         plot_lc(
             train_losses=train_losses,
             val_losses=val_losses,
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,
-            flatten_emb=self._flatten_emb,
+            flatten_emb=flatten_emb_name,
             all_plot_folder=get_default_output_path(self._all_plot_folder),
         )
 
@@ -252,8 +278,23 @@ class Run_Pytorch:
                     "rocauc": roc_auc_score(
                         true,
                         nn.Softmax(dim=1)(torch.from_numpy(pred)).numpy(),
-                        multi_class="ovo",
+                        multi_class="ovr",
                     )
+                    # "rocauc": eval_rocauc(true, pred),
+                }
+
+            elif model.model_name == "MultiLabelMultiClass":
+                result_dict[subset] = {
+                    "bceloss": loss,
+                    "pred": pred,
+                    "true": true,
+                    "acc": accuracy_score(true.flatten(), cls.flatten()),
+                    "avg-acc": np.array(
+                        [
+                            accuracy_score(seq_true, seq_cls)
+                            for (seq_true, seq_cls) in zip(true, cls)
+                        ]
+                    ).mean(),
                     # "rocauc": eval_rocauc(true, pred),
                 }
 
@@ -262,7 +303,7 @@ class Run_Pytorch:
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,
-            flatten_emb=self._flatten_emb,
+            flatten_emb=flatten_emb_name,
         )
 
         print(f"Saving results for {file_name} to: {dataset_subfolder}...")

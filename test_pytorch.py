@@ -25,7 +25,7 @@ from scr.model.run_pytorch_model import Run_Pytorch
     all_result_folder = "test/train_val_test",
     # **encoder_params,
     )"""
-
+"""
 Run_Pytorch(
     dataset_path="data/proeng/thermo/mixed_split.csv",
     encoder_name="",
@@ -42,6 +42,31 @@ Run_Pytorch(
     learning_rate = 1e-4,
     lr_decay = 0.1,
     epochs = 50,
+    early_stop = True,
+    tolerance = 10,
+    min_epoch = 5,
+    device = DEVICE,
+    all_plot_folder = "test/learning_curves",
+    all_result_folder = "test/train_val_test",
+    # **encoder_params,
+    )"""
+
+Run_Pytorch(
+    dataset_path="data/structure/secondary_structure/casp12.csv",
+    encoder_name="",
+    reset_param = False,
+    resample_param = False,
+    embed_batch_size = 0,
+    flatten_emb= False,
+    embed_folder=None,
+    seq_start_idx= False,
+    seq_end_idx = False,
+    loader_batch_size = 64,
+    worker_seed = RAND_SEED,
+    if_encode_all = True,
+    learning_rate = 1e-4,
+    lr_decay = 0.1,
+    epochs = 200,
     early_stop = True,
     tolerance = 10,
     min_epoch = 5,

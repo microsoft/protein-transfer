@@ -24,7 +24,7 @@ torch.backends.cudnn.deterministic = True
 
 
 def get_x_y(
-    model, device, batch, embed_layer: int,
+    device, batch, embed_layer: int,
 ):
     """
     A function process x and y from the loader
@@ -38,26 +38,19 @@ def get_x_y(
     """
 
     # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
-    x = batch[4][embed_layer]
+    # or: y, seuqence, mut_name, mut_numb, layer0, ...
+    embs = batch[4]
+    if torch.is_tensor(embs):
+        x = embs
+    else:
+        x = embs[embed_layer]
     y = batch[0]
 
-    """
-    # process y depends on model type
-    # annotation classification
-    if model.model_name == "LinearClassifier":
-        le = LabelEncoder()
-        y = le.fit_transform(y.flatten())
-    """
-
     # ss3 / ss8 type
-    if model.model_name == "MultiLabelMultiClass":
-        # convert the y into np.arrays with -1 padding to the same length
-        y = np.stack(
-            [
-                np.pad(i, pad_width=(0, x.shape[1] - len(i)), constant_values=-1,)
-                for i in y
-            ]
-        )
+    if len(y.shape) == 3:
+        y = torch.squeeze(y)
+    x = x.to(torch.float32)
+    y = y.to(torch.float32)
 
     return x.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
@@ -105,42 +98,23 @@ def run_epoch(
     with torch.set_grad_enabled(is_train):
         # if not if_encode_all:
         # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
+
         for batch in loader:
-            x, y = get_x_y(model, device, batch, embed_layer)
 
-            """
-            x = batch[4][embed_layer]
-            y = batch[0]
-
-            # process y depends on model type
-            # annotation classification
-            if model.model_name == "LinearClassifier":
-                le = LabelEncoder()
-                y = le.fit_transform(y.flatten())
-            # ss3 / ss8 type
-            elif model.model_name == "MultiLabelMultiClass":
-                # convert the y into np.arrays with -1 padding to the same length
-                y = np.stack(
-                    [
-                        np.pad(
-                            np.array(i[1:-1].split(", ")),
-                            pad_width=(0, x.shape[1] - len(i)),
-                            constant_values=-1,
-                        )
-                        for i in y
-                    ]
-                )
-
-            x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
-            """
+            x, y = get_x_y(device, batch, embed_layer)
 
             outputs = model(x)
 
             if criterion is not None:
                 if model.model_name == "LinearRegression":
                     loss = criterion(outputs, y.float())
-                elif model.model_name == "LinearClassifier" or "MultiLabelMultiClass":
+                elif model.model_name == "LinearClassifier":
                     loss = criterion(outputs, y.squeeze())
+                elif model.model_name == "MultiLabelMultiClass":
+                    loss = criterion(
+                        outputs,
+                        (torch.arange(y.max() + 1) == y[..., None]).to(torch.float32),
+                    )
 
                 if optimizer is not None:
                     optimizer.zero_grad()
@@ -288,14 +262,7 @@ def test(
 
         for i, batch in enumerate(tqdm(loader)):
             # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
-            x, y = get_x_y(model, device, batch, embed_layer)
-
-            """
-            x = batch[4][embed_layer]
-            y = batch[0]
-
-            x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
-            """
+            x, y = get_x_y(device, batch, embed_layer)
 
             # forward + backward + optimize
             outputs = model(x)
@@ -304,7 +271,7 @@ def test(
             labels.append(y.detach().cpu().squeeze().numpy())
 
             # append class
-            if model.model_name == "LinearClassifier" or "MultiLabelMultiClass":
+            if model.model_name == "LinearClassifier":
                 pred_classes.append(
                     outputs.detach()
                     .cpu()
@@ -312,15 +279,23 @@ def test(
                     .squeeze()
                     .numpy()
                 )
-                # pred_probs.append(outputs.detach().cpu().squeeze().numpy())
-            # else:
+            elif model.model_name == "MultiLabelMultiClass":
+                pred_classes.append(
+                    torch.argmax(outputs, dim=2).detach().cpu().squeeze().numpy()
+                )
+
             pred_probs.append(outputs.detach().cpu().squeeze().numpy())
 
             if criterion is not None:
                 if model.model_name == "LinearRegression":
                     loss = criterion(outputs, y)
-                elif model.model_name == "LinearClassifier" or "MultiLabelMultiClass":
+                elif model.model_name == "LinearClassifier":
                     loss = criterion(outputs, y.squeeze())
+                elif model.model_name == "MultiLabelMultiClass":
+                    loss = criterion(
+                        outputs,
+                        (torch.arange(y.max() + 1) == y[..., None]).to(torch.float32),
+                    )
                 cum_loss += loss.item()
 
                 if ((i + 1) % print_every == 0) or (i + 1 == len(loader)):

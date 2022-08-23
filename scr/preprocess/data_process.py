@@ -371,16 +371,6 @@ class ProtranDataset(Dataset):
             "validation" in self._df.columns
         ), f"validation is not a column in {dataset_path}"
 
-        """
-        self._df_train = self._df.loc[
-            (self._df["set"] == "train") & (self._df["validation"] != True)
-        ]
-        self._df_val = self._df.loc[
-            (self._df["set"] == "train") & (self._df["validation"] == True)
-        ]
-        self._df_test = self._df.loc[(self._df["set"] == "test")]
-        """
-
         self._df_train, self._df_val, self._df_test = split_train_val_test_df(self._df)
 
         self._df_dict = {
@@ -425,6 +415,7 @@ class ProtranDataset(Dataset):
         elif self._encoder_name in CARP_INFO.keys():
             encoder_class = CARPEncoder
         else:
+            self._encoder_name == "onehot"
             encoder_class = OnehotEncoder
             encoder_params["max_seq_len"] = self._max_seq_len
 
@@ -515,6 +506,7 @@ class ProtranDataset(Dataset):
         - idx: int
         """
         if self.if_encode_all and self._embed_folder is None:
+
             return (
                 self.y[idx],
                 self.sequence[idx],
@@ -616,7 +608,20 @@ class ProtranDataset(Dataset):
                 return le.fit_transform(y.values.flatten())
             elif column_name == "target" and self._model_type == "MultiLabelMultiClass":
                 print("Converting ss3/ss8 into np.array...")
-                return y.apply(lambda x: np.array(x[1:-1].split(", "))).values
+
+                np_y = (
+                    y.apply(lambda x: np.array(x[1:-1].split(", ")).astype("int")) + 1
+                )
+                return np.stack(
+                    [
+                        np.pad(
+                            i,
+                            pad_width=(0, self._max_seq_len - len(i)),
+                            constant_values=0,
+                        )
+                        for i in np_y
+                    ]
+                )
             else:
                 return y.values
 
