@@ -39,6 +39,7 @@ def get_x_y(
 
     # for each batch: y, sequence, mut_name, mut_numb, [layer0, ...]
     # or: y, seuqence, mut_name, mut_numb, layer0, ...
+
     embs = batch[4]
     if torch.is_tensor(embs):
         x = embs
@@ -48,9 +49,8 @@ def get_x_y(
 
     # ss3 / ss8 type
     if len(y.shape) == 3:
-        y = torch.squeeze(y)
-    x = x.to(torch.float32)
-    y = y.to(torch.float32)
+        y = torch.squeeze(y).to(torch.float32)
+        x = x.to(torch.float32)
 
     return x.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
@@ -111,10 +111,18 @@ def run_epoch(
                 elif model.model_name == "LinearClassifier":
                     loss = criterion(outputs, y.squeeze())
                 elif model.model_name == "MultiLabelMultiClass":
+                    detached_y = y.detach().cpu().numpy()
+                    binary_y = torch.from_numpy((np.arange(detached_y.max() + 1) == detached_y[..., None]))
+                    loss = criterion(
+                        outputs,
+                        binary_y.to(torch.float32),
+                    )
+                    """
                     loss = criterion(
                         outputs,
                         (torch.arange(y.max() + 1) == y[..., None]).to(torch.float32),
                     )
+                    """
 
                 if optimizer is not None:
                     optimizer.zero_grad()
@@ -292,9 +300,11 @@ def test(
                 elif model.model_name == "LinearClassifier":
                     loss = criterion(outputs, y.squeeze())
                 elif model.model_name == "MultiLabelMultiClass":
+                    detached_y = y.detach().cpu().numpy()
+                    binary_y = torch.from_numpy((np.arange(detached_y.max() + 1) == detached_y[..., None]))
                     loss = criterion(
                         outputs,
-                        (torch.arange(y.max() + 1) == y[..., None]).to(torch.float32),
+                        binary_y.to(torch.float32),
                     )
                 cum_loss += loss.item()
 

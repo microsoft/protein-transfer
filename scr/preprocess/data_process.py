@@ -555,12 +555,6 @@ class ProtranDataset(Dataset):
                 )
             # only pick particular embeding layer
             else:
-                """
-                setattr(
-                    self,
-                    "layer" + str(self._embed_layer),
-                    getattr(emb_table.root, "layer" + str(self._embed_layer)),
-                )"""
 
                 return (
                     self.y[idx],

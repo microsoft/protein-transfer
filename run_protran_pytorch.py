@@ -47,7 +47,7 @@ parser.add_argument(
 parser.add_argument(
     "--flatten_emb",
     metavar="FE",
-    default="mean",
+    default=False,
     help="if (False) and how ('mean', 'max']) to flatten the embedding (default: 'mean')",
 )
 
@@ -170,9 +170,9 @@ parser.add_argument(
 parser.add_argument(
     "--all_result_folder",
     type=str,
-    default="results/train_val_test",
+    default="results/pytorch",
     metavar="O",
-    help="the parent folder for all results (default: 'results/train_val_test')",
+    help="the parent folder for all results (default: 'results/pytorch')",
 )
 
 # TODO add encoder_params

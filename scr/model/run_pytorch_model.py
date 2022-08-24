@@ -6,6 +6,8 @@ import os
 from tqdm import tqdm
 from concurrent import futures
 
+import numpy as np
+
 import torch
 import torch.nn as nn
 
@@ -59,7 +61,7 @@ class Run_Pytorch:
         min_epoch: int = 5,
         device: torch.device | str = DEVICE,
         all_plot_folder: str = "results/learning_curves",
-        all_result_folder: str = "results/train_val_test",
+        all_result_folder: str = "results/pytorch",
         **encoder_params,
     ) -> None:
 
@@ -129,11 +131,22 @@ class Run_Pytorch:
         self._device = device
         self._all_plot_folder = all_plot_folder
         self._all_result_folder = all_result_folder
+
+        if self._reset_param and "-rand" not in self._all_result_folder:
+            self._all_result_folder = f"{self._all_result_folder}-rand"
+            self._all_plot_folder = f"{self._all_plot_folder}-rand"
+
+        if self._resample_param and "-stat" not in self._all_result_folder:
+            self._all_result_folder = f"{self._all_result_folder}-stat"
+            self._all_plot_folder = f"{self._all_plot_folder}-stat"
+
         self._encoder_params = encoder_params
 
         self._ds_info = DatasetInfo(self._dataset_path)
         self._model_type = self._ds_info.model_type
         self._numb_class = self._ds_info.numb_class
+        
+        print(f"Running {self._model_type}...")
 
         self._train_loader, self._val_loader, self._test_loader = split_protrain_loader(
             dataset_path=self._dataset_path,
@@ -199,13 +212,10 @@ class Run_Pytorch:
                 input_dim=self._encoder_info_dict[self._encoder_name][0],
                 numb_class=self._numb_class,
             )
-            # criterion = nn.CrossEntropyLoss()
             criterion = nn.BCELoss()
 
         model.to(self._device, non_blocking=True)
-
         criterion.to(self._device, non_blocking=True)
-        # print("in layer before train")
 
         train_losses, val_losses = train(
             model=model,
@@ -235,6 +245,8 @@ class Run_Pytorch:
 
         if self._flatten_emb == False:
             flatten_emb_name = "noflatten"
+        else:
+            flatten_emb_name = self._flatten_emb
 
         plot_lc(
             train_losses=train_losses,
@@ -284,18 +296,17 @@ class Run_Pytorch:
                 }
 
             elif model.model_name == "MultiLabelMultiClass":
+                scaled_pred = nn.Softmax(dim=2)(torch.from_numpy(pred)).numpy()
                 result_dict[subset] = {
                     "bceloss": loss,
                     "pred": pred,
                     "true": true,
                     "acc": accuracy_score(true.flatten(), cls.flatten()),
-                    "avg-acc": np.array(
-                        [
-                            accuracy_score(seq_true, seq_cls)
-                            for (seq_true, seq_cls) in zip(true, cls)
-                        ]
-                    ).mean(),
-                    # "rocauc": eval_rocauc(true, pred),
+                    "rocauc": roc_auc_score(
+                        true.flatten(),
+                        scaled_pred.reshape(-1, scaled_pred.shape[-1]),
+                        multi_class="ovr",
+                    )
                 }
 
         dataset_subfolder, file_name = get_folder_file_names(
