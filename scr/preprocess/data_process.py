@@ -455,6 +455,7 @@ class ProtranDataset(Dataset):
 
         # load full one layer embedding
         if self._embed_folder is not None and self._embed_layer is not None:
+            print(f"Load {self._embed_layer} from {self._embed_folder}...")
 
             emb_table = tables.open_file(
                 os.path.join(
@@ -467,8 +468,6 @@ class ProtranDataset(Dataset):
             )
 
             emb_table.flush()
-
-            print(f"setting attr for layer {self._embed_layer}")
 
             setattr(
                 self,

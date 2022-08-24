@@ -115,7 +115,7 @@ def run_epoch(
                     binary_y = torch.from_numpy((np.arange(detached_y.max() + 1) == detached_y[..., None]))
                     loss = criterion(
                         outputs,
-                        binary_y.to(torch.float32),
+                        binary_y.to(torch.float32).to(device, non_blocking=True),
                     )
                     """
                     loss = criterion(
@@ -304,7 +304,7 @@ def test(
                     binary_y = torch.from_numpy((np.arange(detached_y.max() + 1) == detached_y[..., None]))
                     loss = criterion(
                         outputs,
-                        binary_y.to(torch.float32),
+                        binary_y.to(torch.float32).to(device, non_blocking=True),
                     )
                 cum_loss += loss.item()
 

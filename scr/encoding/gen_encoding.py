@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import tables
 
+import numpy as np
+
 from scr.utils import get_folder_file_names, checkNgen_folder
 from scr.params.emb import MAX_SEQ_LEN
 from scr.encoding.encoding_classes import get_emb_info, OnehotEncoder
@@ -95,6 +97,7 @@ class GenerateEmbeddings:
         tables.file._open_files.close_all()
 
         for subset in subset_list:
+            print(f"Generating embedding for {subset}...")
             # get the dataset to be encoded
             ds = ProtranDataset(
                 dataset_path=dataset_path,
@@ -105,20 +108,21 @@ class GenerateEmbeddings:
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_folder=None,
+                embed_layer="all",
                 seq_start_idx=seq_start_idx,
                 seq_end_idx=seq_end_idx,
                 if_encode_all=False,
                 **encoder_params,
             )
 
-            max_seq_len = ds.max_seq_len
+            self._max_seq_len = ds.max_seq_len
 
             # get the dim of the array to be saved
             if self.flatten_emb == False:
-                earray_dim = (0, max_seq_len, self._encoder.embed_dim)
+                earray_dim = (0, self._max_seq_len, self._encoder.embed_dim)
             else:
                 earray_dim = (0, self._encoder.embed_dim * embed_rescale)
-            print(earray_dim)
+
             init_array_list = [None] * total_emb_layer
 
             file_path = os.path.join(
@@ -137,6 +141,7 @@ class GenerateEmbeddings:
                 init_array_list[emb_layer] = f.create_earray(
                     f.root, "layer" + str(emb_layer), tables.Float32Atom(), earray_dim
                 )
+            # f.close()
 
             # use the encoder generator for batch emb
             # assume no labels included
@@ -147,4 +152,17 @@ class GenerateEmbeddings:
             ):
 
                 for emb_layer, emb in encoded_batch_dict.items():
-                    getattr(f.root, "layer" + str(emb_layer)).append(emb)
+                    # f = tables.open_file(file_path, mode="a")
+                    getattr(f.root, "layer" + str(emb_layer)).append(
+                        np.pad(
+                            emb,
+                            pad_width=(
+                                (0, 0),
+                                (0, self._max_seq_len - emb.shape[1]),
+                                (0, 0),
+                            ),
+                        )
+                    )
+                    # f.close()
+
+            f.close()
