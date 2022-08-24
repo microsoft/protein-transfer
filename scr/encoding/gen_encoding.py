@@ -64,7 +64,7 @@ class GenerateEmbeddings:
 
         # assert encoder_class != OnehotEncoder, "Generate onehot on the fly instead"
         # add in the max_seq_len for Onehot
-        if encoder_class == OnehotEncoder:
+        if encoder_class == OnehotEncoder and not self.flatten_emb:
             encoder_params["max_seq_len"] = MAX_SEQ_LEN
             embed_rescale = MAX_SEQ_LEN
         else:
@@ -77,21 +77,48 @@ class GenerateEmbeddings:
             resample_param=resample_param,
             **encoder_params,
         )
-        # get the dim of the array to be saved
-        earray_dim = (0, self._encoder.embed_dim * embed_rescale)
+
+        if self.flatten_emb == False:
+            flatten_emb_name = "noflatten"
+        else:
+            flatten_emb_name = self.flatten_emb
 
         dataset_folder, _ = get_folder_file_names(
             parent_folder=self.embed_folder,
             dataset_path=self.dataset_path,
             encoder_name=self.encoder_name,
             embed_layer=0,
-            flatten_emb=self.flatten_emb,
+            flatten_emb=flatten_emb_name,
         )
 
         # Close all the open files
         tables.file._open_files.close_all()
 
         for subset in subset_list:
+            # get the dataset to be encoded
+            ds = ProtranDataset(
+                dataset_path=dataset_path,
+                subset=subset,
+                encoder_name=encoder_name,
+                reset_param=reset_param,
+                resample_param=resample_param,
+                embed_batch_size=embed_batch_size,
+                flatten_emb=flatten_emb,
+                embed_folder=None,
+                seq_start_idx=seq_start_idx,
+                seq_end_idx=seq_end_idx,
+                if_encode_all=False,
+                **encoder_params,
+            )
+
+            max_seq_len = ds.max_seq_len
+
+            # get the dim of the array to be saved
+            if self.flatten_emb == False:
+                earray_dim = (0, max_seq_len, self._encoder.embed_dim)
+            else:
+                earray_dim = (0, self._encoder.embed_dim * embed_rescale)
+            print(earray_dim)
             init_array_list = [None] * total_emb_layer
 
             file_path = os.path.join(
@@ -110,22 +137,6 @@ class GenerateEmbeddings:
                 init_array_list[emb_layer] = f.create_earray(
                     f.root, "layer" + str(emb_layer), tables.Float32Atom(), earray_dim
                 )
-
-            # get the dataset to be encoded
-            ds = ProtranDataset(
-                dataset_path=dataset_path,
-                subset=subset,
-                encoder_name=encoder_name,
-                reset_param=reset_param,
-                resample_param=resample_param,
-                embed_batch_size=embed_batch_size,
-                flatten_emb=flatten_emb,
-                embed_folder=None,
-                seq_start_idx=seq_start_idx,
-                seq_end_idx=seq_end_idx,
-                if_encode_all=False,
-                **encoder_params,
-            )
 
             # use the encoder generator for batch emb
             # assume no labels included
