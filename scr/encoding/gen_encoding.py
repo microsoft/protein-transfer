@@ -24,6 +24,7 @@ class GenerateEmbeddings:
         flatten_emb: bool | str = False,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
+        subset_list: list[str] = ["train", "val", "test"],
         embed_folder: str = "embeddings",
         **encoder_params,
     ) -> None:
@@ -40,6 +41,7 @@ class GenerateEmbeddings:
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
+        - subset_list: list of str, train, val, test, or ss3 tasks including 'cb513', 'ts115', 'casp12'
         - embed_folder: str = "embeddings", the parent folder for embeddings
         - encoder_params: kwarg, additional parameters for encoding
         """
@@ -57,8 +59,6 @@ class GenerateEmbeddings:
 
         if self.resample_param and "-stat" not in self.embed_folder:
             self.embed_folder = f"{self.embed_folder}-stat"
-
-        subset_list = ["train", "val", "test"]
 
         self.encoder_name, encoder_class, total_emb_layer = get_emb_info(
             self.encoder_name
@@ -85,6 +85,7 @@ class GenerateEmbeddings:
         else:
             flatten_emb_name = self.flatten_emb
 
+        # get the folder name
         dataset_folder, _ = get_folder_file_names(
             parent_folder=self.embed_folder,
             dataset_path=self.dataset_path,
@@ -97,7 +98,9 @@ class GenerateEmbeddings:
         tables.file._open_files.close_all()
 
         for subset in subset_list:
+
             print(f"Generating embedding for {subset}...")
+
             # get the dataset to be encoded
             ds = ProtranDataset(
                 dataset_path=dataset_path,
@@ -115,9 +118,11 @@ class GenerateEmbeddings:
                 **encoder_params,
             )
 
+            # get the max seq len from the dataset to pad the embeddings
             self._max_seq_len = ds.max_seq_len
 
             # get the dim of the array to be saved
+            # without flattening
             if self.flatten_emb == False:
                 earray_dim = (0, self._max_seq_len, self._encoder.embed_dim)
             else:
@@ -153,6 +158,7 @@ class GenerateEmbeddings:
 
                 for emb_layer, emb in encoded_batch_dict.items():
                     # f = tables.open_file(file_path, mode="a")
+                    # pad all embedding to the max_seq_len
                     getattr(f.root, "layer" + str(emb_layer)).append(
                         np.pad(
                             emb,

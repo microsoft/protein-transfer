@@ -100,8 +100,9 @@ class AddMutInfo:
         return self._df
 
 
-def std_ssdf(
+def std_split_ssdf(
     ssdf_path: str = "data/structure/secondary_structure/tape_ss3.csv",
+    split_test: bool = True,
 ) -> None:
     """
     A function that standardize secondary structure dataset
@@ -122,30 +123,46 @@ def std_ssdf(
     # rename all columns
     df.columns = ["sequence", "target", "set", "validation"]
 
-    # get all kinds of test sets
-    ss_tests = set(df["set"].unique()) - set(["train"])
+    if split_test:
+        # get all kinds of test sets
+        ss_tests = set(df["set"].unique()) - set(["train"])
 
-    for ss_test in ss_tests:
-        df.loc[~df["set"].isin(set(ss_tests) - set([ss_test]))].replace(
-            ss_test, "test"
-        ).to_csv(os.path.join(folder_path, ss_test + ".csv"), index=False)
+        for ss_test in ss_tests:
+            df.loc[~df["set"].isin(set(ss_tests) - set([ss_test]))].replace(
+                ss_test, "test"
+            ).to_csv(os.path.join(folder_path, ss_test + ".csv"), index=False)
+
+    else:
+        df.to_csv(f"{os.path.splitext(ssdf_path)[0]}_processed.csv", index=False)
 
 
-def split_train_val_test_df(df: pd.DataFrame) -> list[pd.DataFrame]:
+def split_df_sets(df: pd.DataFrame) -> list[pd.DataFrame]:
     """
     Return split dataframe for training, validation, and testing
 
     Args:
     - df: pd.DataFrame, input dataframe
+    - subset_list: list[str] = ["train", "val", "test"]
 
     Returns:
-    - a list of dataframes for train, val, test
+    - a list of dataframes for train, val, test (or ss3 tasks)
     """
-    return (
-        df.loc[(df["set"] == "train") & (df["validation"] != True)],
-        df.loc[(df["set"] == "train") & (df["validation"] == True)],
-        df.loc[(df["set"] == "test")],
-    )
+
+    assert "set" in df.columns, f"set is not a column in the dataframe"
+    assert "validation" in df.columns, f"validation is not a column in the dataframe"
+
+    # init split df dict output
+    df_dict = {}
+
+    df_dict["train"] = df.loc[(df["set"] == "train") & (df["validation"] != True)]
+    df_dict["val"] = df.loc[(df["set"] == "train") & (df["validation"] == True)]
+
+    test_tasks = set(df["set"].unique()) - set(["train"])
+
+    for test_task in test_tasks:
+        df_dict[test_task] = df.loc[(df["set"] == test_task)]
+
+    return df_dict
 
 
 class DatasetInfo:
@@ -242,7 +259,9 @@ class TaskProcess:
             csv_paths = glob(f"{dataset_folder}/*.csv")
 
             if task == "structure":
-                csv_paths = set(csv_paths) - set(glob(f"{dataset_folder}/tape_ss3.csv"))
+                csv_paths = set(csv_paths) - set(
+                    glob(f"{dataset_folder}/tape_ss3*.csv")
+                )
 
             fasta_paths = glob(f"{dataset_folder}/*.fasta")
             pkl_paths = glob(f"{dataset_folder}/*.pkl")
@@ -269,9 +288,7 @@ class TaskProcess:
                     fasta_path = ""
                     pkl_path = ""
 
-                train_df, val_df, test_df = split_train_val_test_df(
-                    pd.read_csv(csv_path)
-                )
+                df_dict = split_df_sets(pd.read_csv(csv_path))
 
                 list_for_df.append(
                     tuple(
@@ -279,9 +296,9 @@ class TaskProcess:
                             task,
                             dataset,
                             os.path.basename(os.path.splitext(csv_path)[0]),
-                            len(train_df),
-                            len(val_df),
-                            len(test_df),
+                            len(df_dict["train"]),
+                            len(df_dict["val"]),
+                            len(df_dict["test"]),
                             csv_path,
                             fasta_path,
                             pkl_path,
@@ -371,17 +388,11 @@ class ProtranDataset(Dataset):
             "validation" in self._df.columns
         ), f"validation is not a column in {dataset_path}"
 
-        self._df_train, self._df_val, self._df_test = split_train_val_test_df(self._df)
-
-        self._df_dict = {
-            "train": self._df_train,
-            "val": self._df_val,
-            "test": self._df_test,
-        }
+        self._df_dict = split_df_sets(self._df)
 
         assert subset in list(
             self._df_dict.keys()
-        ), "split can only be 'train', 'val', or 'test'"
+        ), "split can only be 'train', 'val', 'test' or 'cb513', 'ts115', 'casp12'"
         self._subset = subset
 
         self._subdf_len = len(self._df_dict[self._subset])
@@ -626,17 +637,22 @@ class ProtranDataset(Dataset):
     @property
     def df_train(self) -> pd.DataFrame:
         """Return the dataset for training only"""
-        return self._df_train
+        return self._df_dict["train"]
 
     @property
     def df_val(self) -> pd.DataFrame:
         """Return the dataset for validation only"""
-        return self._df_val
+        return self._df_dict["val"]
 
     @property
-    def df_test(self) -> pd.DataFrame:
-        """Return the dataset for training only"""
-        return self._df_test
+    def df_dict(self) -> pd.DataFrame:
+        """Return the dict with different dataframe split"""
+        return self._df_dict
+
+    @property
+    def subset_list(self) -> pd.DataFrame:
+        """Return the dict with different dataframe split"""
+        return list(self._df_dict.keys())
 
     @property
     def max_seq_len(self) -> int:
@@ -686,8 +702,8 @@ def split_protrain_loader(
     """
 
     assert set(subset_list) <= set(
-        ["train", "val", "test"]
-    ), "subset_list can only contain terms with in be 'train', 'val', or 'test'"
+        ["train", "val", "test", "cb513", "ts115", "casp12"]
+    ), "subset_list can only contain 'train', 'val', 'test', or 'cb513', 'ts115', 'casp12'"
 
     # specify no shuffling for validation and test
     if_shuffle_list = [True if subset == "train" else False for subset in subset_list]

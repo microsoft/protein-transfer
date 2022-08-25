@@ -13,14 +13,15 @@
 **/*.h5
 
 sandbox/**
+test/**
 
 data/proeng/gb1/*
 data/proeng/aav/*
 data/annotation/scl/*
 
 <!-- data/structure/** -->
-
-<!-- results/train_val_test/** -->
+results/**
+results/train_val_test/**
 
 embeddings/proeng/gb1/low_vs_high/esm1_t6_43M_UR50S/mean/train/embedding.h5
 embeddings/proeng/gb1/low_vs_high/esm1_t6_43M_UR50S/mean/test/embedding.h5

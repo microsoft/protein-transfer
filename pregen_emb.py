@@ -1,6 +1,7 @@
 """Script for pre generating all embeddings"""
 from __future__ import annotations
 
+import json
 import argparse
 
 from scr.encoding.gen_encoding import GenerateEmbeddings
@@ -71,6 +72,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--subset_list",
+    metavar="SL",
+    type=json.loads,
+    default=['train', 'val', 'test'],
+    help="the index for the end of the sequence (default: False)",
+)
+
+parser.add_argument(
     "--embed_folder",
     type=str,
     default="embeddings",
@@ -86,7 +95,7 @@ args = parser.parse_args()
 # for emb in ["onehot"] + list(TRANSFORMER_INFO.keys()):
 for emb in list(TRANSFORMER_INFO.keys()):
 # for emb in ["onehot"]:
-    print(f"Generating {emb} embeddings...")
+    print(f"Generating {emb} embeddings for {args.subset_list}...")
     """if emb == "onehot":
         flatten_emb = "flatten"
     else:
@@ -101,6 +110,7 @@ for emb in list(TRANSFORMER_INFO.keys()):
         flatten_emb=args.flatten_emb,
         seq_start_idx=args.seq_start_idx,
         seq_end_idx=args.seq_end_idx,
+        subset_list=args.subset_list,
         embed_folder=get_default_output_path(args.embed_folder),
         # **encoder_params,
     )
