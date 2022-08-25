@@ -48,10 +48,11 @@ class MultiLabelMultiClass(nn.Module):
     def __init__(self, input_dim: int, numb_class: int) -> None:
         super(MultiLabelMultiClass, self).__init__()
         self.linear = nn.Linear(input_dim, numb_class)
-        self.softmax = nn.Softmax(dim=2)
+        # self.softmax = nn.Softmax(dim=2)
 
     def forward(self, x: torch.tensor) -> torch.tensor:
-        return self.softmax(self.linear(x))
+        return self.linear(x)
+        # return self.softmax(self.linear(x))
 
     @property
     def model_name(self) -> str:
