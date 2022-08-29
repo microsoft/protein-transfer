@@ -1,7 +1,7 @@
 import argparse
 
 from scr.params.sys import DEVICE, RAND_SEED
-from scr.model.run_pytorch_model import Run_Pytorch
+from scr.model.run_pytorch import Run_Pytorch
 
 parser = argparse.ArgumentParser(description="Protein transfer with pytorch models")
 

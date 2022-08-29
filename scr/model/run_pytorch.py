@@ -61,7 +61,7 @@ class Run_Pytorch:
         min_epoch: int = 5,
         device: torch.device | str = DEVICE,
         all_plot_folder: str = "results/learning_curves",
-        all_result_folder: str = "results/pytorch",
+        all_result_folder: str = "results/train_val_test",
         **encoder_params,
     ) -> None:
 
@@ -139,16 +139,17 @@ class Run_Pytorch:
         if self._resample_param and "-stat" not in self._all_result_folder:
             self._all_result_folder = f"{self._all_result_folder}-stat"
             self._all_plot_folder = f"{self._all_plot_folder}-stat"
-
+        
         self._encoder_params = encoder_params
 
         self._ds_info = DatasetInfo(self._dataset_path)
         self._model_type = self._ds_info.model_type
         self._numb_class = self._ds_info.numb_class
-        
-        print(f"Running {self._model_type}...")
+        self._subset_list = self._ds_info.subset_list
 
-        self._train_loader, self._val_loader, self._test_loader = split_protrain_loader(
+        print(f"This dataset includes subsets: {self._subset_list}...")
+
+        self._loader_dict = split_protrain_loader(
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
             reset_param=self._reset_param,
@@ -158,7 +159,7 @@ class Run_Pytorch:
             embed_folder=embed_folder,
             seq_start_idx=seq_start_idx,
             seq_end_idx=seq_end_idx,
-            subset_list=["train", "val", "test"],
+            subset_list=self._subset_list,
             loader_batch_size=loader_batch_size,
             worker_seed=worker_seed,
             if_encode_all=if_encode_all,
@@ -172,6 +173,11 @@ class Run_Pytorch:
         elif encoder_class == CARPEncoder:
             self._encoder_info_dict = CARP_INFO
         elif encoder_class == OnehotEncoder:
+
+            if "-onehot" not in self._all_result_folder:
+                self._all_result_folder = f"{self._all_result_folder}-onehot"
+                self._all_plot_folder = f"{self._all_plot_folder}-onehot"
+            
             # TODO aultoto
             if self._flatten_emb == False:
                 self._encoder_info_dict = {"onehot": (AA_NUMB,)}
@@ -212,16 +218,17 @@ class Run_Pytorch:
                 input_dim=self._encoder_info_dict[self._encoder_name][0],
                 numb_class=self._numb_class,
             )
-            criterion = nn.BCELoss()
+            criterion = nn.CrossEntropyLoss()
 
+        model_name = model.model_name
         model.to(self._device, non_blocking=True)
         criterion.to(self._device, non_blocking=True)
 
         train_losses, val_losses = train(
             model=model,
             criterion=criterion,
-            train_loader=self._train_loader,
-            val_loader=self._val_loader,
+            train_loader=self._loader_dict["train"],
+            val_loader=self._loader_dict["val"],
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,
             reset_param=self._reset_param,
@@ -259,20 +266,18 @@ class Run_Pytorch:
         )
 
         # now test the model with the test data
-        for subset, loader in zip(
-            ["train", "val", "test"],
-            [self._train_loader, self._val_loader, self._test_loader],
-        ):
+        for subset, loader_key in zip(self._subset_list, self._loader_dict.keys()):
+            print(f"testing {subset} with loader_key {loader_key}...")
 
             loss, pred, cls, true = test(
                 model=model,
-                loader=loader,
+                loader=self._loader_dict[loader_key],
                 embed_layer=embed_layer,
                 device=self._device,
                 criterion=criterion,
             )
 
-            if model.model_name == "LinearRegression":
+            if model_name == "LinearRegression":
                 result_dict[subset] = {
                     "mse": loss,
                     "pred": pred,
@@ -281,7 +286,7 @@ class Run_Pytorch:
                     "rho": spearmanr(true, pred),
                 }
 
-            elif model.model_name == "LinearClassifier":
+            elif model_name == "LinearClassifier" or "MultiLabelMultiClass":
                 result_dict[subset] = {
                     "cross-entropy": loss,
                     "pred": pred,
@@ -291,22 +296,7 @@ class Run_Pytorch:
                         true,
                         nn.Softmax(dim=1)(torch.from_numpy(pred)).numpy(),
                         multi_class="ovr",
-                    )
-                    # "rocauc": eval_rocauc(true, pred),
-                }
-
-            elif model.model_name == "MultiLabelMultiClass":
-                scaled_pred = nn.Softmax(dim=2)(torch.from_numpy(pred)).numpy()
-                result_dict[subset] = {
-                    "bceloss": loss,
-                    "pred": pred,
-                    "true": true,
-                    "acc": accuracy_score(true.flatten(), cls.flatten()),
-                    "rocauc": roc_auc_score(
-                        true.flatten(),
-                        scaled_pred.reshape(-1, scaled_pred.shape[-1]),
-                        multi_class="ovr",
-                    )
+                    ),
                 }
 
         dataset_subfolder, file_name = get_folder_file_names(

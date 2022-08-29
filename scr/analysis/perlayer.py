@@ -23,8 +23,20 @@ class LayerLoss:
         input_path: str = "results/sklearn",
         output_path: str = "results/sklearn_layer",
         metric_dict: dict[list[str]] = {
-            "proeng": ["train_mse", "test_ndcg", "test_rho"],
-            "annotation": ["train_cross-entropy", "test_acc", "test_rocauc"],
+            "proeng": ["train_mse", "val_mse", "test_ndcg", "test_rho"],
+            "annotation": [
+                "train_cross-entropy",
+                "val_cross-entropy",
+                "test_acc",
+                "test_rocauc",
+            ],
+            "structure": [
+                "train_cross-entropy",
+                "val_cross-entropy",
+                "casp12_acc",
+                "cb513_acc",
+                "ts115_acc",
+            ],
         },
     ):
         """

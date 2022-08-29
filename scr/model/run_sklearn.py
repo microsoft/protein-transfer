@@ -417,6 +417,8 @@ class RunSK:
             self.encoder_name = "onehot"
             total_emb_layer = 1
 
+        if self.encoder_name == "onehot" and "onehot" not in self.all_result_folder:
+            self.all_result_folder = f"{self.all_result_folder}-onehot"
         # if self.all_embed_layers:
         #    print("loading all embed layers...")
         # loader has ALL embedding layers

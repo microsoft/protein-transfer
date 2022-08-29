@@ -113,9 +113,6 @@ def std_split_ssdf(
 
     df = pd.read_csv(ssdf_path)
 
-    # convert the string into numpy array
-    # df["ss3"] = df["ss3"].apply(lambda x: np.array(x[1:-1].split(", ")))
-
     # add validation column
     df["validation"] = df["split"].apply(lambda x: True if x == "valid" else "")
     # now replace valid to train
@@ -136,16 +133,15 @@ def std_split_ssdf(
         df.to_csv(f"{os.path.splitext(ssdf_path)[0]}_processed.csv", index=False)
 
 
-def split_df_sets(df: pd.DataFrame) -> list[pd.DataFrame]:
+def split_df_sets(df: pd.DataFrame) -> dict[pd.DataFrame]:
     """
     Return split dataframe for training, validation, and testing
 
     Args:
     - df: pd.DataFrame, input dataframe
-    - subset_list: list[str] = ["train", "val", "test"]
 
     Returns:
-    - a list of dataframes for train, val, test (or ss3 tasks)
+    - a dict of dataframes for train, val, test (or ss3 tasks)
     """
 
     assert "set" in df.columns, f"set is not a column in the dataframe"
@@ -154,13 +150,17 @@ def split_df_sets(df: pd.DataFrame) -> list[pd.DataFrame]:
     # init split df dict output
     df_dict = {}
 
-    df_dict["train"] = df.loc[(df["set"] == "train") & (df["validation"] != True)]
-    df_dict["val"] = df.loc[(df["set"] == "train") & (df["validation"] == True)]
+    df_dict["train"] = df.loc[
+        (df["set"] == "train") & (df["validation"] != True)
+    ].reset_index(drop=True)
+    df_dict["val"] = df.loc[
+        (df["set"] == "train") & (df["validation"] == True)
+    ].reset_index(drop=True)
 
     test_tasks = set(df["set"].unique()) - set(["train"])
 
     for test_task in test_tasks:
-        df_dict[test_task] = df.loc[(df["set"] == test_task)]
+        df_dict[test_task] = df.loc[(df["set"] == test_task)].reset_index(drop=True)
 
     return df_dict
 
@@ -176,6 +176,11 @@ class DatasetInfo:
         - dataset_path: str, the path for the csv
         """
         self._df = pd.read_csv(dataset_path)
+
+        assert "set" in self._df.columns, f"set is not a column in {dataset_path}"
+        assert (
+            "validation" in self._df.columns
+        ), f"validation is not a column in {dataset_path}"
 
     def get_model_type(self) -> str:
         # pick linear regression if y numerical
@@ -198,7 +203,7 @@ class DatasetInfo:
             return self._df.target.nunique()
         # ss3 or ss8 secondary structure states plus padding
         elif self.model_type == "MultiLabelMultiClass":
-            return len(np.unique(np.array(self._df["target"][0][1:-1].split(", ")))) + 1
+            return len(np.unique(np.array(self._df["target"][0][1:-1].split(", "))))
 
     @property
     def model_type(self) -> str:
@@ -209,6 +214,13 @@ class DatasetInfo:
     def numb_class(self) -> int:
         """Return number of classes for classification"""
         return self.get_numb_class()
+
+    @property
+    def subset_list(self) -> list[str]:
+        """Return a list of subset"""
+        subset_list = list(self._df["set"].unique())
+        subset_list.insert(1, "val")
+        return subset_list
 
 
 class TaskProcess:
@@ -571,7 +583,6 @@ class ProtranDataset(Dataset):
                     self.sequence[idx],
                     self.mut_name[idx],
                     self.mut_numb[idx],
-                    # getattr(emb_table.root, "layer" + str(self._embed_layer))[idx]
                     getattr(self, "layer" + str(self._embed_layer))[idx],
                 )
         else:
@@ -590,12 +601,12 @@ class ProtranDataset(Dataset):
         - column_name: str, the name of the dataframe column
         """
         if column_name in self._df.columns:
+
             y = self._df_dict[self._subset][column_name]
 
             if column_name == "sequence":
 
                 return (
-                    # self._df_dict[self._subset]["sequence"]
                     y.astype(str)
                     .str[self._seq_start_idx : self._seq_end_idx]
                     .apply(
@@ -611,17 +622,14 @@ class ProtranDataset(Dataset):
                 le = LabelEncoder()
                 return le.fit_transform(y.values.flatten())
             elif column_name == "target" and self._model_type == "MultiLabelMultiClass":
-                print("Converting ss3/ss8 into np.array...")
-
-                np_y = (
-                    y.apply(lambda x: np.array(x[1:-1].split(", ")).astype("int")) + 1
-                )
+                print("Converting ss3/ss8 into np.array and pad -1...")
+                np_y = y.apply(lambda x: np.array(x[1:-1].split(", ")).astype("int"))
                 return np.stack(
                     [
                         np.pad(
                             i,
                             pad_width=(0, self._max_seq_len - len(i)),
-                            constant_values=0,
+                            constant_values=-1,
                         )
                         for i in np_y
                     ]
@@ -648,11 +656,6 @@ class ProtranDataset(Dataset):
     def df_dict(self) -> pd.DataFrame:
         """Return the dict with different dataframe split"""
         return self._df_dict
-
-    @property
-    def subset_list(self) -> pd.DataFrame:
-        """Return the dict with different dataframe split"""
-        return list(self._df_dict.keys())
 
     @property
     def max_seq_len(self) -> int:
@@ -708,8 +711,8 @@ def split_protrain_loader(
     # specify no shuffling for validation and test
     if_shuffle_list = [True if subset == "train" else False for subset in subset_list]
 
-    return (
-        DataLoader(
+    return {
+        subset: DataLoader(
             dataset=ProtranDataset(
                 dataset_path=dataset_path,
                 subset=subset,
@@ -730,4 +733,4 @@ def split_protrain_loader(
             worker_init_fn=worker_seed,
         )
         for subset, if_shuffle in zip(subset_list, if_shuffle_list)
-    )
+    }
