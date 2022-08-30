@@ -15,9 +15,10 @@ from sklearn.preprocessing import LabelEncoder
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from scr.utils import pickle_save, pickle_load, replace_ext
+from scr.utils import pickle_save, pickle_load, replace_ext, read_std_csv
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, MAX_SEQ_LEN
+from scr.vis.dataset_vis import DatasetECDF
 from scr.preprocess.seq_loader import SeqLoader
 from scr.encoding.encoding_classes import (
     AbstractEncoder,
@@ -52,6 +53,15 @@ def get_mut_name(mut_seq: str, parent_seq: str) -> str:
         return "indel"
 
 
+def get_parent_fit(df: pd.DataFrame) -> float:
+    """Return the parent fitness value"""
+
+    assert "target" in df.columns, "target is not a column in the dataframe"
+    assert "sequence" in df.columns, "sequence is not a column in the dataframe"
+
+    return df["target"][df["mut_name"] == "parent"].values.mean()
+
+
 class AddMutInfo:
     """A class for appending mutation info for mainly protein engineering tasks"""
 
@@ -64,12 +74,12 @@ class AddMutInfo:
         """
 
         # Load the parent sequence from the fasta file
-        self._parent_seq = SeqLoader(parent_seq_path=parent_seq_path)
+        self._parent_seq = SeqLoader(fasta_loc=parent_seq_path).seq
 
         # load the dataframe
-        self._init_df = pd.read_csv(csv_path)
-
+        self._init_df = read_std_csv(csv_path)
         self._df = self._init_df.copy()
+
         # add a column with the mutant names
         self._df["mut_name"] = self._init_df["sequence"].apply(
             get_mut_name, parent_seq=self._parent_seq
@@ -78,6 +88,18 @@ class AddMutInfo:
         self._df["mut_numb"] = (
             self._df["mut_name"].str.split(":").map(len, na_action="ignore")
         )
+
+        # check number of parents
+        parent_idx = self._df[self._df["mut_name"] == "parent"].index.tolist()
+        numb_parent = len(parent_idx)
+
+        if numb_parent < 1:
+            print("no parent")
+        elif numb_parent > 1:
+            print(f"{numb_parent} parents observed")
+
+        # change the mut_numb of parent to 0
+        self._df.loc[parent_idx, "mut_numb"] = 0
 
         # get the pickle file path
         self._pkl_path = replace_ext(input_path=csv_path, ext=".pkl")
@@ -98,6 +120,11 @@ class AddMutInfo:
     def df(self) -> pd.DataFrame:
         """Return the processed dataframe"""
         return self._df
+
+    @property
+    def parent_fit(self) -> float:
+        """Return the parent fitness value"""
+        return get_parent_fit(self._df)
 
 
 def std_split_ssdf(
@@ -175,12 +202,9 @@ class DatasetInfo:
         Args:
         - dataset_path: str, the path for the csv
         """
-        self._df = pd.read_csv(dataset_path)
 
-        assert "set" in self._df.columns, f"set is not a column in {dataset_path}"
-        assert (
-            "validation" in self._df.columns
-        ), f"validation is not a column in {dataset_path}"
+        self._df = read_std_csv(dataset_path)
+        self._df_dict = split_df_sets(self._df)
 
     def get_model_type(self) -> str:
         # pick linear regression if y numerical
@@ -204,6 +228,28 @@ class DatasetInfo:
         # ss3 or ss8 secondary structure states plus padding
         elif self.model_type == "MultiLabelMultiClass":
             return len(np.unique(np.array(self._df["target"][0][1:-1].split(", "))))
+        else:
+            return np.nan
+
+    @property
+    def df_dict(self) -> dict:
+        """Return split dataset based on train, val, test"""
+        return self._df_dict
+
+    @property
+    def train_numb(self) -> int:
+        """Number of train data"""
+        return len(self._df_dict["train"])
+
+    @property
+    def val_numb(self) -> int:
+        """Number of val data"""
+        return len(self._df_dict["val"])
+
+    @property
+    def test_numb(self) -> int:
+        """Number of test data"""
+        return len(self._df_dict["test"])
 
     @property
     def model_type(self) -> str:
@@ -226,7 +272,11 @@ class DatasetInfo:
 class TaskProcess:
     """A class for handling different downstream tasks"""
 
-    def __init__(self, data_folder: str = "data/"):
+    def __init__(
+        self,
+        data_folder: str = "data/",
+        forceregen: bool = False,
+    ):
         """
         Args:
         - data_folder: str, a folder path with all the tasks as subfolders where
@@ -240,12 +290,11 @@ class TaskProcess:
                         P03135.fasta
                     thermo/
                         mixed.csv
+        - forceregen: bool = False, if force regenerate the pkl files
         """
 
-        if data_folder[-1] == "/":
-            self._data_folder = data_folder
-        else:
-            self._data_folder = data_folder + "/"
+        self._data_folder = os.path.normpath(data_folder) + "/"
+        self._forceregen = forceregen
 
         # sumamarize all files i nthe data folder
         self._sum_file_df = self.sum_files()
@@ -282,25 +331,37 @@ class TaskProcess:
             assert len(fasta_paths) <= 1, "More than one fasta"
 
             for csv_path in csv_paths:
+
+                # if numerical target
+                ds_info = DatasetInfo(dataset_path=csv_path)
+                if ds_info.model_type == "LinearRegression":
+                    # plot ecdf for each csv file
+                    DatasetECDF(dataset_path=csv_path)
+
                 # if parent seq fasta exists
                 if len(fasta_paths) == 1:
                     fasta_path = fasta_paths[0]
 
                     # if no existing pkl file, generate and save
-                    if len(pkl_paths) == 0:
+                    if len(pkl_paths) == 0 or self._forceregen:
                         print(f"Adding mutation info to {csv_path}...")
-                        pkl_path = AddMutInfo(
+                        addmutinfo_class = AddMutInfo(
                             parent_seq_path=fasta_path, csv_path=csv_path
-                        ).pkl_path
+                        )
+                        pkl_path = addmutinfo_class.pkl_path
+                        parent_fit = addmutinfo_class.parent_fit
+
                     # pkl file exits
                     else:
                         pkl_path = replace_ext(input_path=csv_path, ext=".pkl")
+                        parent_fit = get_parent_fit(pickle_load(pkl_path))
                 # no parent fasta no pkl file
                 else:
                     fasta_path = ""
                     pkl_path = ""
+                    parent_fit = np.nan
 
-                df_dict = split_df_sets(pd.read_csv(csv_path))
+                df_dict = split_df_sets(read_std_csv(csv_path))
 
                 list_for_df.append(
                     tuple(
@@ -308,9 +369,12 @@ class TaskProcess:
                             task,
                             dataset,
                             os.path.basename(os.path.splitext(csv_path)[0]),
-                            len(df_dict["train"]),
-                            len(df_dict["val"]),
-                            len(df_dict["test"]),
+                            ds_info.train_numb,
+                            ds_info.val_numb,
+                            ds_info.test_numb,
+                            ds_info.model_type,
+                            ds_info.numb_class,
+                            parent_fit,
                             csv_path,
                             fasta_path,
                             pkl_path,
@@ -327,6 +391,9 @@ class TaskProcess:
                 "train_numb",
                 "val_numb",
                 "test_numb",
+                "model_type",
+                "numb_class",
+                "parent_fit",
                 "csv_path",
                 "fasta_path",
                 "pkl_path",
@@ -388,17 +455,12 @@ class ProtranDataset(Dataset):
             self._add_mut_info = True
         # without such info
         else:
-            self._df = pd.read_csv(dataset_path)
+            self._df = read_std_csv(dataset_path)
             self._ds_info = DatasetInfo(dataset_path)
             self._model_type = self._ds_info.model_type
             self._numb_class = self._ds_info.numb_class
 
             self._add_mut_info = False
-
-        assert "set" in self._df.columns, f"set is not a column in {dataset_path}"
-        assert (
-            "validation" in self._df.columns
-        ), f"validation is not a column in {dataset_path}"
 
         self._df_dict = split_df_sets(self._df)
 

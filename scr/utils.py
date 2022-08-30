@@ -7,6 +7,7 @@ import sys
 import pickle
 
 import numpy as np
+import pandas as pd
 
 from sklearn.metrics import ndcg_score
 
@@ -82,11 +83,22 @@ def replace_ext(input_path: str, ext: str) -> str:
         return os.path.splitext(input_path)[0] + "." + ext
 
 
+def read_std_csv(dataset_path: str) -> pd.DataFrame:
+    """
+    A function read and check the csv with standard form
+    """
+    df = pd.read_csv(dataset_path)
+
+    for col in ["sequence", "target", "set", "validation"]:
+        assert col in df.columns, f"{col} is not a column in {dataset_path}"
+
+    return df.dropna(subset=["set"])
+
+
 def get_task_data_split(dataset_path: str,) -> list[str]:
     """
     Return the task, dataset, and the split given the dataset_path is
     data/task/dataset/split.csv, ie. data/proeng/gb1/two_vs_rest.csv
-
     Args:
     - dataset_path: str, full path to the input dataset, in pkl or panda readable format
         columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)

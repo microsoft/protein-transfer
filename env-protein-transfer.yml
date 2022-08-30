@@ -35,7 +35,7 @@ dependencies:
 - tqdm=4.64.0
 
 - pip:
-  - iqplot==0.2.4
+  - iqplot==0.3.0
 #  - lmdb==0.97
   - scanpy==1.7.1
   - umap-learn==0.5.1

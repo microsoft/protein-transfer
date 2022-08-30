@@ -27,9 +27,11 @@ class SeqLoader(ABC):
         else:
             self._seq = self.load_seq()
 
+        seq_aa_set = set(list(self._seq))
+
         assert (
             set(list(self._seq)) <= ALLOWED_AAS
-        ), "Sequence contains non-canonical amino acids"
+        ), f"Sequence contains non-canonical amino acids {ALLOWED_AAS-seq_aa_set}"
 
     def load_seq(self) -> str:
         """
