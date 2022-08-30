@@ -14,10 +14,13 @@ import numpy as np
 import anndata as ad
 import scanpy as sc
 
+from scr.params.vis import ALLOWED_DIM_RED_TYPES, PLOT_EXTS
+
+"""
 # allowed dimension reduction types
 ALLOWED_DIM_RED_TYPES = ["pca", "tsne", "umap"]
 DEFAULT_FORMATS = [".png", ".svg"]
-
+"""
 
 class Emb_Vis:
     """Class for embbeding visulization"""
@@ -29,7 +32,7 @@ class Emb_Vis:
         dim_red_types: Sequence(str) = ALLOWED_DIM_RED_TYPES,
         folder_path: str = "results/emb_vis",
         subfolder: str = "",
-        plot_formats: Sequence(str) = DEFAULT_FORMATS,
+        plot_formats: Sequence(str) = PLOT_EXTS,
     ) -> None:
         """
         Args
