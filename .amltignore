@@ -4,9 +4,14 @@
 *.tar.gz
 */*.tar.gz
 **/*.tar.gz
+
 *.png
 */*.png
 **/*.png
+
+*.pkl
+*/*.pkl
+**/*.pkl
 
 *.h5
 */*.h5
@@ -14,11 +19,8 @@
 
 sandbox/**
 test/**
-<!-- 
-data/proeng/gb1/*
-data/proeng/aav/* -->
-<!-- data/annotation/scl/* -->
 
+data/annotation/scl/*
 data/structure/**
 results/**
 results/train_val_test/**

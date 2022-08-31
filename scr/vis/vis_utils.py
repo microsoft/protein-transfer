@@ -34,6 +34,7 @@ class BokehSave:
         x_name: str = "",
         y_name: str = "",
         gridoff: bool = True,
+        showplot: bool = True
     ) -> None:
     
         self.bokeh_plot = bokeh_plot
@@ -77,7 +78,8 @@ class BokehSave:
         self.bokeh_plot.yaxis.major_label_text_font_size = axis_font_size
 
         # done formatting
-        show(self.bokeh_plot)
+        if showplot:
+            show(self.bokeh_plot)
 
         # A list of the extensions
         self.plot_exts = plot_exts

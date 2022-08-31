@@ -276,6 +276,7 @@ class TaskProcess:
         self,
         data_folder: str = "data/",
         forceregen: bool = False,
+        showplot: bool = False
     ):
         """
         Args:
@@ -295,9 +296,11 @@ class TaskProcess:
 
         self._data_folder = os.path.normpath(data_folder) + "/"
         self._forceregen = forceregen
+        self._showplot = showplot
 
-        # sumamarize all files i nthe data folder
+        # sumamarize all files in the data folder
         self._sum_file_df = self.sum_files()
+        self._sum_file_df.to_csv(f"{data_folder}summary.csv")
 
     def sum_files(self) -> pd.DataFrame:
         """
@@ -336,7 +339,7 @@ class TaskProcess:
                 ds_info = DatasetInfo(dataset_path=csv_path)
                 if ds_info.model_type == "LinearRegression":
                     # plot ecdf for each csv file
-                    DatasetECDF(dataset_path=csv_path)
+                    DatasetECDF(dataset_path=csv_path, showplot=self._showplot)
 
                 # if parent seq fasta exists
                 if len(fasta_paths) == 1:

@@ -1,7 +1,7 @@
 from scr.params.sys import DEVICE, RAND_SEED
-from scr.model.run_pytorch_model import Run_Pytorch
+from scr.model.run_pytorch import Run_Pytorch
 
-"""Run_Pytorch(
+Run_Pytorch(
     dataset_path="data/proeng/thermo/mixed_split.csv",
     encoder_name="esm1b_t33_650M_UR50S",
     reset_param = False,
@@ -14,6 +14,7 @@ from scr.model.run_pytorch_model import Run_Pytorch
     loader_batch_size = 64,
     worker_seed = RAND_SEED,
     if_encode_all = False,
+    if_multiprocess = True,
     learning_rate = 1e-4,
     lr_decay = 0.1,
     epochs = 100,
@@ -21,10 +22,10 @@ from scr.model.run_pytorch_model import Run_Pytorch
     tolerance = 10,
     min_epoch = 5,
     device = DEVICE,
-    all_plot_folder = "test/learning_curves",
-    all_result_folder = "test/train_val_test",
+    all_plot_folder = "results/learning_curves_fixembpool",
+    all_result_folder = "test/pytorch_fixembpool",
     # **encoder_params,
-    )"""
+    )
 """
 Run_Pytorch(
     dataset_path="data/proeng/thermo/mixed_split.csv",
@@ -39,6 +40,7 @@ Run_Pytorch(
     loader_batch_size = 64,
     worker_seed = RAND_SEED,
     if_encode_all = False,
+    if_multiprocess = True,
     learning_rate = 1e-4,
     lr_decay = 0.1,
     epochs = 50,
@@ -46,10 +48,11 @@ Run_Pytorch(
     tolerance = 10,
     min_epoch = 5,
     device = DEVICE,
-    all_plot_folder = "test/learning_curves",
-    all_result_folder = "test/train_val_test",
+    all_plot_folder = "results/learning_curves_fixembpool",
+    all_result_folder = "results/pytorch_fixembpool",
     # **encoder_params,
     )"""
+
 """
 Run_Pytorch(
     dataset_path="data/structure/secondary_structure/casp12.csv",
@@ -75,7 +78,7 @@ Run_Pytorch(
     all_result_folder = "test/train_val_test",
     # **encoder_params,
     )"""
-
+"""
 Run_Pytorch(
     dataset_path="data/structure/secondary_structure/casp12.csv",
     encoder_name="esm1b_t33_650M_UR50S",
@@ -99,4 +102,4 @@ Run_Pytorch(
     all_plot_folder = "test/learning_curves",
     all_result_folder = "test/train_val_test",
     # **encoder_params,
-    )
+    )"""

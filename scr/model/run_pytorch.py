@@ -182,7 +182,7 @@ class Run_Pytorch:
             if self._flatten_emb == False:
                 self._encoder_info_dict = {"onehot": (AA_NUMB,)}
             else:
-                self._encoder_info_dict = {"onehot": (MAX_SEQ_LEN * 22,)}
+                self._encoder_info_dict = {"onehot": (MAX_SEQ_LEN * AA_NUMB,)}
 
         if if_multiprocess:
             print("Running different emb layer in parallel...")

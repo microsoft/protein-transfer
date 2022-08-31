@@ -29,6 +29,7 @@ class DatasetECDF(BokehSave):
         x_name: str = "fitness",
         y_name: str = "ecdf",
         gridoff: bool = True,
+        showplot: bool = True
     ) -> None:
 
         df = read_std_csv(dataset_path)
@@ -60,6 +61,7 @@ class DatasetECDF(BokehSave):
             x_name=x_name,
             y_name=y_name,
             gridoff=gridoff,
+            showplot=showplot
         )
 
 
@@ -77,6 +79,7 @@ class DatasetStripHistogram(BokehSave):
         x_name: str = "",
         y_name: str = "fitness",
         gridoff: bool = True,
+        showplot: bool = True
     ) -> None:
         """
         Args:
@@ -142,4 +145,5 @@ class DatasetStripHistogram(BokehSave):
             x_name=x_name,
             y_name=y_name,
             gridoff=gridoff,
+            showplot=showplot
         )
