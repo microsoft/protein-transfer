@@ -533,7 +533,7 @@ class ProtranDataset(Dataset):
 
                 for layer, emb in encoded_batch_dict.items():
                     encoded_dict[layer].append(emb)
-
+            print(encoded_dict.keys())
             # assign each layer as its own variable
             for layer, emb in encoded_dict.items():
                 setattr(self, "layer" + str(layer), np.vstack(emb))
@@ -590,7 +590,7 @@ class ProtranDataset(Dataset):
         - idx: int
         """
         if self.if_encode_all and self._embed_folder is None:
-
+            print("encoded all and shall have attr")
             return (
                 self.y[idx],
                 self.sequence[idx],

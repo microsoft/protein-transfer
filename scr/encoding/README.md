@@ -33,6 +33,12 @@ ProteinBertModel(
 )
 ```
 ### ESM1b architecture with dimensions
+* Get the layers and dim with
+```
+for k, p in model.state_dict().items():
+    print(f"{k}: dim {p.dim()}")
+```
+* Returns
 ```
 embed_tokens.weight: dim 2
 layers.n.self_attn.k_proj.weight: dim 2

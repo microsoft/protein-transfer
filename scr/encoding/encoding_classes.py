@@ -6,11 +6,13 @@ from abc import ABC, abstractmethod
 from typing import Collection
 from collections import Iterable, Sequence
 
+import math
 import numpy as np
 from tqdm import tqdm
 
 import torch
-from torch.nn.init import xavier_uniform_, xavier_normal_
+from torch.nn import Parameter  
+from torch.nn.init import xavier_uniform_, xavier_normal_, kaiming_uniform_, uniform_, normal_, constant_, _calculate_fan_in_and_fan_out
 from sequence_models.pretrained import load_model_and_alphabet
 
 from scr.params.aa import AA_NUMB, AA_TO_IND
@@ -60,16 +62,93 @@ class AbstractEncoder(ABC):
         if self._reset_param:
             print(f"Reinit params for {self._encoder_name} ...")
 
-            for p in model.parameters():
-                if p.dim() > 1:
-                    xavier_uniform_(p)
+            """
+            ESM1b:
+
+            layers.n.self_attn.k_proj.weight: dim 2         [nn.init.xavier_uniform_(self.k_proj.weight, gain=1 / math.sqrt(2))]
+            layers.n.self_attn.v_proj.weight: dim 2         [nn.init.xavier_uniform_(self.v_proj.weight, gain=1 / math.sqrt(2))]
+            layers.n.self_attn.q_proj.weight: dim 2         [nn.init.xavier_uniform_(self.q_proj.weight, gain=1 / math.sqrt(2))]
+            layers.n.self_attn.out_proj.weight: dim 2       [nn.init.xavier_uniform_(self.out_proj.weight)]
+            
+            layers.n.self_attn.k_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
+            layers.n.self_attn.v_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
+            layers.n.self_attn.q_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
+            
+            layers.n.self_attn.out_proj.bias: dim 1         [nn.init.constant_(self.out_proj.bias, 0.0)]
+            
+            layers.n.self_attn_layer_norm.weight: dim 1     [nn.Parameter(torch.ones(hidden_size))]
+            layers.n.final_layer_norm.weight: dim 1         [nn.Parameter(torch.ones(hidden_size))]
+            emb_layer_norm_before.weight: dim 1             [nn.Parameter(torch.ones(hidden_size))]
+            emb_layer_norm_after.weight: dim 1              [nn.Parameter(torch.ones(hidden_size))]
+            
+            layers.n.self_attn_layer_norm.bias: dim 1       [nn.Parameter(torch.zeros(hidden_size))]
+            layers.n.final_layer_norm.bias: dim 1           [nn.Parameter(torch.zeros(hidden_size))]
+            emb_layer_norm_before.bias: dim 1               [nn.Parameter(torch.zeros(hidden_size))]
+            emb_layer_norm_after.bias: dim 1                [nn.Parameter(torch.zeros(hidden_size))]
+            
+            layers.n.fc1.weight: dim 2                      [nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))]
+            layers.n.fc2.weight: dim 2                      [nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))]
+            contact_head.regression.weight: dim 2           [nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))]
+            
+            layers.n.fc1.bias: dim 1                        [nn.init.uniform_(self.bias, -bound, bound)]
+            layers.n.fc2.bias: dim 1                        [nn.init.uniform_(self.bias, -bound, bound)]
+            contact_head.regression.bias: dim 1             [nn.init.uniform_(self.bias, -bound, bound)]
+            
+            embed_positions.weight: dim 2                   [nn.init.normal_(self.weight)]
+            """
+
+            if "esm1b" in self._encoder_name:
+                for layer_name, p in model.state_dict().items():
+                    """
+                    layers.n.self_attn.k_proj.weight: dim 2         [nn.init.xavier_uniform_(self.k_proj.weight, gain=1 / math.sqrt(2))]
+                    layers.n.self_attn.v_proj.weight: dim 2         [nn.init.xavier_uniform_(self.v_proj.weight, gain=1 / math.sqrt(2))]
+                    layers.n.self_attn.q_proj.weight: dim 2         [nn.init.xavier_uniform_(self.q_proj.weight, gain=1 / math.sqrt(2))]
+                    layers.n.self_attn.out_proj.weight: dim 2       [nn.init.xavier_uniform_(self.out_proj.weight)]
+                    
+                    layers.n.self_attn.k_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
+                    layers.n.self_attn.v_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
+                    layers.n.self_attn.q_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
+                    
+                    layers.n.self_attn.out_proj.bias: dim 1         [nn.init.constant_(self.out_proj.bias, 0.0)]
+                    """
+                    
+                    if "_proj" in layer_name:
+                        if "weight" in layer_name:
+                            if "out" in layer_name:
+                                xavier_uniform_(p)
+                            else:
+                                xavier_uniform_(p, gain=1 / math.sqrt(2))
+                        elif "bias" in layer_name:
+                            if "out" in layer_name:
+                                constant_(p, 0.0)
+                            else:
+                                fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
+                                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                                uniform_(p, -bound, bound)
+                    
+                    if "layer_norm" in layer_name:
+                        if "weight" in layer_name:
+                            Parameter(torch.ones(len(p)))
+                        elif "bias" in layer_name:
+                            Parameter(torch.zeros(len(p)))
+
+                    if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
+                        if "weight" in layer_name:
+                            kaiming_uniform_(p, a=math.sqrt(5))
+                        
+                        elif "bias" in layer_name:
+                            fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
+                            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+                            uniform_(self.bias, -bound, bound)
+                    
+                    if "embed_positions" in layer_name:
+                        normal_(p)
+
 
         elif self._resample_param:
             print(f"Resample params for {self._encoder_name} ...")
-
-            for p in model.parameters():
-                if p.dim() > 1:
-                    xavier_normal_(p)
+            
+                
 
         return model
 
@@ -121,7 +200,10 @@ class AbstractEncoder(ABC):
                 )
 
     def flatten_encode(
-        self, encoded_mut_seqs: np.ndarray, flatten_emb: bool | str
+        self,
+        encoded_mut_seqs: np.ndarray,
+        flatten_emb: bool | str,
+        mut_seqs: Sequence[str] | str,
     ) -> np.ndarray:
         """
         Flatten the embedding or just return the encoded mutants.
@@ -137,21 +219,24 @@ class AbstractEncoder(ABC):
         - np.ndarray, shape depends on flatten_emb parameter
         """
 
-        assert encoded_mut_seqs.shape[-1] == self._embed_dim, f"encode last dim {encoded_mut_seqs.shape[-1]} != embed dim {self._embed_dim}"
+        assert (
+            encoded_mut_seqs.shape[-1] == self._embed_dim
+        ), f"encode last dim {encoded_mut_seqs.shape[-1]} != embed dim {self._embed_dim}"
 
-        if (
-            flatten_emb in [True, "flatten", "flattened", ""]
-        ):
+        if flatten_emb in [True, "flatten", "flattened", ""]:
             # shape [batch_size, seq_len * embed_dim]
             return encoded_mut_seqs.reshape(encoded_mut_seqs.shape[0], -1)
 
         elif isinstance(flatten_emb, str):
-            if flatten_emb == "mean":
-                # [batch_size, embed_dim]
-                return encoded_mut_seqs.mean(axis=1)
-            elif flatten_emb == "max":
-                # [batch_size, embed_dim]
-                return encoded_mut_seqs.max(axis=1)
+            # init out put seq_reps should be in dim [batch_size, embed_dim]
+            seq_reps = np.empty((encoded_mut_seqs.shape[0], self._embed_dim))
+            for i, encoded_mut_seq in enumerate(encoded_mut_seqs):
+                if flatten_emb == "mean":
+                    seq_reps[i] = encoded_mut_seq[: len(mut_seqs[i])].mean(0)
+                elif flatten_emb == "max":
+                    seq_reps[i] = encoded_mut_seq[: len(mut_seqs[i])].max(0)
+
+            return seq_reps
 
         else:
             # print("No embedding flattening")
@@ -254,7 +339,13 @@ class OnehotEncoder(AbstractEncoder):
                 )
             )
 
-        return {0: self.flatten_encode(np.array(encoded_mut_seqs), flatten_emb)}
+        return {
+            0: self.flatten_encode(
+                encoded_mut_seqs=np.array(encoded_mut_seqs),
+                flatten_emb=flatten_emb,
+                mut_seqs=mut_seqs,
+            )
+        }
 
 
 class ESMEncoder(AbstractEncoder):
@@ -350,8 +441,8 @@ class ESMEncoder(AbstractEncoder):
         with torch.no_grad():
             # shape [batch_size, seq_len + pad, embed_dim]
             """if batch_tokens.shape[1] > TRANSFORMER_MAX_SEQ_LEN:
-                print(f"Sequence exceeds {TRANSFORMER_MAX_SEQ_LEN}, taking the beginning and the end")
-                batch_tokens = batch_tokens[:, :TRANSFORMER_MAX_SEQ_LEN]"""
+            print(f"Sequence exceeds {TRANSFORMER_MAX_SEQ_LEN}, taking the beginning and the end")
+            batch_tokens = batch_tokens[:, :TRANSFORMER_MAX_SEQ_LEN]"""
 
             dict_encoded_mut_seqs = self.model(
                 batch_tokens, repr_layers=list(range(self._max_emb_layer + 1))
@@ -378,12 +469,18 @@ class ESMEncoder(AbstractEncoder):
 
             if mut_names is not None:
                 dict_encoded_mut_seqs[layer] = (
-                    self.flatten_encode(encoded_mut_seqs, flatten_emb),
+                    self.flatten_encode(
+                        encoded_mut_seqs=encoded_mut_seqs,
+                        flatten_emb=flatten_emb,
+                        mut_seqs=mut_seqs,
+                    ),
                     batch_labels,
                 )
             else:
                 dict_encoded_mut_seqs[layer] = self.flatten_encode(
-                    encoded_mut_seqs, flatten_emb
+                    encoded_mut_seqs=encoded_mut_seqs,
+                    flatten_emb=flatten_emb,
+                    mut_seqs=mut_seqs,
                 )
 
         return dict_encoded_mut_seqs
@@ -472,7 +569,9 @@ class CARPEncoder(AbstractEncoder):
 
         for layer_numb, encoded_mut_seqs in activation.items():
             activation[layer_numb] = self.flatten_encode(
-                encoded_mut_seqs.cpu().numpy(), flatten_emb
+                encoded_mut_seqs=encoded_mut_seqs.cpu().numpy(),
+                flatten_emb=flatten_emb,
+                mut_seqs=mut_seqs,
             )
 
         return activation
@@ -488,7 +587,7 @@ def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
 
     Returns:
     - encoder_name: str, change anything not a transformer or carp encoder to onehot
-    - encoder_class: AbstractEncoder, encoder class 
+    - encoder_class: AbstractEncoder, encoder class
     - total_emb_layer: int, number of embedding layers
     """
 

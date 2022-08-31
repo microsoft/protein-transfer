@@ -66,7 +66,7 @@ class GenerateEmbeddings:
 
         # assert encoder_class != OnehotEncoder, "Generate onehot on the fly instead"
         # add in the max_seq_len for Onehot
-        if encoder_class == OnehotEncoder and not self.flatten_emb:
+        if encoder_class == OnehotEncoder and self.flatten_emb != False:
             encoder_params["max_seq_len"] = MAX_SEQ_LEN
             embed_rescale = MAX_SEQ_LEN
         else:
@@ -155,20 +155,22 @@ class GenerateEmbeddings:
                 batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
             ):
-
+                
                 for emb_layer, emb in encoded_batch_dict.items():
                     # f = tables.open_file(file_path, mode="a")
-                    # pad all embedding to the max_seq_len
-                    getattr(f.root, "layer" + str(emb_layer)).append(
-                        np.pad(
-                            emb,
-                            pad_width=(
-                                (0, 0),
-                                (0, self._max_seq_len - emb.shape[1]),
-                                (0, 0),
-                            ),
-                        )
-                    )
+                    # if no flattening, pad all embedding to the max_seq_len
+                    if flatten_emb == False:
+                        padded_emb = np.pad(
+                                emb,
+                                pad_width=(
+                                    (0, 0),
+                                    (0, self._max_seq_len - emb.shape[1]),
+                                    (0, 0),
+                                ),
+                            )
+                    else:
+                        padded_emb = emb
+                    getattr(f.root, "layer" + str(emb_layer)).append(padded_emb)
                     # f.close()
 
             f.close()

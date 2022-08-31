@@ -92,14 +92,15 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-# for emb in ["onehot"] + list(TRANSFORMER_INFO.keys()):
-for emb in list(TRANSFORMER_INFO.keys()):
+for emb in ["onehot"] + list(TRANSFORMER_INFO.keys()):
+# for emb in list(TRANSFORMER_INFO.keys()):
 # for emb in ["onehot"]:
     print(f"Generating {emb} embeddings for {args.subset_list}...")
-    """if emb == "onehot":
+    
+    if emb == "onehot" and "structure" not in args.dataset_path:
         flatten_emb = "flatten"
     else:
-        flatten_emb = args.flatten_emb"""
+        flatten_emb = args.flatten_emb
 
     GenerateEmbeddings(
         dataset_path=args.dataset_path,
@@ -107,7 +108,7 @@ for emb in list(TRANSFORMER_INFO.keys()):
         reset_param=args.reset_param,
         resample_param=args.resample_param,
         embed_batch_size=args.embed_batch_size,
-        flatten_emb=args.flatten_emb,
+        flatten_emb=flatten_emb,
         seq_start_idx=args.seq_start_idx,
         seq_end_idx=args.seq_end_idx,
         subset_list=args.subset_list,

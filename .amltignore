@@ -14,12 +14,12 @@
 
 sandbox/**
 test/**
-
+<!-- 
 data/proeng/gb1/*
-data/proeng/aav/*
-data/annotation/scl/*
+data/proeng/aav/* -->
+<!-- data/annotation/scl/* -->
 
-<!-- data/structure/** -->
+data/structure/**
 results/**
 results/train_val_test/**
 
