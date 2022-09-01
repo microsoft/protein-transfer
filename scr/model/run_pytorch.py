@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import random
 from tqdm import tqdm
 from concurrent import futures
 
@@ -35,6 +36,14 @@ from scr.model.pytorch_model import (
 from scr.model.train_test import train, test
 from scr.vis.learning_vis import plot_lc
 from scr.utils import get_folder_file_names, pickle_save, get_default_output_path
+
+# seed everything
+random.seed(RAND_SEED)
+np.random.seed(RAND_SEED)
+torch.manual_seed(RAND_SEED)
+torch.cuda.manual_seed(RAND_SEED)
+torch.cuda.manual_seed_all(RAND_SEED)
+torch.backends.cudnn.deterministic = True
 
 
 class Run_Pytorch:

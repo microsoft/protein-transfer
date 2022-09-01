@@ -20,8 +20,6 @@
 sandbox/**
 test/**
 
-data/annotation/scl/*
-data/structure/**
 results/**
 results/train_val_test/**
 

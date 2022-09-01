@@ -20,6 +20,12 @@ from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.sys import DEVICE
 
 
+def cal_bound(model: torch.nn.Module, layer_name: str):
+    """Return bound for reinit given model and layer name"""
+    assert "bias" in layer_name, f"no bias in {layer_name}"
+    fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
+    return 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+
 class AbstractEncoder(ABC):
     """
     An abstract encoder class to fill in for different kinds of encoders
@@ -97,53 +103,55 @@ class AbstractEncoder(ABC):
             embed_positions.weight: dim 2                   [nn.init.normal_(self.weight)]
             """
 
-            if "esm1b" in self._encoder_name:
-                for layer_name, p in model.state_dict().items():
-                    """
-                    layers.n.self_attn.k_proj.weight: dim 2         [nn.init.xavier_uniform_(self.k_proj.weight, gain=1 / math.sqrt(2))]
-                    layers.n.self_attn.v_proj.weight: dim 2         [nn.init.xavier_uniform_(self.v_proj.weight, gain=1 / math.sqrt(2))]
-                    layers.n.self_attn.q_proj.weight: dim 2         [nn.init.xavier_uniform_(self.q_proj.weight, gain=1 / math.sqrt(2))]
-                    layers.n.self_attn.out_proj.weight: dim 2       [nn.init.xavier_uniform_(self.out_proj.weight)]
-                    
-                    layers.n.self_attn.k_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
-                    layers.n.self_attn.v_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
-                    layers.n.self_attn.q_proj.bias: dim 1           [nn.init.uniform_(self.bias, -bound, bound)]
-                    
-                    layers.n.self_attn.out_proj.bias: dim 1         [nn.init.constant_(self.out_proj.bias, 0.0)]
-                    """
-                    
-                    if "_proj" in layer_name:
-                        if "weight" in layer_name:
-                            if "out" in layer_name:
-                                xavier_uniform_(p)
-                            else:
-                                xavier_uniform_(p, gain=1 / math.sqrt(2))
-                        elif "bias" in layer_name:
-                            if "out" in layer_name:
-                                constant_(p, 0.0)
-                            else:
-                                fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
-                                bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-                                uniform_(p, -bound, bound)
-                    
-                    if "layer_norm" in layer_name:
-                        if "weight" in layer_name:
-                            Parameter(torch.ones(len(p)))
-                        elif "bias" in layer_name:
-                            Parameter(torch.zeros(len(p)))
+            for layer_name, p in model.state_dict().items():
+                # what esm1b and esm1 have in common
+                if "_proj" in layer_name:
+                    if "weight" in layer_name:
+                        if "out" in layer_name:
+                            xavier_uniform_(p)
+                        else:
+                            xavier_uniform_(p, gain=1 / math.sqrt(2))
+                    elif "bias" in layer_name:
+                        if "out" in layer_name:
+                            constant_(p, 0.0)
+                        else:
+                            bound = cal_bound(model=model, layer_name=layer_name)
+                            uniform_(p, -bound, bound)
 
-                    if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
-                        if "weight" in layer_name:
-                            kaiming_uniform_(p, a=math.sqrt(5))
-                        
-                        elif "bias" in layer_name:
-                            fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
-                            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-                            uniform_(self.bias, -bound, bound)
+                # esm1b enced up using LayerNorm so the same    
+                if "layer_norm" in layer_name:
+                    if "weight" in layer_name:
+                        Parameter(torch.ones_like(p))
+                    elif "bias" in layer_name:
+                        Parameter(torch.zeros_like(p))
+                
+                if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
+                    if "weight" in layer_name:
+                        kaiming_uniform_(p, a=math.sqrt(5))
+                    elif "bias" in layer_name:
+                        bound = cal_bound(model=model, layer_name=layer_name)
+                        uniform_(p, -bound, bound)
+                
+                if "esm1b_" in self._encoder_name:
                     
                     if "embed_positions" in layer_name:
                         normal_(p)
 
+                    if layer_name == "lm_head.weight":
+                        xavier_uniform_(p)
+                    
+                    if layer_name == "lm_head.bias" or "lm_head.layer_norm.bias":
+                        Parameter(torch.zeros_like(p))
+
+                    if "dense" in layer_name:
+                        if "weight" in layer_name:
+                            kaiming_uniform_(p, a=math.sqrt(5))
+                        elif "bias" in layer_name:
+                            bound = cal_bound(model=model, layer_name=layer_name)
+                            uniform_(p, -bound, bound)
+                
+                elif "esm1_" and "bias_" in self._encoder_name:
+                    xavier_normal_(p)
 
         elif self._resample_param:
             print(f"Resample params for {self._encoder_name} ...")

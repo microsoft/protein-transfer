@@ -1,4 +1,10 @@
 # Encoding
+1. [Reinit (`self._reset_param = True`) ESM1b](#reset_esm1b)
+2. [Resample (`self._resample_param = True`) ESM1b](#resamp_esm1b)
+3. [Reinit (`self._reset_param = True`) ESM1](#reset_esm1)
+4. [Resample (`self._resample_param = True`) ESM1](#resamp_esm1)]
+
+<a name="reset_esm1b"></a>
 ## Reinit (`self._reset_param = True`) ESM1b
 ### EMS1b architecture
 * n = 0, ..., 32
@@ -439,7 +445,7 @@ emb_layer_norm_after.weight: dim 1              [nn.Parameter(torch.ones(hidden_
 emb_layer_norm_after.bias: dim 1                [nn.Parameter(torch.zeros(hidden_size))]
 -----------------------------------------------------------------------------------------------------------------------
 [After the embeddings, no reinit needed]
-lm_head.weight: dim 2                           [nn.init.xavier_uniform_(self.out_proj.weight)]
+lm_head.weight: dim 2                           [nn.init.xavier_uniform_()]
 lm_head.bias: dim 1                             [nn.Parameter(torch.zeros(output_dim))]
 lm_head.dense.weight: dim 2                     [nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))]
 lm_head.dense.bias: dim 1                       [nn.init.uniform_(self.bias, -bound, bound)]
@@ -447,6 +453,11 @@ lm_head.layer_norm.weight: dim 1                [nn.Parameter(torch.ones(hidden_
 lm_head.layer_norm.bias: dim 1                  [nn.Parameter(torch.zeros(hidden_size))]
 ```
 
+<a name="resamp_esm1b"></a>
+## Resample (`self._resample_param = True`) ESM1b
+* Shuffle the weights for the layers would have been reinit above
+
+<a name="reinit_esm1"></a>
 ## Reinit (`self._reset_param = True`) ESM1
 ### EMS1 architecture
 * `esm1_t6_43M_UR50S`
@@ -835,3 +846,7 @@ contact_head.regression.weight: dim 2           [nn.init.kaiming_uniform_(self.w
 contact_head.regression.bias: dim 1             [nn.init.uniform_(self.bias, -bound, bound)]
 embed_positions._float_tensor: dim 1
 ```
+
+<a name="resamp_esm1"></a>
+## Resample (`self._resample_param = True`) ESM1
+* Shuffle the weights for the layers would have been reinit above
