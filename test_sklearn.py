@@ -62,7 +62,7 @@ for ds_split in ["low_vs_high", "sampled", "two_vs_rest"]:
             #**encoder_params,
         )
         """
-
+"""
 for encoder_name in TRANSFORMER_INFO.keys():
     RunSK(
         dataset_path="data/proeng/thermo/mixed_split.csv",
@@ -81,4 +81,63 @@ for encoder_name in TRANSFORMER_INFO.keys():
         sklearn_params= None,
         all_result_folder = "test/sklearn-scaley-noloader-fixembpool",
         # **encoder_params,
-    )
+    )"""
+
+"""
+for encoder_name in TRANSFORMER_INFO.keys():
+    RunSK(
+        dataset_path="data/proeng/thermo/mixed_split.csv",
+        encoder_name=encoder_name,
+        reset_param= False,
+        resample_param = False,
+        embed_batch_size = 128,
+        flatten_emb = "mean",
+        embed_folder = "embeddings/proeng/thermo/mixed_split",
+        all_embed_layers=False,
+        seq_start_idx = False,
+        seq_end_idx = False,
+        if_encode_all=False,
+        alphas = SKLEARN_ALPHAS,
+        sklearn_state= {"normalize":True},
+        sklearn_params= None,
+        all_result_folder = "test/sklearn-scalex-scaley-noloader-fixembpool",
+        # **encoder_params,
+    )"""
+
+RunSK(
+    dataset_path="data/proeng/thermo/mixed_split.csv",
+    encoder_name="onehot",
+    reset_param= False,
+    resample_param = False,
+    embed_batch_size = 128,
+    flatten_emb = "flatten",
+    embed_folder = "embeddings/proeng/thermo/mixed_split",
+    all_embed_layers=False,
+    seq_start_idx = False,
+    seq_end_idx = False,
+    if_encode_all=False,
+    alphas = SKLEARN_ALPHAS,
+    sklearn_state= RAND_SEED,
+    sklearn_params= None,
+    all_result_folder = "test/sklearn-scaley-noloader-fixembpool",
+    # **encoder_params,
+)
+
+RunSK(
+    dataset_path="data/proeng/thermo/mixed_split.csv",
+    encoder_name="onehot",
+    reset_param= False,
+    resample_param = False,
+    embed_batch_size = 128,
+    flatten_emb = "flatten",
+    embed_folder = "embeddings/proeng/thermo/mixed_split",
+    all_embed_layers=False,
+    seq_start_idx = False,
+    seq_end_idx = False,
+    if_encode_all=False,
+    alphas = SKLEARN_ALPHAS,
+    sklearn_state= RAND_SEED,
+    sklearn_params= {"normalize":True},
+    all_result_folder = "test/sklearn-scalex-scaley-noloader-fixembpool",
+    # **encoder_params,
+)
