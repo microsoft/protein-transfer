@@ -237,7 +237,7 @@ class AbstractEncoder(ABC):
 
             model.load_state_dict(resample_state)
 
-            return model
+        return model
 
     def encode(
         self,
