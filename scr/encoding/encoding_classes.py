@@ -527,9 +527,6 @@ class ESMEncoder(AbstractEncoder):
         # Turn off gradients and pass the batch through
         with torch.no_grad():
             # shape [batch_size, seq_len + pad, embed_dim]
-            """if batch_tokens.shape[1] > TRANSFORMER_MAX_SEQ_LEN:
-            print(f"Sequence exceeds {TRANSFORMER_MAX_SEQ_LEN}, taking the beginning and the end")
-            batch_tokens = batch_tokens[:, :TRANSFORMER_MAX_SEQ_LEN]"""
 
             dict_encoded_mut_seqs = self.model(
                 batch_tokens, repr_layers=list(range(self._max_emb_layer + 1))
@@ -633,7 +630,23 @@ class CARPEncoder(AbstractEncoder):
         mut_seqs = [[m] for m in mut_seqs]
 
         x = self.collater(mut_seqs)[0]
+        rep = self.model(x, repr_layers=list(range(self._max_emb_layer + 1)))
 
+        # init output dict
+        dict_encoded_mut_seqs = {}
+
+        dict_encoded_mut_seqs[0] = rep[0].detach().numpy()
+
+        for layer_numb, encoded_mut_seqs in rep["representations"].items():
+            dict_encoded_mut_seqs[layer_numb] = self.flatten_encode(
+                encoded_mut_seqs=encoded_mut_seqs.detach().numpy(),
+                flatten_emb=flatten_emb,
+                mut_seqs=mut_seqs,
+            )
+
+        return dict_encoded_mut_seqs
+
+        """
         # alternatively check out the article called:
         # The One PyTorch Trick Which You Should Know
         # How hooks can improve your workflow significantly
@@ -662,7 +675,7 @@ class CARPEncoder(AbstractEncoder):
             )
 
         return activation
-
+        """
 
 def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
 
