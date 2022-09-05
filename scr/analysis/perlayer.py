@@ -27,6 +27,7 @@ class LayerLoss:
             "annotation": [
                 "train_cross-entropy",
                 "val_cross-entropy",
+                "test_cross-entropy",
                 "test_acc",
                 "test_rocauc",
             ],
@@ -231,7 +232,7 @@ class LayerLoss:
 
             # add whole plot level title
             fig.suptitle(
-                collage_name.replace("_", " "), y=1.0025, fontsize=24, fontweight="bold"
+                collage_name.replace("_", " ").replace("cross-entropy", "ce"), y=1.0025, fontsize=24, fontweight="bold"
             )
             fig.tight_layout()
 

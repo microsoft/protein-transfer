@@ -6,7 +6,7 @@
 
 <a name="reset_esm1b"></a>
 ## Reinit (`self._reset_param = True`) ESM1b
-### EMS1b architecture
+### ESM1b architecture
 * n = 0, ..., 32
 ```
 ProteinBertModel(
@@ -459,7 +459,7 @@ lm_head.layer_norm.bias: dim 1                  [nn.Parameter(torch.zeros(hidden
 
 <a name="reinit_esm1"></a>
 ## Reinit (`self._reset_param = True`) ESM1
-### EMS1 architecture
+### ESM1 architecture
 * `esm1_t6_43M_UR50S`
     * n = 0, ..., 5
     * embed_dim = 768
@@ -850,3 +850,41 @@ embed_positions._float_tensor: dim 1
 <a name="resamp_esm1"></a>
 ## Resample (`self._resample_param = True`) ESM1
 * Shuffle the weights for the layers would have been reinit above
+* `esm1_t6_43M_UR50S`
+    * n = 0, ..., 5
+    * embed_dim = 768
+    * fc_dim = 3072
+    * reg_dim = 72
+* `esm1_t12_85M_UR50S`
+    * n = 0, ..., 11
+    * embed_dim = 768
+    * fc_dim = 3072
+    * reg_dim = 144
+* `esm1_t34_670M_UR50S`
+    * n = 0, ..., 33
+    * embed_dim = 1280
+    * fc_dim = 3072
+    * reg_dim = 680
+
+```
+layers.n.self_attn.bias_k: torch.Size([1, 1, embed_dim])
+layers.n.self_attn.bias_v: torch.Size([1, 1, embed_dim])
+layers.n.self_attn.k_proj.weight: torch.Size([embed_dim, embed_dim])
+layers.n.self_attn.k_proj.bias: torch.Size([embed_dim])
+layers.n.self_attn.v_proj.weight: torch.Size([embed_dim, embed_dim])
+layers.n.self_attn.v_proj.bias: torch.Size([embed_dim])
+layers.n.self_attn.q_proj.weight: torch.Size([embed_dim, embed_dim])
+layers.n.self_attn.q_proj.bias: torch.Size([embed_dim])
+layers.n.self_attn.out_proj.weight: torch.Size([embed_dim, embed_dim])
+layers.n.self_attn.out_proj.bias: torch.Size([embed_dim])
+layers.n.self_attn_layer_norm.weight: torch.Size([embed_dim])
+layers.n.self_attn_layer_norm.bias: torch.Size([embed_dim])
+layers.n.fc1.weight: torch.Size([fc_dim, embed_dim])
+layers.n.fc1.bias: torch.Size([fc_dim])
+layers.n.fc2.weight: torch.Size([embed_dim, fc_dim])
+layers.n.fc2.bias: torch.Size([embed_dim])
+layers.n.final_layer_norm.weight: torch.Size([embed_dim])
+layers.n.final_layer_norm.bias: torch.Size([embed_dim])
+contact_head.regression.weight: torch.Size([1, reg_dim])
+contact_head.regression.bias: torch.Size([1])
+```
