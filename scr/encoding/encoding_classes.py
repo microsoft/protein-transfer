@@ -7,24 +7,45 @@ from typing import Collection
 from collections import Iterable, Sequence
 
 import math
+import random
 import numpy as np
 from tqdm import tqdm
 
 import torch
-from torch.nn import Parameter  
-from torch.nn.init import xavier_uniform_, xavier_normal_, kaiming_uniform_, uniform_, normal_, constant_, _calculate_fan_in_and_fan_out
+from torch.nn import Parameter
+from torch.nn.init import (
+    xavier_uniform_,
+    xavier_normal_,
+    kaiming_uniform_,
+    uniform_,
+    normal_,
+    constant_,
+    _calculate_fan_in_and_fan_out,
+)
 from sequence_models.pretrained import load_model_and_alphabet
 
 from scr.params.aa import AA_NUMB, AA_TO_IND
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
-from scr.params.sys import DEVICE
+from scr.params.sys import DEVICE, RAND_SEED
+
+
+# seed everything
+random.seed(RAND_SEED)
+np.random.seed(RAND_SEED)
+torch.manual_seed(RAND_SEED)
+torch.cuda.manual_seed(RAND_SEED)
+torch.cuda.manual_seed_all(RAND_SEED)
+torch.backends.cudnn.deterministic = True
 
 
 def cal_bound(model: torch.nn.Module, layer_name: str):
     """Return bound for reinit given model and layer name"""
     assert "bias" in layer_name, f"no bias in {layer_name}"
-    fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
+    fan_in, _ = _calculate_fan_in_and_fan_out(
+        model.state_dict()[layer_name.replace("bias", "weight")]
+    )
     return 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+
 
 class AbstractEncoder(ABC):
     """
@@ -118,28 +139,28 @@ class AbstractEncoder(ABC):
                             bound = cal_bound(model=model, layer_name=layer_name)
                             uniform_(p, -bound, bound)
 
-                # esm1b enced up using LayerNorm so the same    
+                # esm1b enced up using LayerNorm so the same
                 if "layer_norm" in layer_name:
                     if "weight" in layer_name:
                         Parameter(torch.ones_like(p))
                     elif "bias" in layer_name:
                         Parameter(torch.zeros_like(p))
-                
+
                 if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
                     if "weight" in layer_name:
                         kaiming_uniform_(p, a=math.sqrt(5))
                     elif "bias" in layer_name:
                         bound = cal_bound(model=model, layer_name=layer_name)
                         uniform_(p, -bound, bound)
-                
+
                 if "esm1b_" in self._encoder_name:
-                    
+
                     if "embed_positions" in layer_name:
                         normal_(p)
 
                     if layer_name == "lm_head.weight":
                         xavier_uniform_(p)
-                    
+
                     if layer_name == "lm_head.bias" or "lm_head.layer_norm.bias":
                         Parameter(torch.zeros_like(p))
 
@@ -149,143 +170,74 @@ class AbstractEncoder(ABC):
                         elif "bias" in layer_name:
                             bound = cal_bound(model=model, layer_name=layer_name)
                             uniform_(p, -bound, bound)
-                
+
                 elif "esm1_" and "bias_" in self._encoder_name:
                     xavier_normal_(p)
 
         elif self._resample_param:
             print(f"Resample params for {self._encoder_name} ...")
-            
-            """
-            import copy
-import numpy as np
 
-def reset_parameters(model, encoder_name):
-    """Initiate parameters in the transformer model."""
+            resample_state = model.state_dict()
+            for layer_name, p in model.state_dict().items():
+                if (
+                    ("embed_tokens" not in layer_name)
+                    and ("embed_out" not in layer_name)
+                    and ("_float_tensor" not in layer_name)
+                ):
 
-    for layer_name, p in model.state_dict().items():
-        # what esm1b and esm1 have in common
-        if "_proj" in layer_name:
-            if "weight" in layer_name:
-                if "out" in layer_name:
-                    xavier_uniform_(p)
-                else:
-                    xavier_uniform_(p, gain=1 / math.sqrt(2))
-            elif "bias" in layer_name:
-                if "out" in layer_name:
-                    constant_(p, 0.0)
-                else:
-                    bound = cal_bound(model=model, layer_name=layer_name)
-                    uniform_(p, -bound, bound)
+                    if len(p.shape) == 1:
+                        resample_state[layer_name] = p[torch.randperm(p.shape[0])]
+                        """
+                        layers.n.self_attn.k_proj.bias: torch.Size([embed_dim])
+                        layers.n.self_attn.v_proj.bias: torch.Size([embed_dim])
+                        layers.n.self_attn.q_proj.bias: torch.Size([embed_dim])
+                        layers.n.self_attn.out_proj.bias: torch.Size([embed_dim])
+                        layers.n.self_attn_layer_norm.weight: torch.Size([embed_dim])
+                        layers.n.self_attn_layer_norm.bias: torch.Size([embed_dim])
+                        layers.n.fc1.bias: torch.Size([fc_dim])
+                        layers.n.fc2.bias: torch.Size([embed_dim])
+                        layers.n.final_layer_norm.weight: torch.Size([embed_dim])
+                        layers.n.final_layer_norm.bias: torch.Size([embed_dim])
+                        """
+                    elif 1 in p.shape:
+                        """
+                        layers.n.self_attn.bias_k: torch.Size([1, 1, embed_dim])
+                        layers.n.self_attn.bias_v: torch.Size([1, 1, embed_dim])
+                        contact_head.regression.weight: torch.Size([1, reg_dim])
+                        """
+                        if "bias_" in layer_name:
+                            resample_state[layer_name] = p[
+                                :, :, torch.randperm(self._embed_dim)
+                            ]
+                        elif "regression.weight" in layer_name:
+                            resample_state[layer_name] = p[
+                                :, torch.randperm(p.shape[-1])
+                            ]
 
-        # esm1b enced up using LayerNorm so the same    
-        if "layer_norm" in layer_name:
-            if "weight" in layer_name:
-                Parameter(torch.ones_like(p))
-            elif "bias" in layer_name:
-                Parameter(torch.zeros_like(p))
-        
-        if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
-            if "weight" in layer_name:
-                kaiming_uniform_(p, a=math.sqrt(5))
-            elif "bias" in layer_name:
-                bound = cal_bound(model=model, layer_name=layer_name)
-                uniform_(p, -bound, bound)
-        
-        if "esm1b_" in encoder_name:
-            
-            if "embed_positions" in layer_name:
-                normal_(p)
+                    elif (
+                        "k_proj.weight" or "q_proj.weight" or "fc1.weight" in layer_name
+                    ):
+                        resample_state[layer_name] = p[torch.randperm(p.shape[0]), :]
+                        """
+                        layers.n.self_attn.k_proj.weight: torch.Size([embed_dim, embed_dim])
+                        layers.n.self_attn.v_proj.weight: torch.Size([embed_dim, embed_dim])
+                        layers.n.self_attn.q_proj.weight: torch.Size([embed_dim, embed_dim])
+                        layers.n.self_attn.out_proj.weight: torch.Size([embed_dim, embed_dim])
+                        layers.n.fc1.weight: torch.Size([fc_dim, embed_dim])
+                        layers.n.fc2.weight: torch.Size([embed_dim, fc_dim])
+                        """
 
-            if layer_name == "lm_head.weight":
-                xavier_uniform_(p)
-            
-            if layer_name == "lm_head.bias" or "lm_head.layer_norm.bias":
-                Parameter(torch.zeros_like(p))
+                    elif (
+                        "v_proj.weight"
+                        or "out_proj.weight"
+                        or "fc2.weight" in layer_name
+                    ):
 
-            if "dense" in layer_name:
-                if "weight" in layer_name:
-                    kaiming_uniform_(p, a=math.sqrt(5))
-                elif "bias" in layer_name:
-                    bound = cal_bound(model=model, layer_name=layer_name)
-                    uniform_(p, -bound, bound)
-        
-        elif "esm1_" and "bias_" in encoder_name:
-            xavier_normal_(p)
-    
-    return model
+                        resample_state[layer_name] = p[:, torch.randperm(p.shape[1])]
 
-def resample_parameters(model, encoder_name, embed_dim):
-    for layer_name, p in model.state_dict().items():
-        # if "layers" or "contact_head" or "embed_positions" or ".weight" or "emb_layer_norm" in layer_name:
-        if ("embed_tokens" not in layer_name) and ("embed_out" not in layer_name) and ("_float_tensor" not in layer_name):
-            torch.set_printoptions(profile="full")
-            print(f"{layer_name}: {p.shape}")
-            
-            if len(p.shape) == 1:
-                p = p[torch.randperm(p.shape[0])]
-                """
-                layers.n.self_attn.k_proj.bias: torch.Size([embed_dim])
-                layers.n.self_attn.v_proj.bias: torch.Size([embed_dim])
-                layers.n.self_attn.q_proj.bias: torch.Size([embed_dim])
-                layers.n.self_attn.out_proj.bias: torch.Size([embed_dim])
-                layers.n.self_attn_layer_norm.weight: torch.Size([embed_dim])
-                layers.n.self_attn_layer_norm.bias: torch.Size([embed_dim])
-                layers.n.fc1.bias: torch.Size([fc_dim])
-                layers.n.fc2.bias: torch.Size([embed_dim])
-                layers.n.final_layer_norm.weight: torch.Size([embed_dim])
-                layers.n.final_layer_norm.bias: torch.Size([embed_dim])
-                """
-            elif 1 in p.shape:
-                """
-                layers.n.self_attn.bias_k: torch.Size([1, 1, embed_dim])
-                layers.n.self_attn.bias_v: torch.Size([1, 1, embed_dim])
-                contact_head.regression.weight: torch.Size([1, reg_dim])
-                """
-                if "bias_" in layer_name:
-                    p = p[:, :, torch.randperm(embed_dim)]
-                elif "regression.weight" in layer_name:
-                    p = p[:, torch.randperm(p.shape[-1])]
-            
-            elif "k_proj.weight" or "q_proj.weight" or "fc1.weight" in layer_name:
-                if "0" in layer_name:
-                    print(f"p before:\n{p}")
-                p = p[torch.randperm(p.shape[0]),:]
-                if "0" in layer_name:
-                    print(f"p after:\n{p}")
-                """
-                layers.n.self_attn.k_proj.weight: torch.Size([embed_dim, embed_dim])
-                layers.n.self_attn.v_proj.weight: torch.Size([embed_dim, embed_dim])
-                layers.n.self_attn.q_proj.weight: torch.Size([embed_dim, embed_dim])
-                layers.n.self_attn.out_proj.weight: torch.Size([embed_dim, embed_dim])
-                layers.n.fc1.weight: torch.Size([fc_dim, embed_dim])
-                layers.n.fc2.weight: torch.Size([embed_dim, fc_dim])
-                """
-            elif "v_proj.weight" or "out_proj.weight" or "fc2.weight" in layer_name:
-                if "0" in layer_name:
-                    print(f"p before:\n{p}")
-                p = p[:, torch.randperm(p.shape[1])]
-                if "0" in layer_name:
-                    print(f"p after:\n{p}")
+            model.load_state_dict(resample_state)
 
-            """
-            Find out which dim = embed_dim
-            and shuffle along the dim
-            t=torch.tensor([[1,2],[3,4]])
-            r=torch.randperm(2)
-            c=torch.randperm(2)
-            t=t[r[:, None], c]
-
-            # With view
-            idx = torch.randperm(t.nelement())
-            t = t.view(-1)[idx].view(t.size())
-            """
-        torch.set_printoptions(profile="default")
-    return model
-            """
-
-
-        return model
+            return model
 
     def encode(
         self,
