@@ -14,7 +14,7 @@ from scipy.stats import spearmanr
 from scr.utils import get_folder_file_names, pickle_save, ndcg_scale
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
-from scr.encoding.encoding_classes import ESMEncoder, CARPEncoder, OnehotEncoder
+from scr.encoding.encoding_classes import ESMEncoder, CARPEncoder, OnehotEncoder, get_emb_info
 
 from scr.preprocess.data_process import ProtranDataset, DatasetInfo
 
@@ -97,14 +97,7 @@ class RunRidge:
 
         all_ridge_results = {}
 
-        if self.encoder_name in TRANSFORMER_INFO.keys():
-            total_emb_layer = TRANSFORMER_INFO[encoder_name][1] + 1
-        elif self.encoder_name in CARP_INFO.keys():
-            total_emb_layer = CARP_INFO[encoder_name][1]
-        else:
-            # for onehot
-            self.encoder_name = "onehot"
-            total_emb_layer = 1
+        self.encoder_name, _, total_emb_layer = get_emb_info(self.encoder_name)
 
         if self.all_embed_layers:
             print("loading all embed layers...")

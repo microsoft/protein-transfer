@@ -5,7 +5,7 @@ import json
 import argparse
 
 from scr.encoding.gen_encoding import GenerateEmbeddings
-from scr.params.emb import TRANSFORMER_INFO
+from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.utils import get_default_output_path
 
 parser = argparse.ArgumentParser(description="Embedding Generation")
@@ -91,8 +91,24 @@ parser.add_argument(
 
 args = parser.parse_args()
 
+GenerateEmbeddings(
+    dataset_path=args.dataset_path,
+    encoder_name=args.encoder_name,
+    reset_param=args.reset_param,
+    resample_param=args.resample_param,
+    embed_batch_size=args.embed_batch_size,
+    flatten_emb=args.flatten_emb,
+    seq_start_idx=args.seq_start_idx,
+    seq_end_idx=args.seq_end_idx,
+    subset_list=args.subset_list,
+    embed_folder=get_default_output_path(args.embed_folder),
+    # **encoder_params,
+)
 
-for emb in ["onehot"] + list(TRANSFORMER_INFO.keys()):
+"""
+# for emb in ["onehot"] + list(TRANSFORMER_INFO.keys()):
+for emb in ["onehot"] + list(CARP_INFO.keys()):
+
 # for emb in list(TRANSFORMER_INFO.keys()):
 # for emb in ["onehot"]:
     print(f"Generating {emb} embeddings for {args.subset_list}...")
@@ -114,4 +130,4 @@ for emb in ["onehot"] + list(TRANSFORMER_INFO.keys()):
         subset_list=args.subset_list,
         embed_folder=get_default_output_path(args.embed_folder),
         # **encoder_params,
-    )
+    )"""

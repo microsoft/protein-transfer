@@ -3,11 +3,14 @@
 2. [Resample (`self._resample_param = True`) ESM1b](#resamp_esm1b)
 3. [Reinit (`self._reset_param = True`) ESM1](#reset_esm1)
 4. [Resample (`self._resample_param = True`) ESM1](#resamp_esm1)]
+5. [Reinit (`self._reset_param = True`) CARP](#reset_carp)
+6. [Resample (`self._resample_param = True`) CARP](#resamp_carp) 
 
 <a name="reset_esm1b"></a>
 ## Reinit (`self._reset_param = True`) ESM1b
 ### ESM1b architecture
 * n = 0, ..., 32
+
 ```
 ProteinBertModel(
   (embed_tokens): Embedding(33, 1280, padding_idx=1)
@@ -456,6 +459,40 @@ lm_head.layer_norm.bias: dim 1                  [nn.Parameter(torch.zeros(hidden
 <a name="resamp_esm1b"></a>
 ## Resample (`self._resample_param = True`) ESM1b
 * Shuffle the weights for the layers would have been reinit above
+* n = 0, ..., 32
+
+```
+layers.n.self_attn.k_proj.weight: torch.Size([1280, 1280])
+layers.n.self_attn.k_proj.bias: torch.Size([1280])
+layers.n.self_attn.v_proj.weight: torch.Size([1280, 1280])
+layers.n.self_attn.v_proj.bias: torch.Size([1280])
+layers.n.self_attn.q_proj.weight: torch.Size([1280, 1280])
+layers.n.self_attn.q_proj.bias: torch.Size([1280])
+layers.n.self_attn.out_proj.weight: torch.Size([1280, 1280])
+layers.n.self_attn.out_proj.bias: torch.Size([1280])
+layers.n.self_attn_layer_norm.weight: torch.Size([1280])
+layers.n.self_attn_layer_norm.bias: torch.Size([1280])
+layers.n.fc1.weight: torch.Size([5120, 1280])
+layers.n.fc1.bias: torch.Size([5120])
+layers.n.fc2.weight: torch.Size([1280, 5120])
+layers.n.fc2.bias: torch.Size([1280])
+layers.n.final_layer_norm.weight: torch.Size([1280])
+layers.n.final_layer_norm.bias: torch.Size([1280])
+contact_head.regression.weight: torch.Size([1, 660])
+contact_head.regression.bias: torch.Size([1])
+embed_positions.weight: torch.Size([1026, 1280])
+emb_layer_norm_before.weight: torch.Size([1280])
+emb_layer_norm_before.bias: torch.Size([1280])
+emb_layer_norm_after.weight: torch.Size([1280])
+emb_layer_norm_after.bias: torch.Size([1280])
+lm_head.weight: torch.Size([33, 1280])
+lm_head.bias: torch.Size([33])
+lm_head.dense.weight: torch.Size([1280, 1280])
+lm_head.dense.bias: torch.Size([1280])
+lm_head.layer_norm.weight: torch.Size([1280])
+lm_head.layer_norm.bias: torch.Size([1280])
+```
+* Shuffle all weights along non-zero or embedding dimension
 
 <a name="reinit_esm1"></a>
 ## Reinit (`self._reset_param = True`) ESM1
@@ -888,3 +925,512 @@ layers.n.final_layer_norm.bias: torch.Size([embed_dim])
 contact_head.regression.weight: torch.Size([1, reg_dim])
 contact_head.regression.bias: torch.Size([1])
 ```
+
+* Shuffle all weights along non-zero or embedding dimension
+
+<a name="reset_carp"></a>
+## Reinit (`self._reset_param = True`) CARP
+
+* For [`load_carp`](https://github.com/microsoft/protein-sequence-models/blob/885a24f9802aaf63bb6b554d43f912a269781514/sequence_models/pretrained.py#L16) function in [`sequence_models.pretrained`](https://github.com/microsoft/protein-sequence-models/blob/main/sequence_models/pretrained.py)
+
+```
+def load_carp(model_data):
+    d_embedding = model_data['d_embed']
+    d_model = model_data['d_model']
+    n_layers = model_data['n_layers']
+    kernel_size = model_data['kernel_size']
+    activation = model_data['activation']
+    slim = model_data['slim']
+    r = model_data['r']
+    bgc = 'bigcarp' in model_data['model']
+    if not bgc:
+        n_tokens = len(PROTEIN_ALPHABET)
+        mask_idx = PROTEIN_ALPHABET.index(MASK)
+        pad_idx = PROTEIN_ALPHABET.index(PAD)
+        n_frozen = None
+    else:
+        n_tokens = model_data['tokens']['size']
+        mask_idx = model_data['tokens']['specials'][MASK]
+        pad_idx = model_data['tokens']['specials'][PAD]
+        if 'frozen' in model_data['model']:
+            n_frozen = 19450
+        else:
+            n_frozen = None
+    model = ByteNetLM(n_tokens, d_embedding, d_model, n_layers, kernel_size, r, dropout=0.0,
+                      activation=activation, causal=False, padding_idx=mask_idx,
+                      final_ln=True, slim=slim, n_frozen_embs=n_frozen)
+    sd = model_data['model_state_dict']
+    model.load_state_dict(sd)
+    model = CARP(model.eval(), pad_idx=pad_idx)
+    return model
+```
+
+* For [`CARP`](https://github.com/microsoft/protein-sequence-models/blob/885a24f9802aaf63bb6b554d43f912a269781514/sequence_models/pretrained.py#L87) class in [`sequence_models.pretrained`](https://github.com/microsoft/protein-sequence-models/blob/main/sequence_models/pretrained.py)
+
+```
+class CARP(nn.Module):
+    """Wrapper that takes care of input masking."""
+
+    def __init__(self, model: ByteNetLM, pad_idx=PROTEIN_ALPHABET.index(PAD)):
+        super().__init__()
+        self.model = model
+        self.pad_idx = pad_idx
+
+    def forward(self, x, repr_layers=[-1], logits=False):
+        padding_mask = (x != self.pad_idx)
+        padding_mask = padding_mask.unsqueeze(-1)
+        if len(repr_layers) == 1 and repr_layers[0] == -1:
+            repr_layers = [len(self.model.embedder.layers)]
+        result = {}
+        if len(repr_layers) > 0:
+            result['representations'] = {}
+        x = self.model.embedder._embed(x)
+        if 0 in repr_layers:
+            result[0] = x
+        i = 1
+        for layer in self.model.embedder.layers:
+            x = layer(x, input_mask=padding_mask)
+            if i in repr_layers:
+                result['representations'][i] = x
+            i += 1
+        if logits:
+            result['logits'] = self.model.decoder(self.model.last_norm(x))
+        return result
+```
+
+* For [`ByteNetLM`](https://github.com/microsoft/protein-sequence-models/blob/885a24f9802aaf63bb6b554d43f912a269781514/sequence_models/convolutional.py#L329) class in [`sequence_models.convolutional`](https://github.com/microsoft/protein-sequence-models/blob/main/sequence_models/convolutional.py)
+
+```
+class ByteNetLM(nn.Module):
+
+    def __init__(self, n_tokens, d_embedding, d_model, n_layers, kernel_size, r, rank=None, n_frozen_embs=None,
+                 padding_idx=None, causal=False, dropout=0.0, final_ln=False, slim=True, activation='relu',
+                 tie_weights=False, down_embed=True):
+        super().__init__()
+        self.embedder = ByteNet(n_tokens, d_embedding, d_model, n_layers, kernel_size, r,
+                                padding_idx=padding_idx, causal=causal, dropout=dropout, down_embed=down_embed,
+                                slim=slim, activation=activation, rank=rank, n_frozen_embs=n_frozen_embs)
+        if tie_weights:
+            self.decoder = nn.Linear(d_model, n_tokens, bias=False)
+            self.decoder.weight = self.embedder.embedder.weight
+        else:
+            self.decoder = PositionFeedForward(d_model, n_tokens)
+        if final_ln:
+            self.last_norm = nn.LayerNorm(d_model)
+        else:
+            self.last_norm = nn.Identity()
+
+    def forward(self, x, input_mask=None):
+        e = self.embedder(x, input_mask=input_mask)
+        e = self.last_norm(e)
+        return self.decoder(e)
+```
+
+* For [`ByteNet`](https://github.com/microsoft/protein-sequence-models/blob/885a24f9802aaf63bb6b554d43f912a269781514/sequence_models/convolutional.py#L252) class in [`sequence_models.convolutional`](https://github.com/microsoft/protein-sequence-models/blob/main/sequence_models/convolutional.py)
+
+```
+class ByteNet(nn.Module):
+
+    """Stacked residual blocks from ByteNet paper defined by n_layers
+         
+         Shape:
+            Input: (N, L,)
+            input_mask: (N, L, 1), optional
+            Output: (N, L, d)
+    """
+
+    def __init__(self, n_tokens, d_embedding, d_model, n_layers, kernel_size, r, rank=None, n_frozen_embs=None,
+                 padding_idx=None, causal=False, dropout=0.0, slim=True, activation='relu', down_embed=True):
+        """
+        :param n_tokens: number of tokens in token dictionary
+        :param d_embedding: dimension of embedding
+        :param d_model: dimension to use within ByteNet model, //2 every layer
+        :param n_layers: number of layers of ByteNet block
+        :param kernel_size: the kernel width
+        :param r: used to calculate dilation factor
+        :padding_idx: location of padding token in ordered alphabet
+        :param causal: if True, chooses MaskedCausalConv1d() over MaskedConv1d()
+        :param rank: rank of compressed weight matrices
+        :param n_frozen_embs: number of frozen embeddings
+        :param slim: if True, use half as many dimensions in the NLP as in the CNN
+        :param activation: 'relu' or 'gelu'
+        :param down_embed: if True, have lower dimension for initial embedding than in CNN layers
+        """
+        super().__init__()
+        if n_tokens is not None:
+            if n_frozen_embs is None:
+                self.embedder = nn.Embedding(n_tokens, d_embedding, padding_idx=padding_idx)
+            else:
+                self.embedder = DoubleEmbedding(n_tokens - n_frozen_embs, n_frozen_embs,
+                                                d_embedding, padding_idx=padding_idx)
+        else:
+            self.embedder = nn.Identity()
+        if down_embed:
+            self.up_embedder = PositionFeedForward(d_embedding, d_model)
+        else:
+            self.up_embedder = nn.Identity()
+            assert n_tokens == d_embedding
+        log2 = int(np.log2(r)) + 1
+        dilations = [2 ** (n % log2) for n in range(n_layers)]
+        d_h = d_model
+        if slim:
+            d_h = d_h // 2
+        layers = [
+            ByteNetBlock(d_model, d_h, d_model, kernel_size, dilation=d, causal=causal, rank=rank,
+                         activation=activation)
+            for d in dilations
+        ]
+        self.layers = nn.ModuleList(modules=layers)
+        self.dropout = dropout
+
+    def forward(self, x, input_mask=None):
+        """
+        :param x: (batch, length)
+        :param input_mask: (batch, length, 1)
+        :return: (batch, length,)
+        """
+        e = self._embed(x)
+        return self._convolve(e, input_mask=input_mask)
+
+    def _embed(self, x):
+        e = self.embedder(x)
+        e = self.up_embedder(e)
+        return e
+
+    def _convolve(self, e, input_mask=None):
+        for layer in self.layers:
+            e = layer(e, input_mask=input_mask)
+            if self.dropout > 0.0:
+                e = F.dropout(e, self.dropout)
+        return e
+```
+
+* For [`ByteNetBlock`](https://github.com/microsoft/protein-sequence-models/blob/885a24f9802aaf63bb6b554d43f912a269781514/sequence_models/convolutional.py#L206) class in [`sequence_models.convolutional`](https://github.com/microsoft/protein-sequence-models/blob/main/sequence_models/convolutional.py)
+
+```
+class ByteNetBlock(nn.Module):
+    """Residual block from ByteNet paper (https://arxiv.org/abs/1610.10099).
+         
+         Shape:
+            Input: (N, L, d_in)
+            input_mask: (N, L, 1), optional
+            Output: (N, L, d_out)
+    """
+
+    def __init__(self, d_in, d_h, d_out, kernel_size, dilation=1, groups=1, causal=False, activation='relu', rank=None):
+        super().__init__()
+        if causal:
+            self.conv = MaskedCausalConv1d(d_h, d_h, kernel_size=kernel_size, dilation=dilation, groups=groups)
+        else:
+            self.conv = MaskedConv1d(d_h, d_h, kernel_size=kernel_size, dilation=dilation, groups=groups)
+        if activation == 'relu':
+            act = nn.ReLU
+        elif activation == 'gelu':
+            act = nn.GELU
+        layers1 = [
+            nn.LayerNorm(d_in),
+            act(),
+            PositionFeedForward(d_in, d_h, rank=rank),
+            nn.LayerNorm(d_h),
+            act()
+        ]
+        layers2 = [
+            nn.LayerNorm(d_h),
+            act(),
+            PositionFeedForward(d_h, d_out, rank=rank),
+        ]
+        self.sequence1 = nn.Sequential(*layers1)
+        self.sequence2 = nn.Sequential(*layers2)
+
+    def forward(self, x, input_mask=None):
+        """
+        :param x: (batch, length, in_channels)
+        :param input_mask: (batch, length, 1)
+        :return: (batch, length, out_channels)
+        """
+        return x + self.sequence2(
+            self.conv(self.sequence1(x), input_mask=input_mask)
+        )
+```
+
+* For [`PositionFeedForward`](https://github.com/microsoft/protein-sequence-models/blob/885a24f9802aaf63bb6b554d43f912a269781514/sequence_models/layers.py#L63) class in [`sequence_models.layers`](https://github.com/microsoft/protein-sequence-models/blob/main/sequence_models/layers.py)
+
+```
+class PositionFeedForward(nn.Module):
+
+    def __init__(self, d_in, d_out, rank=None):
+        super().__init__()
+        if rank is None:
+            self.conv = nn.Conv1d(d_in, d_out, 1)
+            self.factorized = False
+        else:
+            layer = nn.Linear(d_in, d_out)
+            w = layer.weight.data
+            self.bias = layer.bias
+            u, s, v = torch.svd(w)
+            s = torch.diag(s[:rank].sqrt())
+            u = u[:, :rank]
+            v = v.t()[:rank]
+            self.u = nn.Parameter(u @ s)
+            self.v = nn.Parameter(s @ v)
+            self.factorized = True
+
+    def forward(self, x):
+        if self.factorized:
+            w = self.u @ self.v
+            return x @ w.t() + self.bias
+        else:
+            return self.conv(x.transpose(1, 2)).transpose(1, 2)
+```
+
+* For [`LayerNorm`](https://pytorch.org/docs/stable/_modules/torch/nn/modules/normalization.html#LayerNorm)
+
+```
+def reset_parameters(self) -> None:
+    if self.elementwise_affine:
+        init.ones_(self.weight)
+        init.zeros_(self.bias)
+```
+
+* For [`MaskedConv1d`](https://github.com/microsoft/protein-sequence-models/blob/885a24f9802aaf63bb6b554d43f912a269781514/sequence_models/convolutional.py#L10) and [`MaskedCausalConv1d`](https://github.com/microsoft/protein-sequence-models/blob/885a24f9802aaf63bb6b554d43f912a269781514/sequence_models/convolutional.py#L76) both are based on [`nn.Conv1d`](https://pytorch.org/docs/stable/_modules/torch/nn/modules/conv.html#Conv1d)
+
+```
+class MaskedCausalConv1d(nn.Module):
+    """Masked Causal 1D convolution based on https://github.com/Popgun-Labs/PopGen/. 
+         
+         Shape:
+            Input: (N, L, in_channels)
+            input_mask: (N, L, 1), optional
+            Output: (N, L, out_channels)
+    """
+
+    def __init__(self, in_channels, out_channels, kernel_size=1, dilation=1, groups=1, init=None):
+        """
+        Causal 1d convolutions with caching mechanism for O(L) generation,
+        as described in the ByteNet paper (Kalchbrenner et al, 2016) and "Fast Wavenet" (Paine, 2016)
+        Usage:
+            At train time, API is same as regular convolution. `conv = CausalConv1d(...)`
+            At inference time, set `conv.sequential = True` to enable activation caching, and feed
+            sequence through step by step. Recurrent state is managed internally.
+        References:
+            - Neural Machine Translation in Linear Time: https://arxiv.org/abs/1610.10099
+            - Fast Wavenet: https://arxiv.org/abs/1611.09482
+        :param in_channels: input channels
+        :param out_channels: output channels
+        :param kernel_size: the kernel width
+        :param dilation: dilation factor
+        :param groups: perform depth-wise convolutions
+        :param init: optional initialisation function for nn.Conv1d module (e.g xavier)
+        """
+        super().__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.dilation = dilation
+        self.groups = groups
+
+        # if `true` enables fast generation
+        self.sequential = False
+
+        # compute required amount of padding to preserve the length
+        self.zeros = (kernel_size - 1) * dilation
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size, dilation=dilation, groups=groups)
+
+        # use supplied initialization function
+        if init:
+            init(self.conv)
+
+    def forward(self, x, input_mask=None):
+        """
+        :param x: (batch, length, in_channels)
+        :param input_mask: (batch, length, 1)
+        :return: (batch, length, out_channels)
+        """
+        if input_mask is not None:
+            x = x * input_mask
+        # training mode
+        x = torch.transpose(x, 1, 2)
+        if not self.sequential:
+            # no padding for kw=1
+            if self.kernel_size == 1:
+                return self.conv(x).transpose(1, 2)
+
+            # left-pad + conv.
+            out = self._pad(x)
+            return self._unpad(self.conv(out)).transpose(1, 2)
+
+        # sampling mode
+        else:
+            # note: x refers to a single timestep (batch, features, 1)
+            if not hasattr(self, 'recurrent_state'):
+                batch_size = x.size(0)
+                self._init_recurrent_state(batch_size)
+
+            return self._generate(x).transpose(1, 2)
+
+    def _pad(self, x):
+        return F.pad(x, [self.zeros, 0])
+
+    def _unpad(self, x):
+        return x
+
+    def clear_cache(self):
+        """
+        Delete the recurrent state. Note: this should be called between runs, to prevent
+        leftover state bleeding into future samples. Note that we delete state (instead of zeroing) to support
+        changes in the inference time batch size.
+        """
+        if hasattr(self, 'recurrent_state'):
+            del self.recurrent_state
+
+    def _init_recurrent_state(self, batch):
+        """
+        Initialize the recurrent state for fast generation.
+        :param batch: the batch size to generate
+        """
+
+        # extract weights and biases from nn.Conv1d module
+        state = self.conv.state_dict()
+        self.weight = state['weight']
+        self.bias = state['bias']
+
+        # initialize the recurrent states to zeros
+        self.recurrent_state = torch.zeros(batch, self.in_channels, self.zeros, device=self.bias.device)
+
+    def _generate(self, x_i):
+        """
+        Generate a single output activations, from the input activation
+        and the cached recurrent state activations from previous steps.
+        :param x_i: features of a single timestep (batch, in_channels, 1)
+        :return: the next output value in the series (batch, out_channels, 1)
+        """
+
+        # if the kernel_size is greater than 1, use recurrent state.
+        if self.kernel_size > 1:
+            # extract the recurrent state and concat with input column
+            recurrent_activations = self.recurrent_state[:, :, :self.zeros]
+            f = torch.cat([recurrent_activations, x_i], 2)
+
+            # update the cache for this layer
+            self.recurrent_state = torch.cat(
+                [self.recurrent_state[:, :, 1:], x_i], 2)
+        else:
+            f = x_i
+
+        # perform convolution
+        activations = F.conv1d(f, self.weight, self.bias,
+                               dilation=self.dilation, groups=self.groups)
+
+        return activations
+```
+
+```
+class MaskedConv1d(nn.Conv1d):
+    """ A masked 1-dimensional convolution layer.
+    Takes the same arguments as torch.nn.Conv1D, except that the padding is set automatically.
+         Shape:
+            Input: (N, L, in_channels)
+            input_mask: (N, L, 1), optional
+            Output: (N, L, out_channels)
+    """
+
+    def __init__(self, in_channels: int, out_channels: int,
+                 kernel_size: int, stride: int=1, dilation: int=1, groups: int=1,
+                 bias: bool=True):
+        """
+        :param in_channels: input channels
+        :param out_channels: output channels
+        :param kernel_size: the kernel width
+        :param stride: filter shift
+        :param dilation: dilation factor
+        :param groups: perform depth-wise convolutions
+        :param bias: adds learnable bias to output
+        """
+        padding = dilation * (kernel_size - 1) // 2
+        super().__init__(in_channels, out_channels, kernel_size, stride=stride, dilation=dilation,
+                                           groups=groups, bias=bias, padding=padding)
+
+    def forward(self, x, input_mask=None):
+        if input_mask is not None:
+            x = x * input_mask
+        return super().forward(x.transpose(1, 2)).transpose(1, 2)
+```
+
+```
+def reset_parameters(self) -> None:
+    # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
+    # uniform(-1/sqrt(k), 1/sqrt(k)), where k = weight.size(1) * prod(*kernel_size)
+    # For more details see: https://github.com/pytorch/pytorch/issues/15314#issuecomment-477448573
+    init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+    if self.bias is not None:
+        fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight)
+        if fan_in != 0:
+            bound = 1 / math.sqrt(fan_in)
+            init.uniform_(self.bias, -bound, bound)
+```
+* Specifically,
+* `carp_600k`
+    * n = 0, ..., 15
+    * d_model = 128
+    * hid_dim = 64
+* `carp_38M`
+    * n = 0, ..., 15
+    * d_model = 1024
+    * hid_dim = 512
+* `carp_76M`
+    * n = 0, ..., 31
+    * d_model = 1024
+    * hid_dim = 512
+* `carp_640M`
+    * n = 0, ..., 31
+    * d_model = 1280
+    * hid_dim = 1280
+
+```
+model.embedder.embedder.weight: torch.Size([30, 8])
+model.embedder.up_embedder.conv.weight: torch.Size([d_model, 8, 1])
+model.embedder.up_embedder.conv.bias: torch.Size([d_model])
+model.embedder.layers.n.conv.weight: torch.Size([hid_dim, hid_dim, 5])
+model.embedder.layers.n.conv.bias: torch.Size([hid_dim])
+model.embedder.layers.n.sequence1.0.weight: torch.Size([d_model])
+model.embedder.layers.n.sequence1.0.bias: torch.Size([d_model])
+model.embedder.layers.n.sequence1.2.conv.weight: torch.Size([hid_dim, d_model, 1])
+model.embedder.layers.n.sequence1.2.conv.bias: torch.Size([hid_dim])
+model.embedder.layers.n.sequence1.3.weight: torch.Size([hid_dim])
+model.embedder.layers.n.sequence1.3.bias: torch.Size([hid_dim])
+model.embedder.layers.n.sequence2.0.weight: torch.Size([hid_dim])
+model.embedder.layers.n.sequence2.0.bias: torch.Size([hid_dim])
+model.embedder.layers.n.sequence2.2.conv.weight: torch.Size([d_model, hid_dim, 1])
+model.embedder.layers.n.sequence2.2.conv.bias: torch.Size([d_model])
+model.decoder.conv.weight: torch.Size([30, d_model, 1])
+model.decoder.conv.bias: torch.Size([30])
+model.last_norm.weight: torch.Size([d_model])
+model.last_norm.bias: torch.Size([d_model])
+```
+
+```
+model.embedder.embedder.weight
+model.embedder.up_embedder.conv.weight
+model.embedder.up_embedder.conv.bias
+model.embedder.layers.n.conv.weight                 [init.kaiming_uniform_(self.weight, a=math.sqrt(5))]
+model.embedder.layers.n.conv.bias                   [init.uniform_(self.bias, -bound, bound)]
+model.embedder.layers.n.sequence1.0.weight          [init.ones_(self.weight)]
+model.embedder.layers.n.sequence1.0.bias            [init.zeros_(self.bias)]
+model.embedder.layers.n.sequence1.2.conv.weight     [init.kaiming_uniform_(self.weight, a=math.sqrt(5))]
+model.embedder.layers.n.sequence1.2.conv.bias       [init.uniform_(self.bias, -bound, bound)]
+model.embedder.layers.n.sequence1.3.weight          [init.ones_(self.weight)]
+model.embedder.layers.n.sequence1.3.bias            [init.zeros_(self.bias)]
+model.embedder.layers.n.sequence2.0.weight          [init.ones_(self.weight)]
+model.embedder.layers.n.sequence2.0.bias            [init.zeros_(self.bias)]
+model.embedder.layers.n.sequence2.2.conv.weight     [init.kaiming_uniform_(self.weight, a=math.sqrt(5))]
+model.embedder.layers.n.sequence2.2.conv.bias       [init.uniform_(self.bias, -bound, bound)]
+model.decoder.conv.weight
+model.decoder.conv.bias
+model.last_norm.weight
+model.last_norm.bias
+```
+
+
+<a name="resamp_carp"></a>
+## Resample (`self._resample_param = True`) CARP

@@ -20,6 +20,8 @@ from torch.nn.init import (
     uniform_,
     normal_,
     constant_,
+    ones_,
+    zeros_,
     _calculate_fan_in_and_fan_out,
 )
 from sequence_models.pretrained import load_model_and_alphabet
@@ -123,57 +125,74 @@ class AbstractEncoder(ABC):
             
             embed_positions.weight: dim 2                   [nn.init.normal_(self.weight)]
             """
+            if self.encoder_name in TRANSFORMER_INFO.keys(): 
+                for layer_name, p in model.state_dict().items():
+                    # what esm1b and esm1 have in common
+                    if "_proj" in layer_name:
+                        if "weight" in layer_name:
+                            if "out" in layer_name:
+                                xavier_uniform_(p)
+                            else:
+                                xavier_uniform_(p, gain=1 / math.sqrt(2))
+                        elif "bias" in layer_name:
+                            if "out" in layer_name:
+                                constant_(p, 0.0)
+                            else:
+                                bound = cal_bound(model=model, layer_name=layer_name)
+                                uniform_(p, -bound, bound)
 
-            for layer_name, p in model.state_dict().items():
-                # what esm1b and esm1 have in common
-                if "_proj" in layer_name:
-                    if "weight" in layer_name:
-                        if "out" in layer_name:
-                            xavier_uniform_(p)
-                        else:
-                            xavier_uniform_(p, gain=1 / math.sqrt(2))
-                    elif "bias" in layer_name:
-                        if "out" in layer_name:
-                            constant_(p, 0.0)
-                        else:
-                            bound = cal_bound(model=model, layer_name=layer_name)
-                            uniform_(p, -bound, bound)
+                    # esm1b enced up using LayerNorm so the same
+                    if "layer_norm" in layer_name:
+                        if "weight" in layer_name:
+                            Parameter(torch.ones_like(p))
+                        elif "bias" in layer_name:
+                            Parameter(torch.zeros_like(p))
 
-                # esm1b enced up using LayerNorm so the same
-                if "layer_norm" in layer_name:
-                    if "weight" in layer_name:
-                        Parameter(torch.ones_like(p))
-                    elif "bias" in layer_name:
-                        Parameter(torch.zeros_like(p))
-
-                if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
-                    if "weight" in layer_name:
-                        kaiming_uniform_(p, a=math.sqrt(5))
-                    elif "bias" in layer_name:
-                        bound = cal_bound(model=model, layer_name=layer_name)
-                        uniform_(p, -bound, bound)
-
-                if "esm1b_" in self._encoder_name:
-
-                    if "embed_positions" in layer_name:
-                        normal_(p)
-
-                    if layer_name == "lm_head.weight":
-                        xavier_uniform_(p)
-
-                    if layer_name == "lm_head.bias" or "lm_head.layer_norm.bias":
-                        Parameter(torch.zeros_like(p))
-
-                    if "dense" in layer_name:
+                    if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
                         if "weight" in layer_name:
                             kaiming_uniform_(p, a=math.sqrt(5))
                         elif "bias" in layer_name:
                             bound = cal_bound(model=model, layer_name=layer_name)
                             uniform_(p, -bound, bound)
 
-                elif "esm1_" and "bias_" in self._encoder_name:
-                    xavier_normal_(p)
+                    if "esm1b_" in self._encoder_name:
 
+                        if "embed_positions" in layer_name:
+                            normal_(p)
+
+                        if layer_name == "lm_head.weight":
+                            xavier_uniform_(p)
+
+                        if layer_name == "lm_head.bias" or "lm_head.layer_norm.bias":
+                            Parameter(torch.zeros_like(p))
+
+                        if "dense" in layer_name:
+                            if "weight" in layer_name:
+                                kaiming_uniform_(p, a=math.sqrt(5))
+                            elif "bias" in layer_name:
+                                bound = cal_bound(model=model, layer_name=layer_name)
+                                uniform_(p, -bound, bound)
+
+                    elif "esm1_" and "bias_" in self._encoder_name:
+                        xavier_normal_(p)
+            
+            elif self.encoder_name in CARP_INFO.keys():
+                for layer_name, p in model.state_dict().items():
+                    if "layers" in layer_name:
+                        if "conv" in layer_name:
+                            if "weight" in layer_name:
+                                kaiming_uniform_(p, a=math.sqrt(5))
+                            elif "bias" in layer_name:
+                                fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
+                                if fan_in != 0:
+                                    bound = 1 / math.sqrt(fan_in)
+                                    uniform_(p, -bound, bound)
+                                            
+                        else:
+                            if "weight" in layer_name:
+                                ones_(p)
+                            elif "bias" in layer_name:
+                                zeros_(p)
         elif self._resample_param:
             print(f"Resample params for {self._encoder_name} ...")
 
@@ -187,7 +206,9 @@ class AbstractEncoder(ABC):
 
                     if len(p.shape) == 1:
                         resample_state[layer_name] = p[torch.randperm(p.shape[0])]
+
                         """
+                        esm1:
                         layers.n.self_attn.k_proj.bias: torch.Size([embed_dim])
                         layers.n.self_attn.v_proj.bias: torch.Size([embed_dim])
                         layers.n.self_attn.q_proj.bias: torch.Size([embed_dim])
@@ -198,12 +219,41 @@ class AbstractEncoder(ABC):
                         layers.n.fc2.bias: torch.Size([embed_dim])
                         layers.n.final_layer_norm.weight: torch.Size([embed_dim])
                         layers.n.final_layer_norm.bias: torch.Size([embed_dim])
+
+                        esm1b:
+                        layers.n.self_attn.k_proj.bias: torch.Size([1280])
+                        layers.n.self_attn.v_proj.bias: torch.Size([1280])
+                        layers.n.self_attn.q_proj.bias: torch.Size([1280])
+                        layers.n.self_attn.out_proj.bias: torch.Size([1280])
+                        layers.n.self_attn_layer_norm.weight: torch.Size([1280])
+                        layers.n.self_attn_layer_norm.bias: torch.Size([1280])
+                        layers.n.fc1.bias: torch.Size([5120])
+                        layers.n.fc2.bias: torch.Size([1280])
+                        layers.n.final_layer_norm.weight: torch.Size([1280])
+                        layers.n.final_layer_norm.bias: torch.Size([1280])
+                        contact_head.regression.weight: torch.Size([1, 660])
+                        contact_head.regression.bias: torch.Size([1])
+                        emb_layer_norm_before.weight: torch.Size([1280])
+                        emb_layer_norm_before.bias: torch.Size([1280])
+                        emb_layer_norm_after.weight: torch.Size([1280])
+                        emb_layer_norm_after.bias: torch.Size([1280])
+                        lm_head.bias: torch.Size([33])
+                        lm_head.dense.bias: torch.Size([1280])
+                        lm_head.layer_norm.weight: torch.Size([1280])
+                        lm_head.layer_norm.bias: torch.Size([1280])
                         """
+
                     elif 1 in p.shape:
+
                         """
+                        esm1
                         layers.n.self_attn.bias_k: torch.Size([1, 1, embed_dim])
                         layers.n.self_attn.bias_v: torch.Size([1, 1, embed_dim])
                         contact_head.regression.weight: torch.Size([1, reg_dim])
+
+                        esm1b:
+                        contact_head.regression.weight: torch.Size([1, 660])
+                        contact_head.regression.bias: torch.Size([1])
                         """
                         if "bias_" in layer_name:
                             resample_state[layer_name] = p[
@@ -215,23 +265,46 @@ class AbstractEncoder(ABC):
                             ]
 
                     elif (
-                        "k_proj.weight" or "q_proj.weight" or "fc1.weight" in layer_name
+                        "k_proj.weight"
+                        or "q_proj.weight"
+                        or "fc1.weight"
+                        or "embed_positions.weight"
+                        or "lm_head.weight" in layer_name
                     ):
                         resample_state[layer_name] = p[torch.randperm(p.shape[0]), :]
+
                         """
+                        esm1:
                         layers.n.self_attn.k_proj.weight: torch.Size([embed_dim, embed_dim])
-                        layers.n.self_attn.v_proj.weight: torch.Size([embed_dim, embed_dim])
                         layers.n.self_attn.q_proj.weight: torch.Size([embed_dim, embed_dim])
-                        layers.n.self_attn.out_proj.weight: torch.Size([embed_dim, embed_dim])
                         layers.n.fc1.weight: torch.Size([fc_dim, embed_dim])
-                        layers.n.fc2.weight: torch.Size([embed_dim, fc_dim])
+
+                        esm1b:
+                        layers.n.self_attn.k_proj.weight: torch.Size([1280, 1280])
+                        layers.n.self_attn.q_proj.weight: torch.Size([1280, 1280])
+                        layers.n.fc1.weight: torch.Size([5120, 1280])
+                        embed_positions.weight: torch.Size([1026, 1280])
+                        lm_head.weight: torch.Size([33, 1280])
                         """
 
                     elif (
                         "v_proj.weight"
                         or "out_proj.weight"
-                        or "fc2.weight" in layer_name
+                        or "fc2.weight"
+                        or "lm_head.dense.weight" in layer_name
                     ):
+
+                        """
+                        layers.n.self_attn.v_proj.weight: torch.Size([embed_dim, embed_dim])
+                        layers.n.self_attn.out_proj.weight: torch.Size([embed_dim, embed_dim])
+                        layers.n.fc2.weight: torch.Size([embed_dim, fc_dim])
+
+                        esm1b:
+                        layers.n.self_attn.v_proj.weight: torch.Size([1280, 1280])
+                        layers.n.self_attn.out_proj.weight: torch.Size([1280, 1280])
+                        layers.n.fc2.weight: torch.Size([1280, 5120])
+                        lm_head.dense.weight: torch.Size([1280, 1280])
+                        """
 
                         resample_state[layer_name] = p[:, torch.randperm(p.shape[1])]
 
@@ -350,16 +423,6 @@ class AbstractEncoder(ABC):
     def max_emb_layer(self) -> int:
         """The max layer nubmer of the embedding"""
         return self._max_emb_layer
-
-    @property
-    def include_input_layer(self) -> bool:
-        """If include the input layer when counting the max layer number"""
-        return self._include_input_layer
-
-    @property
-    def total_emb_layer(self) -> int:
-        """Total embedding layer number"""
-        return self._max_emb_layer + self._include_input_layer
 
     @property
     def encoder_name(self) -> str:
@@ -596,13 +659,10 @@ class CARPEncoder(AbstractEncoder):
         self.model = self.reset_resample_param(model=self.model)
 
         # set model to eval mode
-        self.model.eval()
-        self.model.to(DEVICE)
+        # self.model.eval()
+        # self.model.to(DEVICE)
 
         self._embed_dim, self._max_emb_layer = CARP_INFO[self._encoder_name]
-
-        # carp does not have the input representation
-        self._include_input_layer = False
 
         # load model from torch.hub
         print(
@@ -635,7 +695,11 @@ class CARPEncoder(AbstractEncoder):
         # init output dict
         dict_encoded_mut_seqs = {}
 
-        dict_encoded_mut_seqs[0] = rep[0].detach().numpy()
+        dict_encoded_mut_seqs[0] = self.flatten_encode(
+            encoded_mut_seqs=rep[0].detach().numpy(),
+            flatten_emb=flatten_emb,
+            mut_seqs=mut_seqs,
+        )
 
         for layer_numb, encoded_mut_seqs in rep["representations"].items():
             dict_encoded_mut_seqs[layer_numb] = self.flatten_encode(
@@ -643,7 +707,6 @@ class CARPEncoder(AbstractEncoder):
                 flatten_emb=flatten_emb,
                 mut_seqs=mut_seqs,
             )
-
         return dict_encoded_mut_seqs
 
         """
@@ -677,6 +740,7 @@ class CARPEncoder(AbstractEncoder):
         return activation
         """
 
+
 def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
 
     """
@@ -695,7 +759,7 @@ def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
         total_emb_layer = TRANSFORMER_INFO[encoder_name][1] + 1
         encoder_class = ESMEncoder
     elif encoder_name in CARP_INFO.keys():
-        total_emb_layer = CARP_INFO[encoder_name][1]
+        total_emb_layer = CARP_INFO[encoder_name][1] + 1
         encoder_class = CARPEncoder
     else:
         # for onehot

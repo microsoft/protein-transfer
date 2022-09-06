@@ -514,7 +514,7 @@ class ProtranDataset(Dataset):
             resample_param=resample_param,
             **encoder_params,
         )
-        self._total_emb_layer = self._encoder.total_emb_layer
+        self._max_emb_layer = self._encoder.max_emb_layer
         self._embed_layer = embed_layer
 
         # encode all and load in memory
@@ -601,7 +601,7 @@ class ProtranDataset(Dataset):
                 self.mut_numb[idx],
                 *(
                     getattr(self, "layer" + str(layer))[idx]
-                    for layer in range(self._total_emb_layer)
+                    for layer in range(self._max_emb_layer)
                 ),
             )
         elif self._embed_folder is not None:
@@ -628,7 +628,7 @@ class ProtranDataset(Dataset):
 
                 layer_embs = [
                     getattr(emb_table.root, "layer" + str(layer))[idx]
-                    for layer in range(self._total_emb_layer)
+                    for layer in range(self._max_emb_layer)
                 ]
 
                 emb_table.close()
