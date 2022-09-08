@@ -26,6 +26,8 @@ embeddings-rand
 embeddings-rand/
 embeddings-stat
 embeddings-stat/
+pretrain_checkpoints
+pretrain_checkpoints/
 
 # exceptions to the rule
 !README.md

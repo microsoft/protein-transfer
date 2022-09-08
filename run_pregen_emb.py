@@ -105,8 +105,43 @@ GenerateEmbeddings(
     # **encoder_params,
 )
 
+# for emb in ["carp_640M", "carp_76M"]:
+#     for dp in ["data/proeng/thermo/mixed_split.csv", "data/proeng/aav/one_vs_many.csv", "data/proeng/aav/two_vs_many.csv", "data/annotation/scl/balanced.csv"]:
+
+#         GenerateEmbeddings(
+#             dataset_path=dp,
+#             encoder_name=emb,
+#             reset_param=args.reset_param,
+#             resample_param=args.resample_param,
+#             embed_batch_size=args.embed_batch_size,
+#             flatten_emb="mean",
+#             seq_start_idx=args.seq_start_idx,
+#             seq_end_idx=args.seq_end_idx,
+#             subset_list=args.subset_list,
+#             embed_folder=get_default_output_path(args.embed_folder),
+#             # **encoder_params,
+#         )
+
+# for emb in ["carp_38M"]:
+#     for dp in ["data/proeng/thermo/mixed_split.csv", "data/proeng/aav/one_vs_many.csv", "data/proeng/aav/two_vs_many.csv"]:
+
+#         GenerateEmbeddings(
+#             dataset_path=dp,
+#             encoder_name=emb,
+#             reset_param=args.reset_param,
+#             resample_param=args.resample_param,
+#             embed_batch_size=args.embed_batch_size,
+#             flatten_emb="mean",
+#             seq_start_idx=args.seq_start_idx,
+#             seq_end_idx=args.seq_end_idx,
+#             subset_list=args.subset_list,
+#             embed_folder=get_default_output_path(args.embed_folder),
+#             # **encoder_params,
+#         )
+
 """
 # for emb in ["onehot"] + list(TRANSFORMER_INFO.keys()):
+
 for emb in ["onehot"] + list(CARP_INFO.keys()):
 
 # for emb in list(TRANSFORMER_INFO.keys()):
