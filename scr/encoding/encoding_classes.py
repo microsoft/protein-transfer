@@ -205,110 +205,118 @@ class AbstractEncoder(ABC):
                         and ("embed_out" not in layer_name)
                         and ("_float_tensor" not in layer_name)
                     ):
+                        # shuffle all dim
+                        resample_state[layer_name] = p.view(-1)[torch.randperm(p.view(-1).shape[0])].view(p.shape)
+                        
+                        # if len(p.shape) == 1:
+                        #     resample_state[layer_name] = p[torch.randperm(p.shape[0])]
 
-                        if len(p.shape) == 1:
-                            resample_state[layer_name] = p[torch.randperm(p.shape[0])]
+                        #     """
+                        #     esm1:
+                        #     layers.n.self_attn.k_proj.bias: torch.Size([embed_dim])
+                        #     layers.n.self_attn.v_proj.bias: torch.Size([embed_dim])
+                        #     layers.n.self_attn.q_proj.bias: torch.Size([embed_dim])
+                        #     layers.n.self_attn.out_proj.bias: torch.Size([embed_dim])
+                        #     layers.n.self_attn_layer_norm.weight: torch.Size([embed_dim])
+                        #     layers.n.self_attn_layer_norm.bias: torch.Size([embed_dim])
+                        #     layers.n.fc1.bias: torch.Size([fc_dim])
+                        #     layers.n.fc2.bias: torch.Size([embed_dim])
+                        #     layers.n.final_layer_norm.weight: torch.Size([embed_dim])
+                        #     layers.n.final_layer_norm.bias: torch.Size([embed_dim])
 
-                            """
-                            esm1:
-                            layers.n.self_attn.k_proj.bias: torch.Size([embed_dim])
-                            layers.n.self_attn.v_proj.bias: torch.Size([embed_dim])
-                            layers.n.self_attn.q_proj.bias: torch.Size([embed_dim])
-                            layers.n.self_attn.out_proj.bias: torch.Size([embed_dim])
-                            layers.n.self_attn_layer_norm.weight: torch.Size([embed_dim])
-                            layers.n.self_attn_layer_norm.bias: torch.Size([embed_dim])
-                            layers.n.fc1.bias: torch.Size([fc_dim])
-                            layers.n.fc2.bias: torch.Size([embed_dim])
-                            layers.n.final_layer_norm.weight: torch.Size([embed_dim])
-                            layers.n.final_layer_norm.bias: torch.Size([embed_dim])
+                        #     esm1b:
+                        #     layers.n.self_attn.k_proj.bias: torch.Size([1280])
+                        #     layers.n.self_attn.v_proj.bias: torch.Size([1280])
+                        #     layers.n.self_attn.q_proj.bias: torch.Size([1280])
+                        #     layers.n.self_attn.out_proj.bias: torch.Size([1280])
+                        #     layers.n.self_attn_layer_norm.weight: torch.Size([1280])
+                        #     layers.n.self_attn_layer_norm.bias: torch.Size([1280])
+                        #     layers.n.fc1.bias: torch.Size([5120])
+                        #     layers.n.fc2.bias: torch.Size([1280])
+                        #     layers.n.final_layer_norm.weight: torch.Size([1280])
+                        #     layers.n.final_layer_norm.bias: torch.Size([1280])
+                        #     contact_head.regression.weight: torch.Size([1, 660])
+                        #     contact_head.regression.bias: torch.Size([1])
+                        #     emb_layer_norm_before.weight: torch.Size([1280])
+                        #     emb_layer_norm_before.bias: torch.Size([1280])
+                        #     emb_layer_norm_after.weight: torch.Size([1280])
+                        #     emb_layer_norm_after.bias: torch.Size([1280])
+                        #     lm_head.bias: torch.Size([33])
+                        #     lm_head.dense.bias: torch.Size([1280])
+                        #     lm_head.layer_norm.weight: torch.Size([1280])
+                        #     lm_head.layer_norm.bias: torch.Size([1280])
+                        #     """
 
-                            esm1b:
-                            layers.n.self_attn.k_proj.bias: torch.Size([1280])
-                            layers.n.self_attn.v_proj.bias: torch.Size([1280])
-                            layers.n.self_attn.q_proj.bias: torch.Size([1280])
-                            layers.n.self_attn.out_proj.bias: torch.Size([1280])
-                            layers.n.self_attn_layer_norm.weight: torch.Size([1280])
-                            layers.n.self_attn_layer_norm.bias: torch.Size([1280])
-                            layers.n.fc1.bias: torch.Size([5120])
-                            layers.n.fc2.bias: torch.Size([1280])
-                            layers.n.final_layer_norm.weight: torch.Size([1280])
-                            layers.n.final_layer_norm.bias: torch.Size([1280])
-                            contact_head.regression.weight: torch.Size([1, 660])
-                            contact_head.regression.bias: torch.Size([1])
-                            emb_layer_norm_before.weight: torch.Size([1280])
-                            emb_layer_norm_before.bias: torch.Size([1280])
-                            emb_layer_norm_after.weight: torch.Size([1280])
-                            emb_layer_norm_after.bias: torch.Size([1280])
-                            lm_head.bias: torch.Size([33])
-                            lm_head.dense.bias: torch.Size([1280])
-                            lm_head.layer_norm.weight: torch.Size([1280])
-                            lm_head.layer_norm.bias: torch.Size([1280])
-                            """
+                        # elif 1 in p.shape:
 
-                        elif 1 in p.shape:
+                        #     """
+                        #     esm1
+                        #     layers.n.self_attn.bias_k: torch.Size([1, 1, embed_dim])
+                        #     layers.n.self_attn.bias_v: torch.Size([1, 1, embed_dim])
+                        #     contact_head.regression.weight: torch.Size([1, reg_dim])
 
-                            """
-                            esm1
-                            layers.n.self_attn.bias_k: torch.Size([1, 1, embed_dim])
-                            layers.n.self_attn.bias_v: torch.Size([1, 1, embed_dim])
-                            contact_head.regression.weight: torch.Size([1, reg_dim])
+                        #     esm1b:
+                        #     contact_head.regression.weight: torch.Size([1, 660])
+                        #     contact_head.regression.bias: torch.Size([1])
+                        #     """
+                        #     if "bias_" in layer_name:
+                        #         resample_state[layer_name] = p[
+                        #             :, :, torch.randperm(self._embed_dim)
+                        #         ]
+                        #     elif "regression.weight" in layer_name:
+                        #         resample_state[layer_name] = p[
+                        #             :, torch.randperm(p.shape[-1])
+                        #         ]
 
-                            esm1b:
-                            contact_head.regression.weight: torch.Size([1, 660])
-                            contact_head.regression.bias: torch.Size([1])
-                            """
-                            if "bias_" in layer_name:
-                                resample_state[layer_name] = p[
-                                    :, :, torch.randperm(self._embed_dim)
-                                ]
-                            elif "regression.weight" in layer_name:
-                                resample_state[layer_name] = p[
-                                    :, torch.randperm(p.shape[-1])
-                                ]
+                        # elif (
+                        #     "k_proj.weight"
+                        #     or "q_proj.weight"
+                        #     or "fc1.weight"
+                        #     or "embed_positions.weight"
+                        #     or "lm_head.weight" in layer_name
+                        # ):
+                        #     resample_state[layer_name] = p[torch.randperm(p.shape[0]), :]
 
-                        elif (
-                            "k_proj.weight"
-                            or "q_proj.weight"
-                            or "fc1.weight"
-                            or "embed_positions.weight"
-                            or "lm_head.weight" in layer_name
-                        ):
-                            resample_state[layer_name] = p[torch.randperm(p.shape[0]), :]
+                        #     """
+                        #     esm1:
+                        #     layers.n.self_attn.k_proj.weight: torch.Size([embed_dim, embed_dim])
+                        #     layers.n.self_attn.q_proj.weight: torch.Size([embed_dim, embed_dim])
+                        #     layers.n.fc1.weight: torch.Size([fc_dim, embed_dim])
 
-                            """
-                            esm1:
-                            layers.n.self_attn.k_proj.weight: torch.Size([embed_dim, embed_dim])
-                            layers.n.self_attn.q_proj.weight: torch.Size([embed_dim, embed_dim])
-                            layers.n.fc1.weight: torch.Size([fc_dim, embed_dim])
+                        #     esm1b:
+                        #     layers.n.self_attn.k_proj.weight: torch.Size([1280, 1280])
+                        #     layers.n.self_attn.q_proj.weight: torch.Size([1280, 1280])
+                        #     layers.n.fc1.weight: torch.Size([5120, 1280])
+                        #     embed_positions.weight: torch.Size([1026, 1280])
+                        #     lm_head.weight: torch.Size([33, 1280])
+                        #     """
 
-                            esm1b:
-                            layers.n.self_attn.k_proj.weight: torch.Size([1280, 1280])
-                            layers.n.self_attn.q_proj.weight: torch.Size([1280, 1280])
-                            layers.n.fc1.weight: torch.Size([5120, 1280])
-                            embed_positions.weight: torch.Size([1026, 1280])
-                            lm_head.weight: torch.Size([33, 1280])
-                            """
+                        # elif (
+                        #     "v_proj.weight"
+                        #     or "out_proj.weight"
+                        #     or "fc2.weight"
+                        #     or "lm_head.dense.weight" in layer_name
+                        # ):
 
-                        elif (
-                            "v_proj.weight"
-                            or "out_proj.weight"
-                            or "fc2.weight"
-                            or "lm_head.dense.weight" in layer_name
-                        ):
+                        #     """
+                        #     layers.n.self_attn.v_proj.weight: torch.Size([embed_dim, embed_dim])
+                        #     layers.n.self_attn.out_proj.weight: torch.Size([embed_dim, embed_dim])
+                        #     layers.n.fc2.weight: torch.Size([embed_dim, fc_dim])
 
-                            """
-                            layers.n.self_attn.v_proj.weight: torch.Size([embed_dim, embed_dim])
-                            layers.n.self_attn.out_proj.weight: torch.Size([embed_dim, embed_dim])
-                            layers.n.fc2.weight: torch.Size([embed_dim, fc_dim])
+                        #     esm1b:
+                        #     layers.n.self_attn.v_proj.weight: torch.Size([1280, 1280])
+                        #     layers.n.self_attn.out_proj.weight: torch.Size([1280, 1280])
+                        #     layers.n.fc2.weight: torch.Size([1280, 5120])
+                        #     lm_head.dense.weight: torch.Size([1280, 1280])
+                        #     """
 
-                            esm1b:
-                            layers.n.self_attn.v_proj.weight: torch.Size([1280, 1280])
-                            layers.n.self_attn.out_proj.weight: torch.Size([1280, 1280])
-                            layers.n.fc2.weight: torch.Size([1280, 5120])
-                            lm_head.dense.weight: torch.Size([1280, 1280])
-                            """
-
-                            resample_state[layer_name] = p[:, torch.randperm(p.shape[1])]
+                        #     resample_state[layer_name] = p[:, torch.randperm(p.shape[1])]
+            
+            elif self._encoder_name in CARP_INFO.keys():
+                for layer_name, p in model.state_dict().items():
+                    # completely shuffle all weight matrix entries 
+                    if "layers" in layer_name:
+                        resample_state[layer_name] = p.view(-1)[torch.randperm(p.view(-1).shape[0])].view(p.shape)
 
             model.load_state_dict(resample_state)
 

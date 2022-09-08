@@ -1434,3 +1434,19 @@ model.last_norm.bias
 
 <a name="resamp_carp"></a>
 ## Resample (`self._resample_param = True`) CARP
+* Shuffle along all dim
+
+```
+model.embedder.layers.n.conv.weight: torch.Size([hid_dim, hid_dim, 5])
+model.embedder.layers.n.conv.bias: torch.Size([hid_dim])
+model.embedder.layers.n.sequence1.0.weight: torch.Size([d_model])
+model.embedder.layers.n.sequence1.0.bias: torch.Size([d_model])
+model.embedder.layers.n.sequence1.2.conv.weight: torch.Size([hid_dim, d_model, 1])
+model.embedder.layers.n.sequence1.2.conv.bias: torch.Size([hid_dim])
+model.embedder.layers.n.sequence1.3.weight: torch.Size([hid_dim])
+model.embedder.layers.n.sequence1.3.bias: torch.Size([hid_dim])
+model.embedder.layers.n.sequence2.0.weight: torch.Size([hid_dim])
+model.embedder.layers.n.sequence2.0.bias: torch.Size([hid_dim])
+model.embedder.layers.n.sequence2.2.conv.weight: torch.Size([d_model, hid_dim, 1])
+model.embedder.layers.n.sequence2.2.conv.bias: torch.Size([d_model])
+```
