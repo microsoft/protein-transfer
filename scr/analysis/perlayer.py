@@ -166,7 +166,9 @@ class LayerLoss:
 
                 for n, encoder_name in enumerate(encoder_names):
                     axs[m, n].plot(
-                        encoder_dict[encoder_name][metric], label=encoder_label
+                        encoder_dict[encoder_name][metric], 
+                        label=encoder_label,
+                        color="#f79646ff" # orange
                     )
 
                     # overlay onehot baseline
@@ -185,7 +187,9 @@ class LayerLoss:
                                 metric
                             ],
                             label="random init",
-                            color="#D3D3D3",  # light grey
+                            color="#4bacc6", # blue
+                            linestyle="dashed"
+                            # color="#D3D3D3",  # light grey
                         )
 
                     # overlay stat init
@@ -195,7 +199,9 @@ class LayerLoss:
                                 metric
                             ],
                             label="stat transfer",
-                            color="#A9A9A9",  # dark grey
+                            color="#9bbb59", # green
+                            linestyle="dashed"
+                            # color="#A9A9A9",  # dark grey
                             # linestyle="dotted",
                         )
 

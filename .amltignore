@@ -13,9 +13,9 @@
 */*.pkl
 **/*.pkl
 
-*.h5
+<!-- *.h5
 */*.h5
-**/*.h5
+**/*.h5 -->
 
 sandbox/**
 test/**
@@ -23,8 +23,8 @@ test/**
 results/**
 results/train_val_test/**
 
-embeddings/proeng/**
-embeddings/annotation/**
+<!-- embeddings/proeng/**
+embeddings/annotation/** -->
 
 # exceptions to the rule
 !README.md
