@@ -96,7 +96,7 @@ for ds_split in ["low_vs_high", "sampled", "two_vs_rest"]:
             all_result_folder="test/sklearn-scalex-scaley-noloader-fixembpool",
             #**encoder_params,
         )"""
-
+"""
 for ds_split in ["low_vs_high", "sampled", "two_vs_rest"]:
     # for encoder_name in ["onehot"]:
     for encoder_name in list(CARP_INFO.keys()):
@@ -157,8 +157,111 @@ for ds_split in ["mixed_split"]:
             all_result_folder="results/sklearn-scalex-scaley-noloader-carp",
              #all_result_folder="test/sklearn-scaley-noloader-fixembpool"
             #**encoder_params,
+        )"""
+
+
+for ds_split in ["one_vs_many", "two_vs_many"]:
+    # for encoder_name in ["onehot"]:
+    for encoder_name in ["carp_640M"]:
+    # "carp_640M"
+    # for encoder_name in ["onehot"] + list(TRANSFORMER_INFO.keys()):
+        if encoder_name == "onehot":
+            embed_batch_size = 0
+            flatten_emb = "flatten"
+        else:
+            embed_batch_size = 64
+            flatten_emb = "mean"
+
+        RunSK(
+            dataset_path=f"data/proeng/aav/{ds_split}.csv",
+            encoder_name=encoder_name,
+            reset_param=False,
+            resample_param=False,
+            embed_batch_size=embed_batch_size,
+            flatten_emb=flatten_emb,
+            embed_folder=f"/home/t-fli/amlt/carp_emb_cuda_individual/aav-{ds_split}-{encoder_name}-mean/embeddings/proeng/aav/{ds_split}",
+            all_embed_layers=False,
+            seq_start_idx=False,
+            seq_end_idx=False,
+            if_encode_all=False,
+            alphas=SKLEARN_ALPHAS,
+            sklearn_state=RAND_SEED,
+            sklearn_params={"normalize":True},
+            # all_result_folder="test/sklearn-scaley-noloader-fixembpool",
+            # all_result_folder="test/sklearn-scalex-scaley-noloader-fixembpool",
+            all_result_folder="results/sklearn-scalex-scaley-noloader-carp"
+            #**encoder_params,
         )
 
+
+for ds_split in ["one_vs_many", "two_vs_many"]:
+    # for encoder_name in ["onehot"]:
+    for encoder_name in ["carp_640M"]:
+    # "carp_640M"
+    # for encoder_name in ["onehot"] + list(TRANSFORMER_INFO.keys()):
+        if encoder_name == "onehot":
+            embed_batch_size = 0
+            flatten_emb = "flatten"
+        else:
+            embed_batch_size = 64
+            flatten_emb = "mean"
+
+        RunSK(
+            dataset_path=f"data/proeng/aav/{ds_split}.csv",
+            encoder_name=encoder_name,
+            reset_param=True,
+            resample_param=False,
+            embed_batch_size=embed_batch_size,
+            flatten_emb=flatten_emb,
+            embed_folder=f"/home/t-fli/amlt/carp_emb_cuda_individual/aav-{ds_split}-{encoder_name}-mean-rand/embeddings-rand/proeng/aav/{ds_split}",
+            all_embed_layers=False,
+            seq_start_idx=False,
+            seq_end_idx=False,
+            if_encode_all=False,
+            alphas=SKLEARN_ALPHAS,
+            sklearn_state=RAND_SEED,
+            sklearn_params={"normalize":True},
+            # all_result_folder="test/sklearn-scaley-noloader-fixembpool",
+            # all_result_folder="test/sklearn-scalex-scaley-noloader-fixembpool",
+            all_result_folder="results/sklearn-scalex-scaley-noloader-carp"
+            #**encoder_params,
+        )
+
+"""
+for ds_split in ["one_vs_many", "two_vs_many"]:
+    # for encoder_name in ["onehot"]:
+    for encoder_name in ["carp_640M"]:
+    # "carp_640M"
+    # for encoder_name in ["onehot"] + list(TRANSFORMER_INFO.keys()):
+        if encoder_name == "onehot":
+            embed_batch_size = 0
+            flatten_emb = "flatten"
+        else:
+            embed_batch_size = 64
+            flatten_emb = "mean"
+
+        RunSK(
+            dataset_path=f"data/proeng/aav/{ds_split}.csv",
+            encoder_name=encoder_name,
+            reset_param=False,
+            resample_param=True,
+            embed_batch_size=embed_batch_size,
+            flatten_emb=flatten_emb,
+            embed_folder=f"/home/t-fli/amlt/carp_emb_cuda_individual/aav-{ds_split}-{encoder_name}-mean-stat/embeddings-stat/proeng/aav/{ds_split}",
+            all_embed_layers=False,
+            seq_start_idx=False,
+            seq_end_idx=False,
+            if_encode_all=False,
+            alphas=SKLEARN_ALPHAS,
+            sklearn_state=RAND_SEED,
+            sklearn_params={"normalize":True},
+            # all_result_folder="test/sklearn-scaley-noloader-fixembpool",
+            # all_result_folder="test/sklearn-scalex-scaley-noloader-fixembpool",
+            all_result_folder="results/sklearn-scalex-scaley-noloader-carp"
+            #**encoder_params,
+        )"""
+
+"""
 for ds_split in ["one_vs_many", "two_vs_many"]:
     # for encoder_name in ["onehot"]:
     for encoder_name in ["carp_600k", "carp_38M", "carp_76M"]:
@@ -258,7 +361,7 @@ for ds_split in ["one_vs_many", "two_vs_many"]:
             # all_result_folder="test/sklearn-scalex-scaley-noloader-fixembpool",
             all_result_folder="results/sklearn-scalex-scaley-noloader-carp"
             #**encoder_params,
-        )
+        )"""
 # scl will not converge
 """
 for ds_split in ["balanced"]:
