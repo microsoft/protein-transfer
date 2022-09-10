@@ -4,6 +4,9 @@
 *.tar.gz
 */*.tar.gz
 **/*.tar.gz
+*.zip
+*/*.zip
+**/*.zip
 *.pkl
 */*.pkl
 **/*.pkl
