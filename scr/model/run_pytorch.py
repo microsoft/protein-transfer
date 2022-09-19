@@ -230,8 +230,8 @@ class Run_Pytorch:
             criterion = nn.CrossEntropyLoss()
 
         model_name = model.model_name
-        model.to(self._device, non_blocking=True)
-        criterion.to(self._device, non_blocking=True)
+        model = model.to(self._device, non_blocking=True)
+        criterion = criterion.to(self._device, non_blocking=True)
 
         train_losses, val_losses = train(
             model=model,
