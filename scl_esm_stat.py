@@ -10,8 +10,7 @@ for encoder_name in TRANSFORMER_INFO.keys():
         resample_param = True,
         embed_batch_size = 128,
         flatten_emb= "mean",
-        # path needs to be confirmed
-        embed_folder = f"/home/t-fli/amlt/esm-stat/scl-{encoder_name}-mean-stat/embeddings-stat/annotation/scl/balanced",
+        embed_folder ="esm-embeddings-stat/annotation/scl/balanced",
         seq_start_idx= False,
         seq_end_idx = False,
         loader_batch_size = 256,
