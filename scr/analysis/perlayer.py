@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 
+from scr.encoding.encoding_classes import get_emb_info
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.utils import pickle_load, get_filename, checkNgen_folder
 
@@ -274,13 +275,7 @@ class LayerLoss:
         # get the list of output pickle files
         pkl_list = glob(f"{folder_path}/*.pkl")
 
-        # get the max layer number for the array
-        if encoder_name in TRANSFORMER_INFO.keys():
-            max_layer_numb = TRANSFORMER_INFO[encoder_name][1] + 1
-        elif encoder_name in CARP_INFO.keys():
-            max_layer_numb = CARP_INFO[encoder_name][1]
-        else:
-            max_layer_numb = 1
+        _, _, max_layer_numb = get_emb_info(encoder_name)
 
         # init the ouput dict
         output_numb_dict = {

@@ -10,10 +10,10 @@ import pandas as pd
 
 import iqplot
 
-from scr.params.vis import PLOT_EXTS
+from scr.params.vis import PLOT_EXTS, PRESENTATION_PALETTE_SATURATE_DICT
 from scr.vis.vis_utils import BokehSave
 from scr.vis.iqplot_striphis import striphistogram
-from scr.utils import get_task_data_split, read_std_csv, pickle_load, read_std_csv
+from scr.utils import get_task_data_split, read_std_csv, pickle_load
 
 
 class DatasetECDF(BokehSave):
@@ -42,6 +42,11 @@ class DatasetECDF(BokehSave):
             cats="set",
             conf_int=True,
             # style="staircase",
+            palette=[
+                PRESENTATION_PALETTE_SATURATE_DICT["blue"],
+                PRESENTATION_PALETTE_SATURATE_DICT["green"],
+                PRESENTATION_PALETTE_SATURATE_DICT["orange"],
+            ],
             order=["train", "val", "test"],
             legend_location="bottom_right",
             marker_kwargs={"alpha": 0.5},
@@ -104,8 +109,7 @@ class DatasetStripHistogram(BokehSave):
                 df = pickle_load(pkl)
                 df["split"] = split
                 df.loc[df["validation"] == True, "set"] = "val"
-
-            dfs.append(df)
+                dfs.append(df)
 
             self._cat_dfs = pd.concat(dfs, ignore_index=True, axis=0)
 
@@ -125,6 +129,11 @@ class DatasetStripHistogram(BokehSave):
             spread="jitter",
             # jitter=True,
             color_column="set",
+            palette=[
+                PRESENTATION_PALETTE_SATURATE_DICT["orange"],
+                PRESENTATION_PALETTE_SATURATE_DICT["blue"],
+                PRESENTATION_PALETTE_SATURATE_DICT["green"],
+            ],
             top_level="histogram",
             marker_kwargs={"alpha": 0.1},
             fill_kwargs={"fill_alpha": 0.1},

@@ -18,7 +18,7 @@ from torch.utils.data import Dataset, DataLoader
 from scr.utils import pickle_save, pickle_load, replace_ext, read_std_csv
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, MAX_SEQ_LEN
-from scr.vis.dataset_vis import DatasetECDF
+from scr.vis.dataset_vis import DatasetECDF, DatasetStripHistogram
 from scr.preprocess.seq_loader import SeqLoader
 from scr.encoding.encoding_classes import (
     AbstractEncoder,

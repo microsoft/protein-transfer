@@ -10,7 +10,7 @@ for encoder_name in CARP_INFO.keys():
         resample_param = False,
         embed_batch_size = 128,
         flatten_emb= "mean",
-        embed_folder = f"/home/t-fli/amlt/carp_emb_cuda_individual/scl-{encoder_name}-mean-rand/embeddings-rand/annotation/scl/balanced",
+        embed_folder = "carp-embeddings-rand/annotation/scl/balanced",
         seq_start_idx= False,
         seq_end_idx = False,
         loader_batch_size = 256,
@@ -24,7 +24,7 @@ for encoder_name in CARP_INFO.keys():
         tolerance = 10,
         min_epoch = 5,
         device = DEVICE,
-        all_plot_folder = "results/learning_curves_carp",
-        all_result_folder = "results/pytorch_carp",
+        all_plot_folder = "results/learning_curves-carp",
+        all_result_folder = "results/pytorch-carp",
         # **encoder_params,
 )
