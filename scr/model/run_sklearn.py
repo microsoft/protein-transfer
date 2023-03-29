@@ -107,7 +107,7 @@ class RunRidge:
 
         # append checkpoint fraction
         if self.checkpoint != 1:
-            self.all_result_folder += f"_{str(self.checkpoint)}"
+            self.all_result_folder += f"-{str(self.checkpoint)}"
 
 
         all_ridge_results = {}
@@ -429,7 +429,7 @@ class RunSK:
 
         # append checkpoint fraction
         if self.checkpoint != 1:
-            self.all_result_folder += f"_{str(self.checkpoint)}"
+            self.all_result_folder += f"-{str(self.checkpoint)}"
 
         # update encoder name and total embedding layers
         if self.encoder_name in TRANSFORMER_INFO.keys():

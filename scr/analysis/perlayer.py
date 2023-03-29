@@ -13,8 +13,8 @@ from matplotlib.ticker import FormatStrFormatter
 
 from scr.encoding.encoding_classes import get_emb_info
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
-from scr.utils import pickle_load, get_filename, checkNgen_folde
-r
+from scr.params.vis import CHECKPOINT_COLOR
+from scr.utils import pickle_load, get_filename, checkNgen_folder
 
 
 class LayerLoss:
@@ -22,6 +22,8 @@ class LayerLoss:
 
     def __init__(
         self,
+        add_checkpoint: bool = True,
+        checkpoint_list: list = [0.5, 0.25, 0.125],
         input_path: str = "results/sklearn",
         output_path: str = "results/sklearn_layer",
         metric_dict: dict[list[str]] = {
@@ -44,10 +46,14 @@ class LayerLoss:
     ):
         """
         Args:
+        - add_checkpoint: bool = True, if add checkpoint for carp
+        - checkpoint_list: list = [0.5, 0.25, 0.125],
         - input_path: str = "results/sklearn",
         - output_path: str = "results/sklearn_layer"
         - metric_dict: list[str] = ["train_mse", "test_ndcg", "test_rho"]
         """
+        self._add_checkpoint = add_checkpoint
+        self._checkpoint_list = checkpoint_list
         # get rid of the last "/" if any
         self._input_path = os.path.normpath(input_path)
         # get the list of subfolders for each dataset
@@ -63,6 +69,12 @@ class LayerLoss:
         self._layer_analysis_dict = defaultdict(dict)
         self._rand_layer_analysis_dict = defaultdict(dict)
         self._stat_layer_analysis_dict = defaultdict(dict)
+
+        # init
+        self._checkpoint_analysis_dict = defaultdict(dict)
+        if self._add_checkpoint:
+            for checkpoint in self._checkpoint_list:
+                self._checkpoint_analysis_dict[checkpoint] = defaultdict(dict)
 
         for dataset_folder in self._dataset_folders:
             # dataset_folder = "results/train_val_test/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
@@ -80,6 +92,24 @@ class LayerLoss:
             ] = self.parse_result_dicts(
                 dataset_folder, task, dataset, split, encoder_name, flatten_emb
             )
+
+            # init
+            # check if check points exists
+            if self._add_checkpoint:
+                for checkpoint in self._checkpoint_list:
+                    checkpoint_path = f"{self._input_path}-{str(checkpoint)}"
+
+                    if os.path.exists(checkpoint_path):
+                        self._checkpoint_analysis_dict[checkpoint][
+                            f"{task}_{dataset}_{split}_{flatten_emb}"
+                        ][encoder_name] = self.parse_result_dicts(
+                            dataset_folder.replace(self._input_path, checkpoint_path),
+                            task,
+                            dataset,
+                            split,
+                            encoder_name,
+                            flatten_emb,
+                        )
 
             # check if reset param experimental results exist
             reset_param_path = f"{self._input_path}-rand"
@@ -168,10 +198,26 @@ class LayerLoss:
 
                 for n, encoder_name in enumerate(encoder_names):
                     axs[m, n].plot(
-                        encoder_dict[encoder_name][metric], 
+                        encoder_dict[encoder_name][metric],
                         label=encoder_label,
-                        color="#f79646ff" # orange
+                        color="#f79646ff",  # orange
                     )
+
+                    # add checkpoints
+                    if self._add_checkpoint:
+                        for checkpoint in self._checkpoint_list:
+
+                            checkpoint_vals = self._checkpoint_analysis_dict[checkpoint][
+                                    collage_name
+                                ][encoder_name][metric]
+
+                            if not np.all(checkpoint_vals==0):
+                                axs[m, n].plot(
+                                    checkpoint_vals,
+                                    label=f"{encoder_label}-{checkpoint}",
+                                    color=CHECKPOINT_COLOR[checkpoint],  # darker oranges
+                                    linestyle="dashed"
+                                )
 
                     # overlay onehot baseline
                     if add_onehot:
@@ -189,7 +235,7 @@ class LayerLoss:
                                 metric
                             ],
                             label="random init",
-                            color="#4bacc6", # blue
+                            color="#4bacc6",  # blue
                             linestyle="dashed"
                             # color="#D3D3D3",  # light grey
                         )
@@ -201,7 +247,7 @@ class LayerLoss:
                                 metric
                             ],
                             label="stat transfer",
-                            color="#9bbb59", # green
+                            color="#9bbb59",  # green
                             linestyle="dashed"
                             # color="#A9A9A9",  # dark grey
                             # linestyle="dotted",
@@ -240,7 +286,10 @@ class LayerLoss:
 
             # add whole plot level title
             fig.suptitle(
-                collage_name.replace("_", " ").replace("cross-entropy", "ce"), y=1.0025, fontsize=24, fontweight="bold"
+                collage_name.replace("_", " ").replace("cross-entropy", "ce"),
+                y=1.0025,
+                fontsize=24,
+                fontweight="bold",
             )
             fig.tight_layout()
 
@@ -278,9 +327,14 @@ class LayerLoss:
 
         _, _, max_layer_numb = get_emb_info(encoder_name)
 
+        if max_layer_numb > 1:
+            plot_x_len = max_layer_numb - 1
+        else:
+            plot_x_len = max_layer_numb
+
         # init the ouput dict
         output_numb_dict = {
-            metric: np.zeros([max_layer_numb]) for metric in self._metric_dict[task]
+            metric: np.zeros([plot_x_len]) for metric in self._metric_dict[task]
         }
 
         # loop through the list of the pickle files

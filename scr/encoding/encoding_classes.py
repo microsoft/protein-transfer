@@ -412,7 +412,18 @@ class AbstractEncoder(ABC):
             # init out put seq_reps should be in dim [batch_size, embed_dim]
             seq_reps = np.empty((encoded_mut_seqs.shape[0], self._embed_dim))
             for i, encoded_mut_seq in enumerate(encoded_mut_seqs):
+                
+                # if the emb has label from esm
+                if len(mut_seqs[i]) == 2:
+                    seq_len = len(mut_seqs[i][1])
+                # if the emb is carp
+                elif len(mut_seqs[i]) == 1:
+                    seq_len = len(mut_seqs[i][0])
+                else:
+                    seq_len = len(mut_seqs[i])
+
                 if flatten_emb == "mean":
+                    
                     seq_reps[i] = encoded_mut_seq[: len(mut_seqs[i])].mean(0)
                 elif flatten_emb == "max":
                     seq_reps[i] = encoded_mut_seq[: len(mut_seqs[i])].max(0)

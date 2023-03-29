@@ -16,3 +16,11 @@ PRESENTATION_PALETTE_SATURATE_DICT = {
 
 # blue, orange, green, purple, gray
 PRESENTATION_PALETTE_SATURATE = list(PRESENTATION_PALETTE_SATURATE_DICT.keys())
+
+# lgihter organes: 45%, 30%, 15%
+# from https://www.w3schools.com/colors/colors_picker.asp
+CHECKPOINT_COLOR = {
+    0.5: "#dc6809",
+    0.25: "#934506",
+    0.125: "#492303"
+}

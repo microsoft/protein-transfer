@@ -418,8 +418,6 @@ class ProtranDataset(Dataset):
         dataset_path: str,
         subset: str,
         encoder_name: str,
-        checkpoint: float = 1,
-        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
         embed_batch_size: int = 0,
@@ -501,7 +499,10 @@ class ProtranDataset(Dataset):
         self._encoder_name = encoder_name
         self._flatten_emb = flatten_emb
 
-        self._checkpoint = checkpoint
+        if "checkpoint" in encoder_params.keys():
+            self._checkpoint = encoder_params["checkpoint"]
+        else:
+            self._checkpoint = 1
 
         # get the encoder class
         if self._encoder_name in TRANSFORMER_INFO.keys():
@@ -509,8 +510,7 @@ class ProtranDataset(Dataset):
 
         elif self._encoder_name in CARP_INFO.keys():
             encoder_class = CARPEncoder
-            encoder_params["checkpoint"] = self._checkpoint
-            encoder_params["checkpoint_folder"] = checkpoint_folder
+        
         else:
             self._encoder_name == "onehot"
             encoder_class = OnehotEncoder
@@ -558,7 +558,7 @@ class ProtranDataset(Dataset):
         if self._embed_folder is not None:
             # append emb info
             if self._checkpoint != 1 and "_0." not in self._embed_folder:
-                self._embed_folder += f"_{str(self._checkpoint)}"
+                self._embed_folder += f"-{str(self._checkpoint)}"
             
             dataset_folder, _ = get_folder_file_names(
                 parent_folder=self._embed_folder,
@@ -652,7 +652,7 @@ class ProtranDataset(Dataset):
             """
             # append emb info
             if self._checkpoint != 1 and "_0." not in self._embed_folder:
-                self._embed_folder += f"_{str(self._checkpoint)}"
+                self._embed_folder += f"-{str(self._checkpoint)}"
 
             # return all
             if self._embed_layer is None:
@@ -766,8 +766,6 @@ class ProtranDataset(Dataset):
 def split_protrain_loader(
     dataset_path: str,
     encoder_name: str,
-    checkpoint: float = 1,
-    checkpoint_folder: str = "pretrain_checkpoints/carp",
     reset_param: bool = False,
     resample_param: bool = False,
     embed_batch_size: int = 128,
@@ -821,8 +819,6 @@ def split_protrain_loader(
                 dataset_path=dataset_path,
                 subset=subset,
                 encoder_name=encoder_name,
-                checkpoint=checkpoint,
-                checkpoint_folder=checkpoint_folder,
                 reset_param=reset_param,
                 resample_param=resample_param,
                 embed_batch_size=embed_batch_size,

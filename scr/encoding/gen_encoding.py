@@ -7,7 +7,7 @@ import numpy as np
 
 from scr.utils import get_folder_file_names, checkNgen_folder
 from scr.params.emb import MAX_SEQ_LEN
-from scr.encoding.encoding_classes import get_emb_info, OnehotEncoder
+from scr.encoding.encoding_classes import get_emb_info, OnehotEncoder, CARPEncoder
 from scr.preprocess.data_process import ProtranDataset
 
 
@@ -60,7 +60,7 @@ class GenerateEmbeddings:
 
         # append emb info
         if checkpoint != 1:
-            self.embed_folder += f"_{str(checkpoint)}"
+            self.embed_folder = f"{self.embed_folder}-{str(checkpoint)}"
 
         # append init info
         if self.reset_param and "-rand" not in self.embed_folder:
@@ -80,6 +80,10 @@ class GenerateEmbeddings:
             embed_rescale = MAX_SEQ_LEN
         else:
             embed_rescale = 1
+
+        if encoder_class == CARPEncoder:
+            encoder_params["checkpoint"] = checkpoint
+            encoder_params["checkpoint_folder"] = checkpoint_folder
 
         # get the encoder
         self._encoder = encoder_class(
@@ -115,8 +119,6 @@ class GenerateEmbeddings:
                 dataset_path=dataset_path,
                 subset=subset,
                 encoder_name=encoder_name,
-                checkpoint=checkpoint,
-                checkpoint_folder=checkpoint_folder,
                 reset_param=reset_param,
                 resample_param=resample_param,
                 embed_batch_size=embed_batch_size,
