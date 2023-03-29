@@ -422,11 +422,12 @@ class AbstractEncoder(ABC):
                 else:
                     seq_len = len(mut_seqs[i])
 
+                assert seq_len not in [1, 2], "Check emb pooling len!"
+
                 if flatten_emb == "mean":
-                    
-                    seq_reps[i] = encoded_mut_seq[: len(mut_seqs[i])].mean(0)
+                    seq_reps[i] = encoded_mut_seq[: seq_len].mean(0)
                 elif flatten_emb == "max":
-                    seq_reps[i] = encoded_mut_seq[: len(mut_seqs[i])].max(0)
+                    seq_reps[i] = encoded_mut_seq[: seq_len].max(0)
 
             return seq_reps
 
