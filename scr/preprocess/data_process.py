@@ -15,7 +15,7 @@ from sklearn.preprocessing import LabelEncoder
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from scr.utils import pickle_save, pickle_load, replace_ext, read_std_csv
+from scr.utils import pickle_save, pickle_load, replace_ext, read_std_csv, get_folder_file_names
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, MAX_SEQ_LEN
 from scr.vis.dataset_vis import DatasetECDF, DatasetStripHistogram
@@ -526,10 +526,14 @@ class ProtranDataset(Dataset):
         self._total_emb_layer = self._encoder.max_emb_layer + 1
         self._embed_layer = embed_layer
 
+        print(f"self.if_encode_all: {self.if_encode_all}")
+        print(f"self._embed_folder: {self._embed_folder}")
+        print(f"self._embed_layer: {self._embed_layer}")
+
         # encode all and load in memory
         if self.if_encode_all or (
             self._embed_folder is None and self._embed_layer is None
-        ):
+        ):  
             print("Encoding all...")
             # encode the sequences without the mut_name
             # init an empty dict with empty list to append emb
@@ -550,34 +554,55 @@ class ProtranDataset(Dataset):
             for layer, emb in encoded_dict.items():
                 setattr(self, "layer" + str(layer), np.vstack(emb))
 
-        # load full one layer embedding
-        if self._embed_folder is not None and self._embed_layer is not None:
-            
+        # load from pre saved emb
+        if self._embed_folder is not None:
             # append emb info
-            if self._checkpoint != 1:
+            if self._checkpoint != 1 and "_0." not in self._embed_folder:
                 self._embed_folder += f"_{str(self._checkpoint)}"
+            
+            dataset_folder, _ = get_folder_file_names(
+                parent_folder=self._embed_folder,
+                dataset_path=dataset_path,
+                encoder_name=self._encoder_name,
+                embed_layer=0,
+                flatten_emb=self._flatten_emb,
+            )
 
-            print(f"Load {self._embed_layer} from {self._embed_folder}...")
+            self.emb_table_path = os.path.join(
+                        os.path.join(dataset_folder, subset),
+                        "embedding.h5",
+                    )
 
-            emb_table = tables.open_file(
-                os.path.join(
-                    self._embed_folder,
-                    self._encoder_name,
-                    self._flatten_emb,
-                    self._subset,
-                    "embedding.h5",
+            # return all
+            if self._embed_layer is None:
+
+                print(f"Load all layers from {self.emb_table_path}...")
+
+                emb_table = tables.open_file(self.emb_table_path)
+                emb_table.flush()
+
+                for layer in range(self._total_emb_layer):
+                    setattr(self, 
+                            "layer" + str(layer), 
+                            getattr(emb_table.root, "layer" + str(layer))[:])
+
+                emb_table.close()
+        
+            # load full one layer embedding
+            else:
+
+                print(f"Load {self._embed_layer} from {self.emb_table_path}...")
+
+                emb_table = tables.open_file(self.emb_table_path)
+                emb_table.flush()
+
+                setattr(
+                    self,
+                    "layer" + str(self._embed_layer),
+                    getattr(emb_table.root, "layer" + str(self._embed_layer))[:],
                 )
-            )
 
-            emb_table.flush()
-
-            setattr(
-                self,
-                "layer" + str(self._embed_layer),
-                getattr(emb_table.root, "layer" + str(self._embed_layer))[:],
-            )
-
-            emb_table.close()
+                emb_table.close()
         # get and format the fitness or secondary structure values
         # can be numbers or string
         # will need to convert data type
@@ -626,21 +651,13 @@ class ProtranDataset(Dataset):
             gb1_emb.root.layer0[0:5]
             """
             # append emb info
-            if self._checkpoint != 1:
+            if self._checkpoint != 1 and "_0." not in self._embed_folder:
                 self._embed_folder += f"_{str(self._checkpoint)}"
 
             # return all
             if self._embed_layer is None:
 
-                emb_table = tables.open_file(
-                    os.path.join(
-                        self._embed_folder,
-                        self._encoder_name,
-                        self._flatten_emb,
-                        self._subset,
-                        "embedding.h5",
-                    )
-                )
+                emb_table = tables.open_file(self.emb_table_path)
 
                 emb_table.flush()
 

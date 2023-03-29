@@ -14,9 +14,12 @@ from scipy.stats import spearmanr
 from scr.utils import get_folder_file_names, pickle_save, ndcg_scale
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
-from scr.encoding.encoding_classes import ESMEncoder, CARPEncoder, OnehotEncoder, get_emb_info
+from scr.encoding.encoding_classes import get_emb_info
 
 from scr.preprocess.data_process import ProtranDataset, DatasetInfo
+
+import warnings
+warnings.filterwarnings("ignore")
 
 # seed
 random.seed(RAND_SEED)
@@ -30,6 +33,8 @@ class RunRidge:
         self,
         dataset_path: str,
         encoder_name: str,
+        checkpoint: float = 1,
+        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
         embed_batch_size: int = 128,
@@ -52,6 +57,8 @@ class RunRidge:
             columns include: sequence, target, set, validation,
             mut_name (optional), mut_numb (optional)
         - encoder_name: str, the name of the encoder
+        - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+        - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
@@ -81,6 +88,9 @@ class RunRidge:
         self.if_encode_all = if_encode_all
         self.encoder_params = encoder_params
 
+        self.checkpoint = checkpoint
+        self.checkpoint_folder = checkpoint_folder
+
         if not isinstance(alphas, np.ndarray):
             alphas = np.array([alphas])
         self.alphas = alphas
@@ -95,6 +105,11 @@ class RunRidge:
         if self.resample_param and "-stat" not in self.all_result_folder:
             self.all_result_folder = f"{self.all_result_folder}-stat"
 
+        # append checkpoint fraction
+        if self.checkpoint != 1:
+            self.all_result_folder += f"_{str(self.checkpoint)}"
+
+
         all_ridge_results = {}
 
         self.encoder_name, _, total_emb_layer = get_emb_info(self.encoder_name)
@@ -107,6 +122,8 @@ class RunRidge:
                     dataset_path=self.dataset_path,
                     subset=subset,
                     encoder_name=self.encoder_name,
+                    checkpoint=self.checkpoint,
+                    checkpoint_folder=self.checkpoint_folder,
                     reset_param=self.reset_param,
                     resample_param=self.resample_param,
                     embed_batch_size=self.embed_batch_size,
@@ -251,6 +268,8 @@ class RunRidge:
                     dataset_path=self.dataset_path,
                     subset=subset,
                     encoder_name=self.encoder_name,
+                    checkpoint=self.checkpoint,
+                    checkpoint_folder=self.checkpoint_folder,
                     reset_param=self.reset_param,
                     resample_param=self.resample_param,
                     embed_batch_size=self.embed_batch_size,
@@ -337,6 +356,8 @@ class RunSK:
         self,
         dataset_path: str,
         encoder_name: str,
+        checkpoint: float = 1,
+        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
         embed_batch_size: int = 128,
@@ -359,6 +380,8 @@ class RunSK:
             columns include: sequence, target, set, validation,
             mut_name (optional), mut_numb (optional)
         - encoder_name: str, the name of the encoder
+        - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+        - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
@@ -386,6 +409,9 @@ class RunSK:
         self.if_encode_all = if_encode_all
         self.encoder_params = encoder_params
 
+        self.checkpoint = checkpoint
+        self.checkpoint_folder = checkpoint_folder
+
         if not isinstance(alphas, np.ndarray):
             alphas = np.array([alphas])
         self.alphas = alphas
@@ -394,11 +420,16 @@ class RunSK:
         self.sklearn_params = sklearn_params
         self.all_result_folder = all_result_folder
 
+        # append init
         if self.reset_param and "-rand" not in self.all_result_folder:
             self.all_result_folder = f"{self.all_result_folder}-rand"
 
         if self.resample_param and "-stat" not in self.all_result_folder:
             self.all_result_folder = f"{self.all_result_folder}-stat"
+
+        # append checkpoint fraction
+        if self.checkpoint != 1:
+            self.all_result_folder += f"_{str(self.checkpoint)}"
 
         # update encoder name and total embedding layers
         if self.encoder_name in TRANSFORMER_INFO.keys():
@@ -415,11 +446,18 @@ class RunSK:
         # if self.all_embed_layers:
         #    print("loading all embed layers...")
         # loader has ALL embedding layers
+        print("RunSK prepping all ds...")
+
+        print(f"self.if_encode_all: {self.if_encode_all}")
+        print(f"self.embed_folder: {self.embed_folder}")
+
         self.train_ds, self.val_ds, self.test_ds = (
             ProtranDataset(
                 dataset_path=self.dataset_path,
                 subset=subset,
                 encoder_name=self.encoder_name,
+                checkpoint=self.checkpoint,
+                checkpoint_folder=self.checkpoint_folder,
                 reset_param=self.reset_param,
                 resample_param=self.resample_param,
                 embed_batch_size=self.embed_batch_size,
@@ -624,6 +662,7 @@ class RunSK:
 
         # set up the datasets
         if self.all_embed_layers:
+            print("Getting embed for all layers...")
             ds_list = [self.train_ds, self.val_ds, self.test_ds]
         else:
             print(f"Getting embed for {embed_layer}...")
@@ -632,6 +671,8 @@ class RunSK:
                     dataset_path=self.dataset_path,
                     subset=subset,
                     encoder_name=self.encoder_name,
+                    checkpoint=self.checkpoint,
+                    checkpoint_folder=self.checkpoint_folder,
                     reset_param=self.reset_param,
                     resample_param=self.resample_param,
                     embed_batch_size=self.embed_batch_size,
