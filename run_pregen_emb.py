@@ -27,6 +27,22 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--checkpoint",
+    type=float,
+    metavar="CP",
+    default=1,
+    help="the fraction of the pretrain model, ie: 0.5",
+)
+
+parser.add_argument(
+    "--checkpoint_folder",
+    type=str,
+    metavar="CPF",
+    default="pretrain_checkpoints/carp",
+    help="the folder for the pretrain model, ie: pretrain_checkpoints/carp",
+)
+
+parser.add_argument(
     "--reset_param",
     type=bool,
     metavar="RIP",
@@ -94,6 +110,8 @@ args = parser.parse_args()
 GenerateEmbeddings(
     dataset_path=args.dataset_path,
     encoder_name=args.encoder_name,
+    checkpoint=args.checkpoint,
+    checkpoint_folder=args.checkpoint_folder,
     reset_param=args.reset_param,
     resample_param=args.resample_param,
     embed_batch_size=args.embed_batch_size,

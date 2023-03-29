@@ -418,6 +418,8 @@ class ProtranDataset(Dataset):
         dataset_path: str,
         subset: str,
         encoder_name: str,
+        checkpoint: float = 1,
+        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
         embed_batch_size: int = 0,
@@ -438,6 +440,8 @@ class ProtranDataset(Dataset):
             mut_name (optional), mut_numb (optional)
         - subset: str, train, val, test
         - encoder_name: str, the name of the encoder
+        - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+        - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
@@ -497,11 +501,16 @@ class ProtranDataset(Dataset):
         self._encoder_name = encoder_name
         self._flatten_emb = flatten_emb
 
+        self._checkpoint = checkpoint
+
         # get the encoder class
         if self._encoder_name in TRANSFORMER_INFO.keys():
             encoder_class = ESMEncoder
+
         elif self._encoder_name in CARP_INFO.keys():
             encoder_class = CARPEncoder
+            encoder_params["checkpoint"] = self._checkpoint
+            encoder_params["checkpoint_folder"] = checkpoint_folder
         else:
             self._encoder_name == "onehot"
             encoder_class = OnehotEncoder
@@ -543,6 +552,11 @@ class ProtranDataset(Dataset):
 
         # load full one layer embedding
         if self._embed_folder is not None and self._embed_layer is not None:
+            
+            # append emb info
+            if self._checkpoint != 1:
+                self._embed_folder += f"_{str(self._checkpoint)}"
+
             print(f"Load {self._embed_layer} from {self._embed_folder}...")
 
             emb_table = tables.open_file(
@@ -611,6 +625,10 @@ class ProtranDataset(Dataset):
             gb1_emb.flush()
             gb1_emb.root.layer0[0:5]
             """
+            # append emb info
+            if self._checkpoint != 1:
+                self._embed_folder += f"_{str(self._checkpoint)}"
+
             # return all
             if self._embed_layer is None:
 
@@ -731,6 +749,8 @@ class ProtranDataset(Dataset):
 def split_protrain_loader(
     dataset_path: str,
     encoder_name: str,
+    checkpoint: float = 1,
+    checkpoint_folder: str = "pretrain_checkpoints/carp",
     reset_param: bool = False,
     resample_param: bool = False,
     embed_batch_size: int = 128,
@@ -755,6 +775,8 @@ def split_protrain_loader(
         columns include: sequence, target, set, validation,
         mut_name (optional), mut_numb (optional)
     - encoder_name: str, the name of the encoder
+    - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+    - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
     - reset_param: bool = False, if update the full model to xavier_uniform_
     - resample_param: bool = False, if update the full model to xavier_normal_
     - embed_batch_size: int, set to 0 to encode all in a single batch
@@ -782,6 +804,8 @@ def split_protrain_loader(
                 dataset_path=dataset_path,
                 subset=subset,
                 encoder_name=encoder_name,
+                checkpoint=checkpoint,
+                checkpoint_folder=checkpoint_folder,
                 reset_param=reset_param,
                 resample_param=resample_param,
                 embed_batch_size=embed_batch_size,

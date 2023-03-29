@@ -18,6 +18,8 @@ class GenerateEmbeddings:
         self,
         dataset_path: str,
         encoder_name: str,
+        checkpoint: float = 1,
+        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
         embed_batch_size: int = 128,
@@ -35,6 +37,8 @@ class GenerateEmbeddings:
             columns include: sequence, target, set, validation,
             mut_name (optional), mut_numb (optional)
         - encoder_name: str, the name of the encoder
+        - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+        - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
@@ -54,6 +58,11 @@ class GenerateEmbeddings:
 
         self.embed_folder = embed_folder
 
+        # append emb info
+        if checkpoint != 1:
+            self.embed_folder += f"_{str(checkpoint)}"
+
+        # append init info
         if self.reset_param and "-rand" not in self.embed_folder:
             self.embed_folder = f"{self.embed_folder}-rand"
 
@@ -106,6 +115,8 @@ class GenerateEmbeddings:
                 dataset_path=dataset_path,
                 subset=subset,
                 encoder_name=encoder_name,
+                checkpoint=checkpoint,
+                checkpoint_folder=checkpoint_folder,
                 reset_param=reset_param,
                 resample_param=resample_param,
                 embed_batch_size=embed_batch_size,

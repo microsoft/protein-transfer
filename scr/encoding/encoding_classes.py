@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Collection
-from collections import Iterable, Sequence
+from collections import Iterable, Sequence, OrderedDict
 
+import os
 import math
 import random
 import numpy as np
@@ -27,7 +28,7 @@ from torch.nn.init import (
 from sequence_models.pretrained import load_model_and_alphabet
 
 from scr.params.aa import AA_NUMB, AA_TO_IND
-from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
+from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, CARP_CHECKPOINTS
 from scr.params.sys import DEVICE, RAND_SEED
 
 
@@ -125,7 +126,7 @@ class AbstractEncoder(ABC):
             
             embed_positions.weight: dim 2                   [nn.init.normal_(self.weight)]
             """
-            if self.encoder_name in TRANSFORMER_INFO.keys(): 
+            if self.encoder_name in TRANSFORMER_INFO.keys():
                 for layer_name, p in model.state_dict().items():
                     # what esm1b and esm1 have in common
                     if "_proj" in layer_name:
@@ -148,7 +149,9 @@ class AbstractEncoder(ABC):
                         elif "bias" in layer_name:
                             Parameter(torch.zeros_like(p))
 
-                    if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
+                    if ("layers" and "fc" in layer_name) or (
+                        "contact_head" in layer_name
+                    ):
                         if "weight" in layer_name:
                             kaiming_uniform_(p, a=math.sqrt(5))
                         elif "bias" in layer_name:
@@ -175,7 +178,7 @@ class AbstractEncoder(ABC):
 
                     elif "esm1_" and "bias_" in self._encoder_name:
                         xavier_normal_(p)
-            
+
             elif self.encoder_name in CARP_INFO.keys():
                 for layer_name, p in model.state_dict().items():
                     if "layers" in layer_name:
@@ -183,11 +186,15 @@ class AbstractEncoder(ABC):
                             if "weight" in layer_name:
                                 kaiming_uniform_(p, a=math.sqrt(5))
                             elif "bias" in layer_name:
-                                fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
+                                fan_in, _ = _calculate_fan_in_and_fan_out(
+                                    model.state_dict()[
+                                        layer_name.replace("bias", "weight")
+                                    ]
+                                )
                                 if fan_in != 0:
                                     bound = 1 / math.sqrt(fan_in)
                                     uniform_(p, -bound, bound)
-                                            
+
                         else:
                             if "weight" in layer_name:
                                 ones_(p)
@@ -197,7 +204,7 @@ class AbstractEncoder(ABC):
             print(f"Resample params for {self._encoder_name} ...")
 
             resample_state = model.state_dict()
-            
+
             if self._encoder_name in TRANSFORMER_INFO.keys():
                 for layer_name, p in model.state_dict().items():
                     if (
@@ -206,8 +213,10 @@ class AbstractEncoder(ABC):
                         and ("_float_tensor" not in layer_name)
                     ):
                         # shuffle all dim
-                        resample_state[layer_name] = p.view(-1)[torch.randperm(p.view(-1).shape[0])].view(p.shape)
-                        
+                        resample_state[layer_name] = p.view(-1)[
+                            torch.randperm(p.view(-1).shape[0])
+                        ].view(p.shape)
+
                         # if len(p.shape) == 1:
                         #     resample_state[layer_name] = p[torch.randperm(p.shape[0])]
 
@@ -311,12 +320,14 @@ class AbstractEncoder(ABC):
                         #     """
 
                         #     resample_state[layer_name] = p[:, torch.randperm(p.shape[1])]
-            
+
             elif self._encoder_name in CARP_INFO.keys():
                 for layer_name, p in model.state_dict().items():
-                    # completely shuffle all weight matrix entries 
+                    # completely shuffle all weight matrix entries
                     if "layers" in layer_name:
-                        resample_state[layer_name] = p.view(-1)[torch.randperm(p.view(-1).shape[0])].view(p.shape)
+                        resample_state[layer_name] = p.view(-1)[
+                            torch.randperm(p.view(-1).shape[0])
+                        ].view(p.shape)
 
             model.load_state_dict(resample_state)
 
@@ -651,12 +662,16 @@ class CARPEncoder(AbstractEncoder):
     def __init__(
         self,
         encoder_name: str,
+        checkpoint: float = 1,
+        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
     ):
         """
         Args
         - encoder_name: str, the name of the encoder, one of the keys of CARP_INFO
+        - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+        - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
         """
@@ -664,6 +679,34 @@ class CARPEncoder(AbstractEncoder):
         super().__init__(encoder_name, reset_param, resample_param)
 
         self.model, self.collater = load_model_and_alphabet(self._encoder_name)
+
+        # load checkpoint unless default to full
+        if checkpoint != 1:
+
+            # get the checkpoint number from the CARP_CHECKPOINTS dict
+            # ie {"carp_600k": {"1/2": 239263, ...}, ...}
+            # to get 'pretrain_checkpoints/carp/carp_600k/checkpoint239263.tar'
+
+            checkpoint_path = (
+                f"{os.path.normpath(checkpoint_folder)}/{encoder_name}/"
+                f"checkpoint{str(CARP_CHECKPOINTS[encoder_name][checkpoint])}.tar"
+            )
+            
+            print(
+                f"Loading {encoder_name} {checkpoint} checkpoint from {checkpoint_path}..."
+            )
+
+            # get the dict with dict_keys(['model_state_dict', ...])
+            checkpoint_dict = torch.load(checkpoint_path, map_location=DEVICE)
+
+            self.model.load_state_dict(
+                OrderedDict(
+                    [
+                        (k.replace("module", "model"), v) if "module" in k else (k, v)
+                        for k, v in checkpoint_dict["model_state_dict"].items()
+                    ]
+                )
+            )
 
         # if reset or resample weights
         self.model = self.reset_resample_param(model=self.model)

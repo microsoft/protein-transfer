@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Sequence
+# from collections import Sequence
 
 import os
 import sys

@@ -19,6 +19,14 @@ CARP_INFO = {
     "carp_640M": (1280, 56),
 }
 
+# TODO integrate to be auto fromr sheet
+CARP_CHECKPOINTS = {
+    "carp_600k": {0.5: 239263, 0.25: 114344, 0.125: 52039},
+    "carp_38M": {0.5: 517622, 0.25: 256897, 0.125: 129575},
+    "carp_76M": {0.5: 327960, 0.25: 162959, 0.125: 83180},
+    "carp_640M": {0.5: 311757, 0.25: 154698, 0.125: 78810},
+}
+
 CARP_600K = {
     "experiment": "pretrain",
     "task": "mlm",

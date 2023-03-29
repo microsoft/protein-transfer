@@ -51,6 +51,8 @@ class Run_Pytorch:
         self,
         dataset_path: str,
         encoder_name: str,
+        checkpoint: float = 1,
+        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
         embed_batch_size: int = 128,
@@ -81,7 +83,8 @@ class Run_Pytorch:
         - dataset_path: str, full path to the dataset, in pkl or panda readable format
             columns include: sequence, target, set, validation, mut_name (optional), mut_numb (optional)
         - encoder_name: str, the name of the encoder
-        
+        - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+        - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_folder: str = None, path to presaved embedding
@@ -126,6 +129,9 @@ class Run_Pytorch:
         ):
             self._encoder_name = "onehot"
 
+        self._checkpoint = checkpoint
+        self._checkpoint_folder = checkpoint_folder
+
         self._reset_param = reset_param
         self._resample_param = resample_param
         self._embed_batch_size = embed_batch_size
@@ -161,6 +167,8 @@ class Run_Pytorch:
         self._loader_dict = split_protrain_loader(
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
+            checkpoint=self._checkpoint,
+            checkpoint_folder=self._checkpoint_folder,
             reset_param=self._reset_param,
             resample_param=self._resample_param,
             embed_batch_size=self._embed_batch_size,
