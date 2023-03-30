@@ -89,6 +89,12 @@ class AbstractEncoder(ABC):
         Returns:
         - torch.nn.Module, the model with all params set with xavier_uniform
         """
+
+        s = 0
+        for p in model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum inside reset_resampel_param for input model: {s}")
+
         if self._reset_param:
             print(f"Reinit params for {self._encoder_name} ...")
 
@@ -126,7 +132,8 @@ class AbstractEncoder(ABC):
             
             embed_positions.weight: dim 2                   [nn.init.normal_(self.weight)]
             """
-            if self.encoder_name in TRANSFORMER_INFO.keys():
+            if self._encoder_name in TRANSFORMER_INFO.keys():
+                print(f"Updating esm {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
                     # what esm1b and esm1 have in common
                     if "_proj" in layer_name:
@@ -179,7 +186,8 @@ class AbstractEncoder(ABC):
                     elif "esm1_" and "bias_" in self._encoder_name:
                         xavier_normal_(p)
 
-            elif self.encoder_name in CARP_INFO.keys():
+            elif self._encoder_name in CARP_INFO.keys():
+                print(f"Updating carp {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
                     if "layers" in layer_name:
                         if "conv" in layer_name:
@@ -200,12 +208,14 @@ class AbstractEncoder(ABC):
                                 ones_(p)
                             elif "bias" in layer_name:
                                 zeros_(p)
+        
         elif self._resample_param:
             print(f"Resample params for {self._encoder_name} ...")
 
             resample_state = model.state_dict()
 
             if self._encoder_name in TRANSFORMER_INFO.keys():
+                print(f"Updating esm {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
                     if (
                         ("embed_tokens" not in layer_name)
@@ -322,6 +332,7 @@ class AbstractEncoder(ABC):
                         #     resample_state[layer_name] = p[:, torch.randperm(p.shape[1])]
 
             elif self._encoder_name in CARP_INFO.keys():
+                print(f"Updating carp {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
                     # completely shuffle all weight matrix entries
                     if "layers" in layer_name:
@@ -330,6 +341,14 @@ class AbstractEncoder(ABC):
                         ].view(p.shape)
 
             model.load_state_dict(resample_state)
+
+        else:
+            print("Not changing the model")
+
+        s = 0
+        for p in model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum after reset_resampel_param before return model: {s}")
 
         return model
 
@@ -574,12 +593,22 @@ class ESMEncoder(AbstractEncoder):
         )
         self.batch_converter = self.alphabet.get_batch_converter()
 
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum for loading init esm from hub in ESMEncoder: {s}")
+
         # if reset or resample weights
         self.model = self.reset_resample_param(model=self.model)
 
         # set model to eval mode
         self.model.eval()
         self.model.to(DEVICE)
+
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum for after reset_resample_param in ESMEncoder: {s}")
 
         expected_num_layers = int(self._encoder_name.split("_")[-3][1:])
         assert (
@@ -692,6 +721,11 @@ class CARPEncoder(AbstractEncoder):
 
         self.model, self.collater = load_model_and_alphabet(self._encoder_name)
 
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum for loading init carp from hub in CARPEncoder: {s}")
+
         # load checkpoint unless default to full
         if checkpoint != 1:
 
@@ -719,14 +753,26 @@ class CARPEncoder(AbstractEncoder):
                     ]
                 )
             )
+        else:
+            print("Running on fully trained model...")
+        
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+
+        print(f"all param sum for after carp checkpoint loading before reset_resample_param in CARPEncoder: {s}")
 
         # if reset or resample weights
         self.model = self.reset_resample_param(model=self.model)
 
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum for after carp checkpoint loading after reset_resample_param in CARPEncoder: {s}")
+
         # set model to eval mode
         self.model.eval()
         self.model.to(DEVICE)
-        print(DEVICE)
 
         self._embed_dim, self._max_emb_layer = CARP_INFO[self._encoder_name]
 
@@ -774,38 +820,6 @@ class CARPEncoder(AbstractEncoder):
                 mut_seqs=mut_seqs,
             )
         return dict_encoded_mut_seqs
-
-        """
-        # alternatively check out the article called:
-        # The One PyTorch Trick Which You Should Know
-        # How hooks can improve your workflow significantly
-
-        activation = {}
-
-        def get_activation(name):
-            def hook(model, input, output):
-                activation[name] = output.detach()
-
-            return hook
-
-        # convert raw mutant sequences to tokens
-        for layer_numb in list(range(self._max_emb_layer)):
-            self.model.model.embedder.layers[layer_numb].register_forward_hook(
-                get_activation(layer_numb)
-            )
-
-        rep = self.model(x)
-
-        for layer_numb, encoded_mut_seqs in activation.items():
-            activation[layer_numb] = self.flatten_encode(
-                encoded_mut_seqs=encoded_mut_seqs.cpu().numpy(),
-                flatten_emb=flatten_emb,
-                mut_seqs=mut_seqs,
-            )
-
-        return activation
-        """
-
 
 def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
 

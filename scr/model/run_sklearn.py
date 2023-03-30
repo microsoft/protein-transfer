@@ -99,12 +99,17 @@ class RunRidge:
         self.ridge_params = ridge_params
         self.all_result_folder = all_result_folder
 
+        # append init
         if self.reset_param and "-rand" not in self.all_result_folder:
             self.all_result_folder = f"{self.all_result_folder}-rand"
+        if self.reset_param and "-rand" not in self.embed_folder:
+            self.embed_folder = f"{self.embed_folder}-rand"
 
         if self.resample_param and "-stat" not in self.all_result_folder:
             self.all_result_folder = f"{self.all_result_folder}-stat"
-
+        if self.resample_param and "-stat" not in self.embed_folder:
+            self.embed_folder = f"{self.embed_folder}-stat"
+        
         # append checkpoint fraction
         if self.checkpoint != 1:
             self.all_result_folder += f"-{str(self.checkpoint)}"
@@ -349,7 +354,6 @@ class RunRidge:
 class RunSK:
     """
     A class for running sklearn models 
-    [NOT FULLY TESTED YET]
     """
 
     def __init__(
@@ -423,9 +427,13 @@ class RunSK:
         # append init
         if self.reset_param and "-rand" not in self.all_result_folder:
             self.all_result_folder = f"{self.all_result_folder}-rand"
+        if self.reset_param and "-rand" not in self.embed_folder:
+            self.embed_folder = f"{self.embed_folder}-rand"
 
         if self.resample_param and "-stat" not in self.all_result_folder:
             self.all_result_folder = f"{self.all_result_folder}-stat"
+        if self.resample_param and "-stat" not in self.embed_folder:
+            self.embed_folder = f"{self.embed_folder}-stat"
 
         # append checkpoint fraction
         if self.checkpoint != 1:

@@ -219,15 +219,6 @@ class LayerLoss:
                                     linestyle="dashed"
                                 )
 
-                    # overlay onehot baseline
-                    if add_onehot:
-                        axs[m, n].axhline(
-                            self._onehot_baseline_dict[onehot_name][metric],
-                            label="onehot",
-                            color="#000000",  # black or #D3D3D3 light grey
-                            linestyle="dotted",
-                        )
-
                     # overlay random init
                     if add_rand:
                         axs[m, n].plot(
@@ -252,6 +243,15 @@ class LayerLoss:
                             # color="#A9A9A9",  # dark grey
                             # linestyle="dotted",
                         )
+                    
+                    # overlay onehot baseline
+                    if add_onehot:
+                        axs[m, n].axhline(
+                            self._onehot_baseline_dict[onehot_name][metric],
+                            label="onehot",
+                            color="#000000",  # black or #D3D3D3 light grey
+                            linestyle="dotted",
+                        )
 
             # add xlabels
             for ax in axs[metric_numb - 1]:
@@ -274,14 +274,37 @@ class LayerLoss:
 
             # add legend
             handles, labels = axs[0, 0].get_legend_handles_labels()
+            
+            if len(labels) % 3 == 1:
+                # Add two empty dummy legend items
+                axs[0, 0].plot(np.zeros(1), color="w", alpha=0, label=" ")
+                axs[0, 0].plot(np.zeros(1), color="w", alpha=0, label=" ")
+
+                adjusted_handles, adjusted_labels = axs[0, 0].get_legend_handles_labels()
+                adjusted_y = 1.045
+                ncol = 3
+                legend_params = {
+                    "labelspacing": 0.1, # vertical space between the legend entries, default 0.5
+                    "handletextpad": 0.2, # space between the legend the text, default 0.8
+                    "handlelength": 0.95, # length of the legend handles, default 2.0
+                    "columnspacing": 1, # spacing between columns, default 2.0
+                }
+
+            else:
+                adjusted_handles, adjusted_labels = handles, labels
+                adjusted_y = 1.025
+                ncol = 2
+                legend_params = {}
+
             fig.legend(
-                handles,
-                labels,
+                adjusted_handles,
+                adjusted_labels,
                 loc="upper left",
-                bbox_to_anchor=[0.05, 1.025],
+                bbox_to_anchor=[0.05, adjusted_y],
                 fontsize=16,
                 frameon=False,
-                ncol=2,
+                ncol=ncol,
+                **legend_params
             )
 
             # add whole plot level title
