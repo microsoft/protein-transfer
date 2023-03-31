@@ -73,8 +73,6 @@ class GenerateEmbeddings:
             self.encoder_name
         )
 
-        print
-
         # assert encoder_class != OnehotEncoder, "Generate onehot on the fly instead"
         # add in the max_seq_len for Onehot
         if encoder_class == OnehotEncoder and self.flatten_emb != False:

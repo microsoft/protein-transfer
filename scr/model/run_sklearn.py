@@ -114,7 +114,6 @@ class RunRidge:
         if self.checkpoint != 1:
             self.all_result_folder += f"-{str(self.checkpoint)}"
 
-
         all_ridge_results = {}
 
         self.encoder_name, _, total_emb_layer = get_emb_info(self.encoder_name)
@@ -127,8 +126,6 @@ class RunRidge:
                     dataset_path=self.dataset_path,
                     subset=subset,
                     encoder_name=self.encoder_name,
-                    checkpoint=self.checkpoint,
-                    checkpoint_folder=self.checkpoint_folder,
                     reset_param=self.reset_param,
                     resample_param=self.resample_param,
                     embed_batch_size=self.embed_batch_size,
@@ -443,7 +440,7 @@ class RunSK:
         if self.encoder_name in TRANSFORMER_INFO.keys():
             total_emb_layer = TRANSFORMER_INFO[encoder_name][1] + 1
         elif self.encoder_name in CARP_INFO.keys():
-            total_emb_layer = CARP_INFO[encoder_name][1]
+            total_emb_layer = CARP_INFO[encoder_name][1] + 1
         else:
             # for onehot
             self.encoder_name = "onehot"
@@ -464,8 +461,6 @@ class RunSK:
                 dataset_path=self.dataset_path,
                 subset=subset,
                 encoder_name=self.encoder_name,
-                checkpoint=self.checkpoint,
-                checkpoint_folder=self.checkpoint_folder,
                 reset_param=self.reset_param,
                 resample_param=self.resample_param,
                 embed_batch_size=self.embed_batch_size,
@@ -679,8 +674,6 @@ class RunSK:
                     dataset_path=self.dataset_path,
                     subset=subset,
                     encoder_name=self.encoder_name,
-                    checkpoint=self.checkpoint,
-                    checkpoint_folder=self.checkpoint_folder,
                     reset_param=self.reset_param,
                     resample_param=self.resample_param,
                     embed_batch_size=self.embed_batch_size,

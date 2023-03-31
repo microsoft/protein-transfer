@@ -350,14 +350,9 @@ class LayerLoss:
 
         _, _, max_layer_numb = get_emb_info(encoder_name)
 
-        if max_layer_numb > 1:
-            plot_x_len = max_layer_numb - 1
-        else:
-            plot_x_len = max_layer_numb
-
         # init the ouput dict
         output_numb_dict = {
-            metric: np.zeros([plot_x_len]) for metric in self._metric_dict[task]
+            metric: np.zeros([max_layer_numb]) for metric in self._metric_dict[task]
         }
 
         # loop through the list of the pickle files
