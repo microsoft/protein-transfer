@@ -1,7 +1,5 @@
 # queue for generating and sorting all embs
 
-export CUDA_VISIBLE_DEVICES=1
-
 ### GB1 ###
 
 # python run_pregen_emb.py --dataset_path="data/proeng/gb1/sampled.csv" --encoder_name="esm1_t6_43M_UR50S" --flatten_emb="mean" --seq_end_idx=56 --reset_param=True
@@ -68,12 +66,12 @@ export CUDA_VISIBLE_DEVICES=1
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1_t12_85M_UR50S" --flatten_emb="mean" --resample_param=True
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1_t12_85M_UR50S" --flatten_emb="mean"
 
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean" --reset_param=True
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean" --resample_param=True
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean"
+python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean" --reset_param=True
+python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean" --resample_param=True
+python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean"
 
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --reset_param=True
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --resample_param=True
+python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --reset_param=True
+python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --resample_param=True
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/two_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean"
 
 
@@ -86,11 +84,11 @@ export CUDA_VISIBLE_DEVICES=1
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1_t12_85M_UR50S" --flatten_emb="mean" --resample_param=True
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1_t12_85M_UR50S" --flatten_emb="mean"
 
-python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean" --reset_param=True
+# python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean" --reset_param=True
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean" --resample_param=True
-python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean"
+# python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1_t34_670M_UR50S" --flatten_emb="mean"
 
-python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --reset_param=True
+# python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --reset_param=True
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --resample_param=True
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean"
 

@@ -101,18 +101,19 @@ class RunRidge:
 
         # append init
         if self.reset_param and "-rand" not in self.all_result_folder:
-            self.all_result_folder = f"{self.all_result_folder}-rand"
+            self.all_result_folder += "-rand"
         if self.reset_param and "-rand" not in self.embed_folder:
-            self.embed_folder = f"{self.embed_folder}-rand"
+            self.embed_folder += "-rand"
 
         if self.resample_param and "-stat" not in self.all_result_folder:
-            self.all_result_folder = f"{self.all_result_folder}-stat"
+            self.all_result_folder += "-stat"
         if self.resample_param and "-stat" not in self.embed_folder:
-            self.embed_folder = f"{self.embed_folder}-stat"
-        
+            self.embed_folder += "-stat"
+
         # append checkpoint fraction
         if self.checkpoint != 1:
             self.all_result_folder += f"-{str(self.checkpoint)}"
+            self.embed_folder += f"-{str(self.checkpoint)}"
 
         all_ridge_results = {}
 
@@ -423,18 +424,19 @@ class RunSK:
 
         # append init
         if self.reset_param and "-rand" not in self.all_result_folder:
-            self.all_result_folder = f"{self.all_result_folder}-rand"
+            self.all_result_folder += "-rand"
         if self.reset_param and "-rand" not in self.embed_folder:
-            self.embed_folder = f"{self.embed_folder}-rand"
+            self.embed_folder += "-rand"
 
         if self.resample_param and "-stat" not in self.all_result_folder:
-            self.all_result_folder = f"{self.all_result_folder}-stat"
+            self.all_result_folder += "-stat"
         if self.resample_param and "-stat" not in self.embed_folder:
-            self.embed_folder = f"{self.embed_folder}-stat"
+            self.embed_folder += "-stat"
 
         # append checkpoint fraction
         if self.checkpoint != 1:
             self.all_result_folder += f"-{str(self.checkpoint)}"
+            self.embed_folder += f"-{str(self.checkpoint)}"
 
         # update encoder name and total embedding layers
         if self.encoder_name in TRANSFORMER_INFO.keys():

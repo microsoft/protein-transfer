@@ -194,6 +194,7 @@ class LayerLoss:
                 sharex="col",
                 figsize=(20, 10),
             )
+
             for m, metric in enumerate(self._metric_dict[collage_name.split("_")[0]]):
 
                 for n, encoder_name in enumerate(encoder_names):
@@ -204,7 +205,7 @@ class LayerLoss:
                     )
 
                     # add checkpoints
-                    if self._add_checkpoint:
+                    if self._add_checkpoint and encoder_label == "carp":
                         for checkpoint in self._checkpoint_list:
 
                             checkpoint_vals = self._checkpoint_analysis_dict[checkpoint][
@@ -270,12 +271,13 @@ class LayerLoss:
                 ax.tick_params(axis="y", labelsize=16)
 
             # set the plot yticks
-            plt.gca().yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
+            # TODO try to align the y labels
+            # plt.gca().yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
 
             # add legend
             handles, labels = axs[0, 0].get_legend_handles_labels()
             
-            if len(labels) % 3 == 1:
+            if len(labels) == 7:
                 # Add two empty dummy legend items
                 axs[0, 0].plot(np.zeros(1), color="w", alpha=0, label=" ")
                 axs[0, 0].plot(np.zeros(1), color="w", alpha=0, label=" ")
@@ -402,3 +404,23 @@ class LayerLoss:
     def layer_analysis_dict(self) -> dict:
         """Return a dict with dataset name as the key"""
         return self._layer_analysis_dict
+    
+    @property
+    def rand_layer_analysis_dict(self) -> dict:
+        """Return a dict with dataset name as the key for rand"""
+        return self._rand_layer_analysis_dict
+    
+    @property
+    def stat_layer_analysis_dict(self) -> dict:
+        """Return a dict with dataset name as the key for stat"""
+        return self._stat_layer_analysis_dict
+        
+    @property
+    def onehot_baseline_dict(self) -> dict:
+        """Return a dict with dataset name as the key for onehot"""
+        return self._onehot_baseline_dict
+        
+    @property
+    def checkpoint_analysis_dict(self) -> dict:
+        """Return a dict with dataset name as the key for checkpoints"""
+        return self._checkpoint_analysis_dict
