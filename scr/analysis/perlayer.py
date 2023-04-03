@@ -208,16 +208,18 @@ class LayerLoss:
                     if self._add_checkpoint and encoder_label == "carp":
                         for checkpoint in self._checkpoint_list:
 
-                            checkpoint_vals = self._checkpoint_analysis_dict[checkpoint][
-                                    collage_name
-                                ][encoder_name][metric]
+                            checkpoint_vals = self._checkpoint_analysis_dict[
+                                checkpoint
+                            ][collage_name][encoder_name][metric]
 
-                            if not np.all(checkpoint_vals==0):
+                            if not np.all(checkpoint_vals == 0):
                                 axs[m, n].plot(
                                     checkpoint_vals,
                                     label=f"{encoder_label}-{checkpoint}",
-                                    color=CHECKPOINT_COLOR[checkpoint],  # darker oranges
-                                    linestyle="dashed"
+                                    color=CHECKPOINT_COLOR[
+                                        checkpoint
+                                    ],  # darker oranges
+                                    linestyle="dashed",
                                 )
 
                     # overlay random init
@@ -244,7 +246,7 @@ class LayerLoss:
                             # color="#A9A9A9",  # dark grey
                             # linestyle="dotted",
                         )
-                    
+
                     # overlay onehot baseline
                     if add_onehot:
                         axs[m, n].axhline(
@@ -268,28 +270,39 @@ class LayerLoss:
                 axs[:, 0], self._metric_dict[collage_name.split("_")[0]]
             ):
                 ax.set_ylabel(row.replace("_", " "), fontsize=16)
-                ax.tick_params(axis="y", labelsize=16)
+                ax.tick_params(
+                    axis="y",
+                    which="major",
+                    reset=True,
+                    labelsize=16,
+                    left=True,
+                    right=False, # no right side tick on the plot
+                    labelleft=True,
+                    labelright=False,
+                )
 
             # set the plot yticks
-            # TODO try to align the y labels
-            # plt.gca().yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
+            plt.gca().yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
+            plt.gca().yaxis.tick_left()
 
             # add legend
             handles, labels = axs[0, 0].get_legend_handles_labels()
-            
+
             if len(labels) == 7:
                 # Add two empty dummy legend items
                 axs[0, 0].plot(np.zeros(1), color="w", alpha=0, label=" ")
                 axs[0, 0].plot(np.zeros(1), color="w", alpha=0, label=" ")
 
-                adjusted_handles, adjusted_labels = axs[0, 0].get_legend_handles_labels()
+                adjusted_handles, adjusted_labels = axs[
+                    0, 0
+                ].get_legend_handles_labels()
                 adjusted_y = 1.045
                 ncol = 3
                 legend_params = {
-                    "labelspacing": 0.1, # vertical space between the legend entries, default 0.5
-                    "handletextpad": 0.2, # space between the legend the text, default 0.8
-                    "handlelength": 0.95, # length of the legend handles, default 2.0
-                    "columnspacing": 1, # spacing between columns, default 2.0
+                    "labelspacing": 0.1,  # vertical space between the legend entries, default 0.5
+                    "handletextpad": 0.2,  # space between the legend the text, default 0.8
+                    "handlelength": 0.95,  # length of the legend handles, default 2.0
+                    "columnspacing": 1,  # spacing between columns, default 2.0
                 }
 
             else:
@@ -306,7 +319,7 @@ class LayerLoss:
                 fontsize=16,
                 frameon=False,
                 ncol=ncol,
-                **legend_params
+                **legend_params,
             )
 
             # add whole plot level title
@@ -316,6 +329,7 @@ class LayerLoss:
                 fontsize=24,
                 fontweight="bold",
             )
+            fig.align_labels()
             fig.tight_layout()
 
             for plot_ext in [".svg", ".png"]:
@@ -404,22 +418,22 @@ class LayerLoss:
     def layer_analysis_dict(self) -> dict:
         """Return a dict with dataset name as the key"""
         return self._layer_analysis_dict
-    
+
     @property
     def rand_layer_analysis_dict(self) -> dict:
         """Return a dict with dataset name as the key for rand"""
         return self._rand_layer_analysis_dict
-    
+
     @property
     def stat_layer_analysis_dict(self) -> dict:
         """Return a dict with dataset name as the key for stat"""
         return self._stat_layer_analysis_dict
-        
+
     @property
     def onehot_baseline_dict(self) -> dict:
         """Return a dict with dataset name as the key for onehot"""
         return self._onehot_baseline_dict
-        
+
     @property
     def checkpoint_analysis_dict(self) -> dict:
         """Return a dict with dataset name as the key for checkpoints"""

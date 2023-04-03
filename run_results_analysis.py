@@ -9,10 +9,10 @@ LayerLoss(
     output_path="results/sklearn-carp_layer"
 )
 
-# print("Running results analysis and plotting for ESM...")
+print("Running results analysis and plotting for ESM...")
 
-# LayerLoss(
-#     input_path="results/sklearn-esm",
-#     output_path="results/sklearn-esm_layer",
-#     add_checkpoint=False
-# )
+LayerLoss(
+    input_path="results/sklearn-esm",
+    output_path="results/sklearn-esm_layer",
+    add_checkpoint=False
+)
