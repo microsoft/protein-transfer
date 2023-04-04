@@ -205,7 +205,7 @@ class LayerLoss:
                     )
 
                     # add checkpoints
-                    if self._add_checkpoint and encoder_label == "carp":
+                    if self._add_checkpoint:
                         for checkpoint in self._checkpoint_list:
 
                             checkpoint_vals = self._checkpoint_analysis_dict[
