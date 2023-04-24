@@ -136,6 +136,7 @@ class Run_Pytorch:
         self._resample_param = resample_param
         self._embed_batch_size = embed_batch_size
         self._flatten_emb = flatten_emb
+        self._embed_folder = embed_folder
 
         self._learning_rate = learning_rate
         self._lr_decay = lr_decay
@@ -146,6 +147,12 @@ class Run_Pytorch:
         self._device = device
         self._all_plot_folder = all_plot_folder
         self._all_result_folder = all_result_folder
+
+        # append checkpoint fraction
+        if self._checkpoint != 1:
+            self._all_plot_folder += f"-{str(self._checkpoint)}"
+            self._all_result_folder += f"-{str(self._checkpoint)}"
+            self._embed_folder += f"-{str(self._checkpoint)}"
 
         if self._reset_param and "-rand" not in self._all_result_folder:
             self._all_result_folder = f"{self._all_result_folder}-rand"
@@ -167,13 +174,11 @@ class Run_Pytorch:
         self._loader_dict = split_protrain_loader(
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
-            checkpoint=self._checkpoint,
-            checkpoint_folder=self._checkpoint_folder,
             reset_param=self._reset_param,
             resample_param=self._resample_param,
             embed_batch_size=self._embed_batch_size,
             flatten_emb=self._flatten_emb,
-            embed_folder=embed_folder,
+            embed_folder=self._embed_folder,
             seq_start_idx=seq_start_idx,
             seq_end_idx=seq_end_idx,
             subset_list=self._subset_list,
