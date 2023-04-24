@@ -280,18 +280,34 @@ class LayerLoss:
                     labelleft=True,
                     labelright=False,
                 )
+                ax.relim()      # make sure all the data fits
+                ax.autoscale()
 
             # set the plot yticks
             plt.gca().yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
             plt.gca().yaxis.tick_left()
+            plt.gca().autoscale()
 
             # add legend
             handles, labels = axs[0, 0].get_legend_handles_labels()
 
             if len(labels) == 7:
-                # Add two empty dummy legend items
-                axs[0, 0].plot(np.zeros(1), color="w", alpha=0, label=" ")
-                axs[0, 0].plot(np.zeros(1), color="w", alpha=0, label=" ")
+                
+                for m, metric in enumerate(self._metric_dict[collage_name.split("_")[0]]):
+                    # Add two empty dummy legend items
+
+                    axs[m, n].axhline(
+                            self._onehot_baseline_dict[onehot_name][metric],
+                            label=" ",
+                            color="w",
+                            alpha=0
+                        )
+                    axs[m, n].axhline(
+                            self._onehot_baseline_dict[onehot_name][metric],
+                            label=" ",
+                            color="w",
+                            alpha=0
+                        )
 
                 adjusted_handles, adjusted_labels = axs[
                     0, 0
