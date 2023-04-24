@@ -293,21 +293,22 @@ class LayerLoss:
 
             if len(labels) == 7:
                 
-                for m, metric in enumerate(self._metric_dict[collage_name.split("_")[0]]):
-                    # Add two empty dummy legend items
-
-                    axs[m, n].axhline(
-                            self._onehot_baseline_dict[onehot_name][metric],
-                            label=" ",
-                            color="w",
-                            alpha=0
-                        )
-                    axs[m, n].axhline(
-                            self._onehot_baseline_dict[onehot_name][metric],
-                            label=" ",
-                            color="w",
-                            alpha=0
-                        )
+                # Add two empty dummy legend items
+                # using the first label info
+                
+                axs[0, 0].axhline(
+                        self._onehot_baseline_dict[onehot_name][self._metric_dict[collage_name.split("_")[0]][0]],
+                        label=" ",
+                        color="w",
+                        alpha=0
+                    )
+                
+                axs[0, 0].axhline(
+                        self._onehot_baseline_dict[onehot_name][self._metric_dict[collage_name.split("_")[0]][0]],
+                        label=" ",
+                        color="w",
+                        alpha=0
+                    )
 
                 adjusted_handles, adjusted_labels = axs[
                     0, 0
