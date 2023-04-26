@@ -64,6 +64,7 @@ class Run_Pytorch:
         worker_seed: int = RAND_SEED,
         if_encode_all: bool = True,
         if_multiprocess: bool = False,
+        if_rerun_layer: bool = False,
         learning_rate: float = 1e-4,
         lr_decay: float = 0.1,
         epochs: int = 100,
@@ -92,6 +93,7 @@ class Run_Pytorch:
         - seq_end_idx: bool | int = False, the index for the end of the sequence
         - loader_batch_size: int, the batch size for train, val, and test dataloader
         - worker_seed: int, the seed for dataloader
+        - if_rerun_layer: bool, if rerun the layer if the results exist
         - learning_rate: float
         - lr_decay: float, factor by which to decay LR on plateau
         - epochs: int, number of epochs to train for
@@ -103,17 +105,17 @@ class Run_Pytorch:
         Returns:
         - result_dict: dict, with the keys and dict values
             "losses": {"train_losses": np.ndarray, "val_losses": np.ndarray}
-            "train": {"mse": float, 
+            "train": {"mse": float,
                     "pred": np.ndarray,
                     "true": np.ndarray,
                     "ndcg": float,
                     "rho": SpearmanrResults(correlation=float, pvalue=float)}
-            "val":   {"mse": float, 
+            "val":   {"mse": float,
                     "pred": np.ndarray,
                     "true": np.ndarray,
                     "ndcg": float,
                     "rho": SpearmanrResults(correlation=float, pvalue=float)}
-            "test":  {"mse": float, 
+            "test":  {"mse": float,
                     "pred": np.ndarray,
                     "true": np.ndarray,
                     "ndcg": float,
@@ -138,6 +140,11 @@ class Run_Pytorch:
         self._flatten_emb = flatten_emb
         self._embed_folder = embed_folder
 
+        if self._flatten_emb == False:
+            self._flatten_emb_name = "noflatten"
+        else:
+            self._flatten_emb_name = self._flatten_emb
+
         self._learning_rate = learning_rate
         self._lr_decay = lr_decay
         self._epochs = epochs
@@ -161,7 +168,7 @@ class Run_Pytorch:
         if self._resample_param and "-stat" not in self._all_result_folder:
             self._all_result_folder = f"{self._all_result_folder}-stat"
             self._all_plot_folder = f"{self._all_plot_folder}-stat"
-        
+
         self._encoder_params = encoder_params
 
         self._ds_info = DatasetInfo(self._dataset_path)
@@ -199,7 +206,7 @@ class Run_Pytorch:
             if "-onehot" not in self._all_result_folder:
                 self._all_result_folder = f"{self._all_result_folder}-onehot"
                 self._all_plot_folder = f"{self._all_plot_folder}-onehot"
-            
+
             # TODO aultoto
             if self._flatten_emb == False:
                 self._encoder_info_dict = {"onehot": (AA_NUMB,)}
@@ -216,8 +223,29 @@ class Run_Pytorch:
 
         else:
             for embed_layer in range(total_emb_layer):
-                print(f"Running pytorch model for layer {embed_layer}")
-                self.run_pytorch_layer(embed_layer)
+                print(f"Running pytorch model for layer {embed_layer}...")
+                if if_rerun_layer or (
+                    (not if_rerun_layer)
+                    and (not os.path.exists(self.get_pytorch_layer_info(embed_layer)))
+                ):
+                    self.run_pytorch_layer(embed_layer)
+                else:
+                    print(
+                        f"Results for pytorch model for layer {embed_layer} already exists..."
+                    )
+
+    def get_pytorch_layer_info(self, embed_layer):
+        """
+        Get info on pytorch layers
+        """
+        dataset_subfolder, file_name = get_folder_file_names(
+            parent_folder=get_default_output_path(self._all_result_folder),
+            dataset_path=self._dataset_path,
+            encoder_name=self._encoder_name,
+            embed_layer=embed_layer,
+            flatten_emb=self._flatten_emb_name,
+        )
+        return os.path.join(dataset_subfolder, file_name + ".pkl")
 
     def run_pytorch_layer(self, embed_layer):
 
@@ -272,6 +300,7 @@ class Run_Pytorch:
             "losses": {"train_losses": train_losses, "val_losses": val_losses}
         }
 
+        # TODO del and use self._flatten_emb_name instead of flatten_emb_name
         if self._flatten_emb == False:
             flatten_emb_name = "noflatten"
         else:
@@ -321,6 +350,7 @@ class Run_Pytorch:
                     ),
                 }
 
+        # TODO del
         dataset_subfolder, file_name = get_folder_file_names(
             parent_folder=get_default_output_path(self._all_result_folder),
             dataset_path=self._dataset_path,
