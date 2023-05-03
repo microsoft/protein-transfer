@@ -60,6 +60,8 @@ class Run_Pytorch:
         embed_folder: str | None = None,
         seq_start_idx: bool | int = False,
         seq_end_idx: bool | int = False,
+        manual_layer_min: bool | int = False,
+        manual_layer_max: bool | int = False,
         loader_batch_size: int = 64,
         worker_seed: int = RAND_SEED,
         if_encode_all: bool = True,
@@ -91,6 +93,8 @@ class Run_Pytorch:
         - embed_folder: str = None, path to presaved embedding
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
+        - manual_layer_min: bool | int = False
+        - manual_layer_max: bool | int = False
         - loader_batch_size: int, the batch size for train, val, and test dataloader
         - worker_seed: int, the seed for dataloader
         - if_rerun_layer: bool, if rerun the layer if the results exist
@@ -220,9 +224,14 @@ class Run_Pytorch:
                 # for each layer train the model and save the model
                 for embed_layer in tqdm(range(total_emb_layer)):
                     pool.submit(self.run_pytorch_layer, embed_layer)
-
         else:
-            for embed_layer in range(total_emb_layer):
+            if isinstance(manual_layer_min, str) and isinstance(manual_layer_max, str):
+                print(f"Running pytorch model for layers from {manual_layer_min} to {manual_layer_max}...")
+                layer_range = range(int(manual_layer_min), int(manual_layer_max) + 1)
+            else:
+                layer_range = range(total_emb_layer)
+        
+            for embed_layer in layer_range:
                 print(f"Running pytorch model for layer {embed_layer}...")
                 if if_rerun_layer or (
                     (not if_rerun_layer)

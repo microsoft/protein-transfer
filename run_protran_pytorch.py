@@ -90,6 +90,19 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--manual_layer_min",
+    metavar="LMIN",
+    default=False,
+    help="the number of layer for manual start range (default: False)",
+)
+
+parser.add_argument(
+    "--manual_layer_max",
+    metavar="LMAX",
+    default=False,
+    help="the number of layer for manual end range (default: False)",
+)
+parser.add_argument(
     "--loader_batch_size",
     type=int,
     metavar="LBS",
@@ -208,6 +221,8 @@ Run_Pytorch(
     embed_folder=args.embed_folder,
     seq_start_idx=args.seq_start_idx,
     seq_end_idx=args.seq_end_idx,
+    manual_layer_min=args.manual_layer_min,
+    manual_layer_max=args.manual_layer_max,
     loader_batch_size=args.loader_batch_size,
     worker_seed=args.worker_seed,
     if_encode_all=args.if_encode_all,
