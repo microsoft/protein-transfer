@@ -269,18 +269,20 @@ class LayerLoss:
             for ax, row in zip(
                 axs[:, 0], self._metric_dict[collage_name.split("_")[0]]
             ):
-                ax.set_ylabel(row.replace("_", " "), fontsize=16)
+                ax.set_ylabel(
+                    row.replace("_", " ").replace("cross-entropy", "ce"), fontsize=16
+                )
                 ax.tick_params(
                     axis="y",
                     which="major",
                     reset=True,
                     labelsize=16,
                     left=True,
-                    right=False, # no right side tick on the plot
+                    right=False,  # no right side tick on the plot
                     labelleft=True,
                     labelright=False,
                 )
-                ax.relim()      # make sure all the data fits
+                ax.relim()  # make sure all the data fits
                 ax.autoscale()
 
             # set the plot yticks
@@ -292,23 +294,27 @@ class LayerLoss:
             handles, labels = axs[0, 0].get_legend_handles_labels()
 
             if len(labels) == 7:
-                
+
                 # Add two empty dummy legend items
                 # using the first label info
-                
+
                 axs[0, 0].axhline(
-                        self._onehot_baseline_dict[onehot_name][self._metric_dict[collage_name.split("_")[0]][0]],
-                        label=" ",
-                        color="w",
-                        alpha=0
-                    )
-                
+                    self._onehot_baseline_dict[onehot_name][
+                        self._metric_dict[collage_name.split("_")[0]][0]
+                    ],
+                    label=" ",
+                    color="w",
+                    alpha=0,
+                )
+
                 axs[0, 0].axhline(
-                        self._onehot_baseline_dict[onehot_name][self._metric_dict[collage_name.split("_")[0]][0]],
-                        label=" ",
-                        color="w",
-                        alpha=0
-                    )
+                    self._onehot_baseline_dict[onehot_name][
+                        self._metric_dict[collage_name.split("_")[0]][0]
+                    ],
+                    label=" ",
+                    color="w",
+                    alpha=0,
+                )
 
                 adjusted_handles, adjusted_labels = axs[
                     0, 0
