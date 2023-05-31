@@ -1,5 +1,11 @@
 # queue for running all pytorch models from embs
 
+# if run on cpu
+# export CUDA_VISIBLE_DEVICES=""
+
+# if run on cuda:1
+# export CUDA_VISIBLE_DEVICES=1
+
 ### scl ###
 
 # python run_protran_pytorch.py --dataset_path="data/annotation/scl/balanced.csv" --encoder_name="carp_600k" --checkpoint=1 --embed_batch_size=64 --flatten_emb="mean" --embed_folder="embeddings" --loader_batch_size=256 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-carp" --all_result_folder="results/pytorch-carp" --reset_param=True  &
