@@ -25,13 +25,15 @@ class LinearRegression(nn.Module):
 class LinearClassifier(nn.Module):
     """Linear classifier"""
 
-    def __init__(self, input_dim: int, numb_class: int):
+    def __init__(self, input_dim: int, numb_class: int, classifier_type: str):
         """
-      Args:
-      - input_dim: int, 
-      - numb_class: int, the number of classes
-      """
+        Args:
+        - input_dim: int,
+        - numb_class: int, the number of classes
+        - classifier_type: str, structure or annotation
+        """
         super(LinearClassifier, self).__init__()
+        self._classifier_type = classifier_type
         self.linear = nn.Linear(input_dim, numb_class)
 
     def forward(self, x: torch.tensor) -> torch.tensor:
@@ -40,7 +42,10 @@ class LinearClassifier(nn.Module):
     @property
     def model_name(self) -> str:
         """Return the name of the model"""
-        return "LinearClassifier"
+        if self._classifier_type.lower() == "structure":
+            return "LinearClassifier-Structure"
+        elif self._classifier_type.lower() == "annotation":
+            return "LinearClassifier-Annotation"
 
 
 class MultiLabelMultiClass(nn.Module):

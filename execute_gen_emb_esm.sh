@@ -1,6 +1,6 @@
 # queue for generating and sorting all embs
 
-export CUDA_VISIBLE_DEVICES=1
+# export CUDA_VISIBLE_DEVICES=1
 
 ### GB1 ###
 
@@ -131,3 +131,9 @@ export CUDA_VISIBLE_DEVICES=1
 # python run_pregen_emb.py --dataset_path="data/annotation/scl/balanced.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --reset_param=True
 # python run_pregen_emb.py --dataset_path="data/annotation/scl/balanced.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean" --resample_param=True
 # python run_pregen_emb.py --dataset_path="data/annotation/scl/balanced.csv" --encoder_name="esm1b_t33_650M_UR50S" --flatten_emb="mean"
+
+### ss3 ###
+
+python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --reset_param=True
+python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --resample_param=True
+# python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]'

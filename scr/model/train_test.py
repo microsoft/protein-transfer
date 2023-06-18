@@ -1,4 +1,4 @@
-"""A script with model training and testing details assuming"""
+"""A script with Pytorch model training and testing details"""
 
 from __future__ import annotations
 
@@ -24,7 +24,10 @@ torch.backends.cudnn.deterministic = True
 
 
 def get_x_y(
-    model_name, device, batch, embed_layer: int,
+    model_name,
+    device,
+    batch,
+    embed_layer: int,
 ):
     """
     A function process x and y from the loader
@@ -48,11 +51,11 @@ def get_x_y(
     y = batch[0]
 
     # ss3 / ss8 type
-    if model_name == "MultiLabelMultiClass":
+    if model_name == "LinearClassifier-Structure":
 
         y = torch.squeeze(y)
         x = torch.cat([seq[ss != -1, :] for (seq, ss) in zip(x, y)]).to(torch.float32)
-        y = y.flatten()[y.flatten() != -1]
+        y = y.flatten()[y.flatten() != -1].to(torch.double).to(torch.long)
 
     return x.to(device, non_blocking=True), y.to(device, non_blocking=True)
 
@@ -74,7 +77,7 @@ def run_epoch(
 
     """
     Runs one epoch.
-    
+
     Args:
     - model: nn.Module, already moved to device
     - loader: torch.utils.data.DataLoader
@@ -83,7 +86,7 @@ def run_epoch(
     - optimizer: optional torch.optim.Optimizer, must also provide criterion,
         only provided for training
 
-    Returns: 
+    Returns:
     - float, average loss over batches
     """
     if optimizer is not None:
@@ -110,7 +113,7 @@ def run_epoch(
             if criterion is not None:
                 if model_name == "LinearRegression":
                     loss = criterion(outputs, y.float())
-                elif model_name == "LinearClassifier" or "MultiLabelMultiClass":
+                elif "LinearClassifier" in model_name:
                     loss = criterion(outputs, y.squeeze())
 
                 if optimizer is not None:
@@ -147,8 +150,8 @@ def train(
     """
     Args:
     - model: nn.Module, already moved to device
-    - train_loader: torch.utils.data.DataLoader, 
-    - val_loader: torch.utils.data.DataLoader, 
+    - train_loader: torch.utils.data.DataLoader,
+    - val_loader: torch.utils.data.DataLoader,
     - criterion: nn.Module, loss function, already moved to device
     - device: torch.device or str
     - learning_rate: float
@@ -156,7 +159,7 @@ def train(
     - epochs: int, number of epochs to train for
     - early_stop: bool = True,
 
-    Returns: 
+    Returns:
     - tuple of np.ndarray, (train_losses, val_losses)
         train/val_losses: np.ndarray, shape [epochs], entries are average loss
         over batches for that epoch
@@ -233,16 +236,16 @@ def test(
 ) -> tuple[float, np.ndarray, np.ndarray]:
     """
     Runs one epoch of testing, returning predictions and labels.
-    
+
     Args:
     - model: nn.Module, already moved to device
     - device: torch.device or str
     - loader: torch.utils.data.DataLoader
     - criterion: optional nn.Module, loss function, already moved to device
     - print_every: int, how often (number of batches) to print avg loss
-    
+
     Returns: tuple (avg_loss, preds, labels)
-    - avg_loss: float, average loss per training example 
+    - avg_loss: float, average loss per training example
     - preds: np.ndarray, shape [num_examples, ...], predictions over dataset
     - labels: np.ndarray, shape [num_examples, ...], dataset labels
     """
@@ -269,7 +272,7 @@ def test(
             labels.append(y.detach().cpu().squeeze().numpy())
 
             # append class
-            if model_name == "LinearClassifier" or "MultiLabelMultiClass":
+            if "LinearClassifier" in model_name:
                 pred_classes.append(
                     outputs.detach()
                     .cpu()
@@ -283,7 +286,7 @@ def test(
             if criterion is not None:
                 if model_name == "LinearRegression":
                     loss = criterion(outputs, y)
-                elif model_name == "LinearClassifier" or "MultiLabelMultiClass":
+                elif "LinearClassifier" in model_name:
                     loss = criterion(outputs, y.squeeze())
 
                 cum_loss += loss.item()

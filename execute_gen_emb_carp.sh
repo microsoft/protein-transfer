@@ -212,3 +212,12 @@
 # python run_pregen_emb.py --dataset_path="data/annotation/scl/balanced.csv" --encoder_name="carp_640M" --checkpoint=0.5 --flatten_emb="mean"
 # python run_pregen_emb.py --dataset_path="data/annotation/scl/balanced.csv" --encoder_name="carp_640M" --checkpoint=0.25 --flatten_emb="mean"
 # python run_pregen_emb.py --dataset_path="data/annotation/scl/balanced.csv" --encoder_name="carp_640M" --checkpoint=0.125 --flatten_emb="mean"
+
+### ss3 ###
+
+python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="carp_600k" --checkpoint=1 --reset_param=True
+python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="carp_600k" --checkpoint=1 --resample_param=True
+python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="carp_600k" --checkpoint=1
+python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="carp_600k" --checkpoint=0.5
+python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="carp_600k" --checkpoint=0.25
+python run_pregen_emb.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="carp_600k" --checkpoint=0.125

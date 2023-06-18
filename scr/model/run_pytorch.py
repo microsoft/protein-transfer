@@ -226,11 +226,13 @@ class Run_Pytorch:
                     pool.submit(self.run_pytorch_layer, embed_layer)
         else:
             if isinstance(manual_layer_min, str) and isinstance(manual_layer_max, str):
-                print(f"Running pytorch model for layers from {manual_layer_min} to {manual_layer_max}...")
+                print(
+                    f"Running pytorch model for layers from {manual_layer_min} to {manual_layer_max}..."
+                )
                 layer_range = range(int(manual_layer_min), int(manual_layer_max) + 1)
             else:
                 layer_range = range(total_emb_layer)
-        
+
             for embed_layer in layer_range:
                 print(f"Running pytorch model for layer {embed_layer}...")
                 if if_rerun_layer or (
@@ -265,19 +267,21 @@ class Run_Pytorch:
             )
             criterion = nn.MSELoss()
 
-        elif self._model_type == "LinearClassifier":
+        else:
+
+            if self._model_type == "LinearClassifier-Structure":
+                classifier_type = "structure"
+                criterion = nn.CrossEntropyLoss(ignore_index=-1)
+
+            elif self._model_type == "LinearClassifier-Annotation":
+                classifier_type = "annotation"
+                criterion = nn.CrossEntropyLoss()
+
             model = LinearClassifier(
                 input_dim=self._encoder_info_dict[self._encoder_name][0],
                 numb_class=self._numb_class,
+                classifier_type=classifier_type,
             )
-            criterion = nn.CrossEntropyLoss()
-
-        elif self._model_type == "MultiLabelMultiClass":
-            model = MultiLabelMultiClass(
-                input_dim=self._encoder_info_dict[self._encoder_name][0],
-                numb_class=self._numb_class,
-            )
-            criterion = nn.CrossEntropyLoss()
 
         model_name = model.model_name
         model = model.to(self._device, non_blocking=True)
@@ -309,19 +313,13 @@ class Run_Pytorch:
             "losses": {"train_losses": train_losses, "val_losses": val_losses}
         }
 
-        # TODO del and use self._flatten_emb_name instead of flatten_emb_name
-        if self._flatten_emb == False:
-            flatten_emb_name = "noflatten"
-        else:
-            flatten_emb_name = self._flatten_emb
-
         plot_lc(
             train_losses=train_losses,
             val_losses=val_losses,
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,
-            flatten_emb=flatten_emb_name,
+            flatten_emb=self._flatten_emb_name,
             all_plot_folder=get_default_output_path(self._all_plot_folder),
         )
 
@@ -346,7 +344,7 @@ class Run_Pytorch:
                     "rho": spearmanr(true, pred),
                 }
 
-            elif model_name == "LinearClassifier" or "MultiLabelMultiClass":
+            elif model_name == "LinearClassifier-Annotation":
                 result_dict[subset] = {
                     "cross-entropy": loss,
                     "pred": pred,
@@ -359,13 +357,38 @@ class Run_Pytorch:
                     ),
                 }
 
+            elif model_name == "LinearClassifier-Structure":
+                print(
+                    "pred.shape, true.shape, nn.Softmax(dim=1)(torch.from_numpy(pred)).numpy().shape"
+                )
+                print(
+                    pred.shape,
+                    true.shape,
+                    nn.Softmax(dim=1)(torch.from_numpy(pred)).numpy().shape,
+                )
+                result_dict[subset] = {
+                    "cross-entropy": loss,
+                    "pred": pred,
+                    "true": true,
+                    "acc": accuracy_score(true, cls),
+                    "rocauc": roc_auc_score(
+                        true,
+                        nn.Softmax(dim=1)(torch.from_numpy(pred)).numpy(),
+                        multi_class="ovr",
+                    )
+                    # "rocauc": eval_rocauc(true, pred),
+                }
+
+            else:
+                print(f"Unrecognize {model_name} as a model_name")
+
         # TODO del
         dataset_subfolder, file_name = get_folder_file_names(
             parent_folder=get_default_output_path(self._all_result_folder),
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,
-            flatten_emb=flatten_emb_name,
+            flatten_emb=self._flatten_emb_name,
         )
 
         print(f"Saving results for {file_name} to: {dataset_subfolder}...")
