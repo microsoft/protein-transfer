@@ -680,7 +680,6 @@ class ProtranDataset(Dataset):
         - idx: int
         """
         if self.if_encode_all and self._embed_folder is None:
-            print("encoded all and shall have attr")
             return (
                 self.y[idx],
                 self.sequence[idx],

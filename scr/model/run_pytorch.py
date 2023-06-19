@@ -182,23 +182,6 @@ class Run_Pytorch:
 
         print(f"This dataset includes subsets: {self._subset_list}...")
 
-        self._loader_dict = split_protrain_loader(
-            dataset_path=self._dataset_path,
-            encoder_name=self._encoder_name,
-            reset_param=self._reset_param,
-            resample_param=self._resample_param,
-            embed_batch_size=self._embed_batch_size,
-            flatten_emb=self._flatten_emb,
-            embed_folder=self._embed_folder,
-            seq_start_idx=seq_start_idx,
-            seq_end_idx=seq_end_idx,
-            subset_list=self._subset_list,
-            loader_batch_size=loader_batch_size,
-            worker_seed=worker_seed,
-            if_encode_all=if_encode_all,
-            **encoder_params,
-        )
-
         encoder_name, encoder_class, total_emb_layer = get_emb_info(encoder_name)
 
         if encoder_class == ESMEncoder:
@@ -216,6 +199,13 @@ class Run_Pytorch:
                 self._encoder_info_dict = {"onehot": (AA_NUMB,)}
             else:
                 self._encoder_info_dict = {"onehot": (MAX_SEQ_LEN * AA_NUMB,)}
+
+        self._seq_start_idx = seq_start_idx
+        self._seq_end_idx = seq_end_idx
+        self._loader_batch_size = loader_batch_size
+        self._worker_seed = worker_seed
+        self._if_encode_all = if_encode_all
+        self._encoder_params = encoder_params
 
         if if_multiprocess:
             print("Running different emb layer in parallel...")
@@ -286,6 +276,24 @@ class Run_Pytorch:
         model_name = model.model_name
         model = model.to(self._device, non_blocking=True)
         criterion = criterion.to(self._device, non_blocking=True)
+
+        self._loader_dict = split_protrain_loader(
+            dataset_path=self._dataset_path,
+            encoder_name=self._encoder_name,
+            reset_param=self._reset_param,
+            resample_param=self._resample_param,
+            embed_batch_size=self._embed_batch_size,
+            flatten_emb=self._flatten_emb,
+            embed_folder=self._embed_folder,
+            embed_layer=embed_layer,
+            seq_start_idx=self._seq_start_idx,
+            seq_end_idx=self._seq_end_idx,
+            subset_list=self._subset_list,
+            loader_batch_size=self._loader_batch_size,
+            worker_seed=self._worker_seed,
+            if_encode_all=self._if_encode_all,
+            **self._encoder_params,
+        )
 
         train_losses, val_losses = train(
             model=model,
