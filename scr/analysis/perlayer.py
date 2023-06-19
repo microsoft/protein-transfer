@@ -39,8 +39,11 @@ class LayerLoss:
                 "train_cross-entropy",
                 "val_cross-entropy",
                 "casp12_acc",
+                "casp12_rocauc",
                 "cb513_acc",
+                "cb513_rocauc",
                 "ts115_acc",
+                "ts115_rocauc",
             ],
         },
     ):
