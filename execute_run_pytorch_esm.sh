@@ -28,8 +28,14 @@
 
 # python run_protran_pytorch.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="" --checkpoint=1 --embed_batch_size=64 --loader_batch_size=120 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-esm" --all_result_folder="results/pytorch-esm" --if_encode_all=True
 
-for i in 0 1 2 3 4 5 6; do
-    python run_protran_pytorch.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --checkpoint=1 --embed_batch_size=64 --embed_folder="embeddings" --loader_batch_size=120 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-esm" --all_result_folder="results/pytorch-esm" --manual_layer_min="${i}" --manual_layer_max="${i}"
+# for i in 0 1 2 3 4 5 6; do
+    # python run_protran_pytorch.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --checkpoint=1 --embed_batch_size=64 --embed_folder="embeddings" --loader_batch_size=120 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-esm" --all_result_folder="results/pytorch-esm" --manual_layer_min="${i}" --manual_layer_max="${i}"
     # python run_protran_pytorch.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --checkpoint=1 --embed_batch_size=64 --embed_folder="embeddings" --loader_batch_size=120 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-esm" --all_result_folder="results/pytorch-esm" --reset_param=True --manual_layer_min="${i}" --manual_layer_max="${i}"
     # python run_protran_pytorch.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --checkpoint=1 --embed_batch_size=64 --embed_folder="embeddings" --loader_batch_size=120 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-esm" --all_result_folder="results/pytorch-esm" --resample_param=True --manual_layer_min="${i}" --manual_layer_max="${i}"
+# done
+
+for i in 0 1 2 3 4 5 6 7 8 9 10 11 12; do
+    # python run_protran_pytorch.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --checkpoint=1 --embed_batch_size=64 --embed_folder="embeddings" --loader_batch_size=120 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-esm" --all_result_folder="results/pytorch-esm" --manual_layer_min="${i}" --manual_layer_max="${i}"
+    python run_protran_pytorch.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --checkpoint=1 --embed_batch_size=64 --embed_folder="embeddings" --loader_batch_size=120 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-esm" --all_result_folder="results/pytorch-esm" --reset_param=True --manual_layer_min="${i}" --manual_layer_max="${i}"
+    # python run_protran_pytorch.py --dataset_path="data/structure/secondary_structure/tape_ss3_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --checkpoint=1 --embed_batch_size=64 --embed_folder="embeddings" --loader_batch_size=120 --epochs=100 --all_plot_folder="results/pytorch_learning_curves-esm" --all_result_folder="results/pytorch-esm" --resample_param=True --manual_layer_min="${i}" --manual_layer_max="${i}"
 done

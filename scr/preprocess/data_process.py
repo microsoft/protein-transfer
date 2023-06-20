@@ -500,13 +500,14 @@ class ProtranDataset(Dataset):
 
         self.if_encode_all = if_encode_all
         self._embed_folder = embed_folder
+        
+        if self._embed_folder is not None:
+            # append init info
+            if reset_param and "-rand" not in self._embed_folder:
+                self._embed_folder = f"{self._embed_folder}-rand"
 
-        # append init info
-        if reset_param and "-rand" not in self._embed_folder:
-            self._embed_folder = f"{self._embed_folder}-rand"
-
-        if resample_param and "-stat" not in self._embed_folder:
-            self._embed_folder = f"{self._embed_folder}-stat"
+            if resample_param and "-stat" not in self._embed_folder:
+                self._embed_folder = f"{self._embed_folder}-stat"
 
         self._encoder_name = encoder_name
         self._flatten_emb = flatten_emb

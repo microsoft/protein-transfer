@@ -73,6 +73,9 @@ class LayerLoss:
         self._rand_layer_analysis_dict = defaultdict(dict)
         self._stat_layer_analysis_dict = defaultdict(dict)
 
+        # init a dict for metric params
+        self._metric_numb = defaultdict(dict)
+
         # init
         self._checkpoint_analysis_dict = defaultdict(dict)
         if self._add_checkpoint:
@@ -85,12 +88,14 @@ class LayerLoss:
             task_subfolder = dataset_folder.split(self._input_path + "/")[-1]
             # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
             task, dataset, split, encoder_name, flatten_emb = task_subfolder.split("/")
+            # get collage_name
+            collage_name = f"{task}_{dataset}_{split}_{flatten_emb}"
 
             # get number of metircs
-            metric_numb = len(self._metric_dict[task])
+            self._metric_numb[collage_name] = len(self._metric_dict[task])
 
             # parse results for plotting the collage and onehot
-            self._layer_analysis_dict[f"{task}_{dataset}_{split}_{flatten_emb}"][
+            self._layer_analysis_dict[collage_name][
                 encoder_name
             ] = self.parse_result_dicts(
                 dataset_folder, task, dataset, split, encoder_name, flatten_emb
@@ -150,21 +155,25 @@ class LayerLoss:
             else:
                 add_stat = False
 
-            # check if resample param experimental results exist
+            # check if onehot experimental results exist
             onehot_path = f"{self._input_path}-onehot"
 
             if os.path.exists(onehot_path):
+                if task == "structure":
+                    onehot_flatten_emb_name = "noflatten"
+                else:
+                    onehot_flatten_emb_name = "flatten"
                 self._onehot_baseline_dict[
                     f"{task}_{dataset}_{split}"
                 ] = self.parse_result_dicts(
                     dataset_folder.replace(self._input_path, onehot_path)
                     .replace(encoder_name, "onehot")
-                    .replace(flatten_emb, "flatten"),
+                    .replace(flatten_emb, onehot_flatten_emb_name),
                     task,
                     dataset,
                     split,
                     "onehot",
-                    "flatten",
+                    onehot_flatten_emb_name,
                 )
                 add_onehot = True
             else:
@@ -175,6 +184,8 @@ class LayerLoss:
         checkNgen_folder(collage_folder)
 
         for collage_name, encoder_dict in self._layer_analysis_dict.items():
+
+            print(f"Plotting collage_name {collage_name}...")
 
             onehot_name = "_".join(collage_name.split("_")[:-1])
 
@@ -191,11 +202,11 @@ class LayerLoss:
                 encoder_label = "pretrained"
 
             fig, axs = plt.subplots(
-                metric_numb,
+                self._metric_numb[collage_name],
                 len(encoder_names),
                 sharey="row",
                 sharex="col",
-                figsize=(20, 10),
+                figsize=(20, 2 * self._metric_numb[collage_name]),
             )
 
             for m, metric in enumerate(self._metric_dict[collage_name.split("_")[0]]):
@@ -260,7 +271,7 @@ class LayerLoss:
                         )
 
             # add xlabels
-            for ax in axs[metric_numb - 1]:
+            for ax in axs[self._metric_numb[collage_name] - 1]:
                 ax.set_xlabel("layers", fontsize=16)
                 ax.tick_params(axis="x", labelsize=16)
 
