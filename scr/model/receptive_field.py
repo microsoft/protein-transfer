@@ -4,13 +4,16 @@ https://distill.pub/2019/computing-receptive-fields/
 """
 
 from __future__ import annotations
+
 from collections import defaultdict
 
+import os
 import pandas as pd
 
 from sequence_models.pretrained import load_model_and_alphabet
 
 from scr.params.emb import CARP_INFO
+from scr.utils import checkNgen_folder
 
 
 class ReceptiveField:
@@ -19,7 +22,7 @@ class ReceptiveField:
     Calculate receptive field
     """
 
-    def __init__(self, encoder_name: str = ""):
+    def __init__(self, encoder_name: str):
 
         self._encoder_name = encoder_name
 
@@ -184,3 +187,27 @@ class ReceptiveField:
             )
 
         return rf_dict
+
+    @property
+    def rf_df(self) -> pd.DataFrame:
+        """Convert layer rf dict to dataframe with column names"""
+
+        df = pd.Series(self.rf_dict).to_frame(name="receptive_field_size")
+        df.index.name = "layer_numb"
+
+        return df
+    
+
+def run_carp_rf(rf_df_folder: str = "results/rf"):
+
+    "Save carp rf calc output as csv"
+
+    rf_df_folder = checkNgen_folder(rf_df_folder)
+
+    for carp in CARP_INFO.keys():
+
+        print(f"Calculating rf for {carp}...")
+
+        rf_df = ReceptiveField(carp).rf_df
+
+        rf_df.to_csv(os.path.join(rf_df_folder, carp + ".csv"))
