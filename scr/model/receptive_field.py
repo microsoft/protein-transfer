@@ -37,6 +37,8 @@ def receptive_field(model, input_size, batch_size=-1, device="cuda"):
             p_key = "%i" % (module_idx - 1)
             receptive_field[m_key] = OrderedDict()
 
+            print(f"m_key: {m_key}, p_key: {p_key}")
+
             if not receptive_field["0"]["conv_stage"]:
                 print("Enter in deconv_stage")
                 receptive_field[m_key]["j"] = 0
@@ -71,6 +73,8 @@ def receptive_field(model, input_size, batch_size=-1, device="cuda"):
                     receptive_field[m_key]["j"] = 0
                     receptive_field[m_key]["r"] = 0
                     receptive_field[m_key]["start"] = 0
+                elif class_name == "LayerNorm":
+                    pass
                 else:
                     raise ValueError("module {} not ok".format(class_name))
                     pass
@@ -205,3 +209,19 @@ def receptive_field_for_unit(receptive_field_dict, layer, unit_position):
         return rf_range
     else:
         raise KeyError("Layer name incorrect, or not included in the model.")
+
+
+"""
+# from 
+https://medium.com/@rekalantar/receptive-fields-in-deep-convolutional-networks-43871d2ef2e9
+
+def get_receptive_field(kernel_size, stride):
+    return kernel_size + (kernel_size - 1) * (stride - 1)
+
+in_channels, out_channels = 3, 64`
+
+# Calculate the receptive field with kernel size 3 and stride 1
+conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1)
+receptive_field = get_receptive_field(conv.kernel_size[0], conv.stride[0])
+print(f'Receptive field with kernel size 3 and stride 1: {receptive_field}')
+"""

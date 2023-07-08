@@ -207,6 +207,7 @@ class LayerLoss:
                 sharey="row",
                 sharex="col",
                 figsize=(20, 2 * self._metric_numb[collage_name]),
+                squeeze=False # not get rid off the extra dim if 1D
             )
 
             for m, metric in enumerate(self._metric_dict[collage_name.split("_")[0]]):
