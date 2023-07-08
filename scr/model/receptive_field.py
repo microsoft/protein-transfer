@@ -12,6 +12,8 @@ import pandas as pd
 
 from sequence_models.pretrained import load_model_and_alphabet
 
+import matplotlib.pyplot as plt
+
 from scr.params.emb import CARP_INFO
 from scr.utils import checkNgen_folder
 
@@ -192,22 +194,75 @@ class ReceptiveField:
     def rf_df(self) -> pd.DataFrame:
         """Convert layer rf dict to dataframe with column names"""
 
-        df = pd.Series(self.rf_dict).to_frame(name="receptive_field_size")
-        df.index.name = "layer_numb"
+        df = pd.Series(self.rf_dict).to_frame(name="rf_size")
+        df.index.name = "layers"
 
-        return df
-    
+        return df.reset_index()
 
-def run_carp_rf(rf_df_folder: str = "results/rf"):
 
-    "Save carp rf calc output as csv"
+def run_carp_rf(rf_folder: str = "results/rf"):
 
-    rf_df_folder = checkNgen_folder(rf_df_folder)
+    """Save carp rf calc output as csv and plot"""
 
-    for carp in CARP_INFO.keys():
+    rf_df_folder = checkNgen_folder(os.path.join(rf_folder, "dfs"))
+    rf_plot_folder = checkNgen_folder(os.path.join(rf_folder, "plots"))
+    encoder_names = list(CARP_INFO.keys())
 
-        print(f"Calculating rf for {carp}...")
+    # init fig
+    fig, axs = plt.subplots(
+        1,
+        len(encoder_names),
+        sharey=True,
+        figsize=(10, 2),
+        squeeze=False,  # not get rid off the extra dim if 1D
+    )
+
+    for i, carp in enumerate(encoder_names):
+
+        print(f"Calculating and plotting rf for {carp}...")
 
         rf_df = ReceptiveField(carp).rf_df
 
-        rf_df.to_csv(os.path.join(rf_df_folder, carp + ".csv"))
+        # save df
+        rf_df.to_csv(os.path.join(rf_df_folder, carp + ".csv"), index=False)
+
+        # plot individual
+        plt.figure()
+        plt.plot("layers", "rf_size", data=rf_df)
+        plt.xlabel("layers")
+        plt.ylabel("rf_size")
+        plt.title(carp)
+
+        plt.savefig(
+            os.path.join(rf_plot_folder, carp + ".png"),
+            bbox_inches="tight",
+        )
+
+        plt.close()
+
+        # add to collage
+        axs[0, i].plot("layers", "rf_size", data=rf_df)
+
+    # add xlabels
+    for ax in axs.flatten():
+        ax.set_xlabel("layers", fontsize=12)
+        ax.tick_params(axis="x", labelsize=12)
+
+    axs[0, 0].set_ylabel("rf_size", fontsize=12)
+
+    # add whole plot level title
+    fig.suptitle(
+        "carp receptive field size",
+        y=0.925,
+        fontsize=12,
+        fontweight="bold",
+    )
+    fig.align_labels()
+    fig.tight_layout()
+
+    plt.savefig(
+        os.path.join(rf_plot_folder, "carp_all" + ".png"),
+        bbox_inches="tight",
+    )
+
+    plt.close()
