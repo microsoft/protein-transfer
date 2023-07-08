@@ -1,227 +1,186 @@
 """
-A script for calculate CARP model receptive field
-modifed from https://github.com/Fangyh09/pytorch-receptive-field
+A script for receptive field calc, following
+https://distill.pub/2019/computing-receptive-fields/
 """
 
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
+from __future__ import annotations
+from collections import defaultdict
 
-from collections import OrderedDict
-import numpy as np
+import pandas as pd
 
-def check_same(stride):
-    if isinstance(stride, (list, tuple)):
-            assert (len(stride) == 2 and stride[0] == stride[1]) or (len(stride) == 3 and stride[0] == stride[1] and stride[1] == stride[2])
-            stride = stride[0]
-    return stride
+from sequence_models.pretrained import load_model_and_alphabet
 
-def receptive_field(model, input_size, batch_size=-1, device="cuda"):
-    '''
-    :parameter
-    'input_size': tuple of (Channel, Height, Width)
-    :return  OrderedDict of `Layername`->OrderedDict of receptive field stats {'j':,'r':,'start':,'conv_stage':,'output_shape':,}
-    'j' for "jump" denotes how many pixels do the receptive fields of spatially neighboring units in the feature tensor
-        do not overlap in one direction.
-        i.e. shift one unit in this feature map == how many pixels shift in the input image in one direction.
-    'r' for "receptive_field" is the spatial range of the receptive field in one direction.
-    'start' denotes the center of the receptive field for the first unit (start) in on direction of the feature tensor.
-        Convention is to use half a pixel as the center for a range. center for `slice(0,5)` is 2.5.
-    '''
-    def register_hook(module):
-
-        def hook(module, input, output):
-            class_name = str(module.__class__).split(".")[-1].split("'")[0]
-            module_idx = len(receptive_field)
-            m_key = "%i" % module_idx
-            p_key = "%i" % (module_idx - 1)
-            receptive_field[m_key] = OrderedDict()
-
-            print(f"m_key: {m_key}, p_key: {p_key}")
-
-            if not receptive_field["0"]["conv_stage"]:
-                print("Enter in deconv_stage")
-                receptive_field[m_key]["j"] = 0
-                receptive_field[m_key]["r"] = 0
-                receptive_field[m_key]["start"] = 0
-            else:
-                p_j = receptive_field[p_key]["j"]
-                p_r = receptive_field[p_key]["r"]
-                p_start = receptive_field[p_key]["start"]
-                
-                if class_name == "Conv2d" or class_name == "MaxPool2d" or class_name == "AvgPool2d" or class_name == "Conv3d" or class_name == "MaxPool3d":
-                    kernel_size = module.kernel_size
-                    stride = module.stride
-                    padding = module.padding
-
-                    if class_name == "AvgPool2d":
-                        # Avg Pooling does not have dilation, set it to 1 (no dilation)
-                        dilation = 1
-                    else:
-                        dilation = module.dilation
-
-                    kernel_size, stride, padding, dilation = map(check_same, [kernel_size, stride, padding, dilation])
-                    receptive_field[m_key]["j"] = p_j * stride
-                    receptive_field[m_key]["r"] = p_r + ((kernel_size - 1) * dilation) * p_j
-                    receptive_field[m_key]["start"] = p_start + ((kernel_size - 1) / 2 - padding) * p_j
-                elif class_name == "BatchNorm2d" or class_name == "ReLU" or class_name == "Bottleneck" or class_name == "BatchNorm3d":
-                    receptive_field[m_key]["j"] = p_j
-                    receptive_field[m_key]["r"] = p_r
-                    receptive_field[m_key]["start"] = p_start
-                elif class_name == "ConvTranspose2d" or class_name == "ConvTranspose3d":
-                    receptive_field["0"]["conv_stage"] = False
-                    receptive_field[m_key]["j"] = 0
-                    receptive_field[m_key]["r"] = 0
-                    receptive_field[m_key]["start"] = 0
-                elif class_name == "LayerNorm":
-                    pass
-                else:
-                    raise ValueError("module {} not ok".format(class_name))
-                    pass
-            receptive_field[m_key]["input_shape"] = list(input[0].size()) # only one
-            receptive_field[m_key]["input_shape"][0] = batch_size
-            if isinstance(output, (list, tuple)):
-                # list/tuple
-                receptive_field[m_key]["output_shape"] = [
-                    [-1] + list(o.size())[1:] for o in output
-                ]
-            else:
-                # tensor
-                receptive_field[m_key]["output_shape"] = list(output.size())
-                receptive_field[m_key]["output_shape"][0] = batch_size
-
-        if (
-            not isinstance(module, nn.Sequential)
-            and not isinstance(module, nn.ModuleList)
-            and not (module == model)
-            and not isinstance(module, nn.Linear)
-        ):
-            hooks.append(module.register_forward_hook(hook))
-
-    device = device.lower()
-    assert device in [
-        "cuda",
-        "cpu",
-    ], "Input device is not valid, please specify 'cuda' or 'cpu'"
-
-    if device == "cuda" and torch.cuda.is_available():
-        dtype = torch.cuda.FloatTensor
-    else:
-        dtype = torch.FloatTensor
-
-    # check if there are multiple inputs to the network
-    if isinstance(input_size[0], (list, tuple)):
-        x = [Variable(torch.rand(2, *in_size)).type(dtype) for in_size in input_size]
-    else:
-        x = Variable(torch.rand(2, *input_size)).type(dtype)
-
-    # create properties
-    receptive_field = OrderedDict()
-    receptive_field["0"] = OrderedDict()
-    receptive_field["0"]["j"] = 1.0
-    receptive_field["0"]["r"] = 1.0
-    receptive_field["0"]["start"] = 0.5
-    receptive_field["0"]["conv_stage"] = True
-    receptive_field["0"]["output_shape"] = list(x.size())
-    receptive_field["0"]["output_shape"][0] = batch_size
-    hooks = []
-
-    # register hook
-    model.apply(register_hook)
-
-    # make a forward pass
-    model(x)
-
-    # remove these hooks
-    for h in hooks:
-        h.remove()
-
-    print("------------------------------------------------------------------------------")
-    line_new = "{:>20}  {:>10} {:>10} {:>10} {:>15} ".format("Layer (type)", "map size", "start", "jump", "receptive_field")
-    print(line_new)
-    print("==============================================================================")
-    total_params = 0
-    total_output = 0
-    trainable_params = 0
-    for layer in receptive_field:
-        # input_shape, output_shape, trainable, nb_params
-        assert "start" in receptive_field[layer], layer
-        assert len(receptive_field[layer]["output_shape"]) == 4 or len(receptive_field[layer]["output_shape"]) == 5
-        line_new = "{:7} {:12}  {:>10} {:>10} {:>10} {:>15} ".format(
-            "",
-            layer,
-            str(receptive_field[layer]["output_shape"][2:]),
-            str(receptive_field[layer]["start"]),
-            str(receptive_field[layer]["j"]),
-            format(str(receptive_field[layer]["r"]))
-        )
-        print(line_new)
-
-    print("==============================================================================")
-    # add input_shape
-    receptive_field["input_size"] = input_size
-    return receptive_field
+from scr.params.emb import CARP_INFO
 
 
-def receptive_field_for_unit(receptive_field_dict, layer, unit_position):
-    """Utility function to calculate the receptive field for a specific unit in a layer
-        using the dictionary calculated above
-    :parameter
-        'layer': layer name, should be a key in the result dictionary
-        'unit_position': spatial coordinate of the unit (H, W)
-    ```
-    alexnet = models.alexnet()
-    model = alexnet.features.to('cuda')
-    receptive_field_dict = receptive_field(model, (3, 224, 224))
-    receptive_field_for_unit(receptive_field_dict, "8", (6,6))
-    ```
-    Out: [(62.0, 161.0), (62.0, 161.0)]
+class ReceptiveField:
+
     """
-    input_shape = receptive_field_dict["input_size"]
-    if layer in receptive_field_dict:
-        rf_stats = receptive_field_dict[layer]
-        assert len(unit_position) == 2 or len(unit_position) == 3
-        feat_map_lim = rf_stats['output_shape'][2:]
-        if np.any([unit_position[idx] < 0 or
-                   unit_position[idx] >= feat_map_lim[idx]
-                   for idx in range(len(unit_position))]):
-            if len(unit_position) == 2:
-                raise Exception("Unit position outside spatial extent of the feature tensor ((H, W) = (%d, %d)) " % tuple(feat_map_lim))
-            else:
-                raise Exception("Unit position outside spatial extent of the feature tensor ((D, H, W) = (%d, %d, %d)) " % tuple(feat_map_lim))
-        # X, Y = tuple(unit_position)
-        rf_range = [(rf_stats['start'] + idx * rf_stats['j'] - rf_stats['r'] / 2,
-            rf_stats['start'] + idx * rf_stats['j'] + rf_stats['r'] / 2) for idx in unit_position]
-        if len(unit_position) == 2:
-            if len(input_shape) == 2:
-                limit = input_shape
-            else:  # input shape is (channel, H, W)
-                limit = input_shape[1:3]
-            rf_range = [(max(0, rf_range[axis][0]), min(limit[axis], rf_range[axis][1])) for axis in range(2)]
-        else:
-            if len(input_shape) == 3:
-                limit = input_shape
-            else:  # input shape is (channel, D, H, W)
-                limit = input_shape[1:4]
-            rf_range = [(max(0, rf_range[axis][0]), min(limit[axis], rf_range[axis][1])) for axis in range(3)]
+    Calculate receptive field
+    """
 
-        print("Receptive field size for layer %s, unit_position %s,  is \n %s" % (layer, unit_position, rf_range))
-        return rf_range
-    else:
-        raise KeyError("Layer name incorrect, or not included in the model.")
+    def __init__(self, encoder_name: str = ""):
 
+        self._encoder_name = encoder_name
 
-"""
-# from 
-https://medium.com/@rekalantar/receptive-fields-in-deep-convolutional-networks-43871d2ef2e9
+        self._model, _ = load_model_and_alphabet(self._encoder_name)
 
-def get_receptive_field(kernel_size, stride):
-    return kernel_size + (kernel_size - 1) * (stride - 1)
+        # total number of layers
+        self._layer_numb = CARP_INFO[self._encoder_name][1]
 
-in_channels, out_channels = 3, 64`
+        self._conv_stat = defaultdict(dict)
 
-# Calculate the receptive field with kernel size 3 and stride 1
-conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1)
-receptive_field = get_receptive_field(conv.kernel_size[0], conv.stride[0])
-print(f'Receptive field with kernel size 3 and stride 1: {receptive_field}')
-"""
+        for layer_name, _ in self._model.model.embedder.state_dict().items():
+            # take out bias and weight in the name
+            conv_layer_name = layer_name.replace(".weight", "").replace(".bias", "")
+
+            if "conv" in conv_layer_name:
+
+                conv_layer = self._model.model.embedder
+
+                for sub_obj in conv_layer_name.split("."):
+                    conv_layer = getattr(conv_layer, sub_obj)
+
+                kernel_size = getattr(conv_layer, "kernel_size")
+                stride = getattr(conv_layer, "stride")
+
+                assert len(kernel_size) == 1, "kernel_size not 1D"
+                assert len(stride) == 1, "stride not 1D"
+
+                common_dict = {
+                    "kernel_size": kernel_size[0],
+                    "stride": stride[0],
+                }
+
+                if "up_embedder" in conv_layer_name:
+                    self._conv_stat["up_embedder"][conv_layer_name] = common_dict
+                elif "layers" in conv_layer_name:
+                    sequence_numb = ""
+                    if "sequence" in conv_layer_name:
+                        sequence_numb = conv_layer_name.split(".")[2]
+
+                    self._conv_stat["layers"][conv_layer_name] = {
+                        **common_dict,
+                        "layer_numb": conv_layer_name.split(".")[1],
+                        "sequence_numb": sequence_numb,
+                    }
+
+    def _get_rl(self, rl_prev: int, sl: int, kl: int) -> int:
+
+        """
+        Calculate rl following equation (1) in
+        https://distill.pub/2019/computing-receptive-fields/
+
+        Given rl_prev = sl * rl + kl - sl
+        rl = (rl_prev + sl - kl)/sl
+
+        Args
+        - rl_prev: int, receptive field of l-1
+        - sl: int, stride of layer l
+        - kl: int, kernel size of layer l
+        """
+
+        rl = (rl_prev + sl - kl) / sl
+
+        assert rl.is_integer(), f"rl = {rl} should be int"
+
+        return int(rl)
+
+    def _get_r0(self) -> int:
+
+        """
+        Calculate rl for the first layer following equation (2) in
+        https://distill.pub/2019/computing-receptive-fields/
+
+        Note that all CARP stride = 1
+        Each layer, a NyteNetBlock, is composed of:
+            - conv, MaskedConv1d, kernel_size = 5
+            - sequence1, with a PositionFeedForward conv layer, kernel_size = 1
+            - sequence2, with a PositionFeedForward conv layer, kernel_size = 1
+
+        Thus, the product of all sl will be 1
+        kl - 1 will all be 4
+        """
+
+        return self._layer_numb * (self.conv_unique_nonone_kernelsize - 1) + 1
+
+    @property
+    def conv_stat_dict(self) -> dict:
+        """Get the dict with all layer kernel and stride info"""
+        return self._conv_stat
+
+    @property
+    def conv_layers_df(self) -> pd.DataFrame:
+        """Get the dict with all layer kernel and stride in df"""
+        return pd.DataFrame.from_dict(self.conv_stat_dict["layers"]).T
+
+    @property
+    def conv_unique_stride(self) -> int:
+
+        """Get the unique stride in df, should be all 1s for CARP"""
+
+        conv_unique_strides = self.conv_layers_df.stride.unique()
+
+        if self._encoder_name in CARP_INFO.keys():
+            assert len(conv_unique_strides) == 1, "CARP stride should only be 1"
+            assert conv_unique_strides[0] == 1, "CARP stride should only be 1"
+
+        return conv_unique_strides[0]
+
+    @property
+    def conv_unique_kernelsize(self) -> int:
+
+        """Get the unique kernel in df, should be 1 and 5 for CARP"""
+
+        conv_unique_kernelsize = self.conv_layers_df.kernel_size.unique()
+
+        if self._encoder_name in CARP_INFO.keys():
+            assert (
+                len(conv_unique_kernelsize) == 2
+            ), "CARP stride should only have 2 kernel sizes"
+
+        return conv_unique_kernelsize
+
+    @property
+    def conv_unique_nonone_kernelsize(self) -> int:
+
+        """Get the unique kernel in df that is not 1"""
+        conv_unique_nonone_kernelsize = self.conv_unique_kernelsize[
+            self.conv_unique_kernelsize != 1
+        ]
+
+        if self._encoder_name in CARP_INFO.keys():
+            assert (
+                len(conv_unique_nonone_kernelsize) == 1
+            ), "CARP should only have one not 1 kernel sizes"
+
+        return conv_unique_nonone_kernelsize[0]
+
+    @property
+    def r0(self) -> int:
+        """Get rf for layer 0"""
+        return self._get_r0()
+
+    @property
+    def rf_dict(self) -> dict:
+        """
+        A dict with rf for each ByteNetBlock layer
+
+        Note that all CARP stride = 1
+        Each layer, a NyteNetBlock, is composed of:
+            - conv, MaskedConv1d, kernel_size = 5
+            - sequence1, with a PositionFeedForward conv layer, kernel_size = 1
+            - sequence2, with a PositionFeedForward conv layer, kernel_size = 1
+            - the sequence1 and sequence2 does not impact the rf of each layer
+        """
+
+        rf_dict = {0: self.r0}
+
+        for layer in range(1, self._layer_numb + 1):
+            rf_dict[layer] = self._get_rl(
+                rl_prev=rf_dict[layer - 1],
+                sl=self.conv_unique_stride,
+                kl=self.conv_unique_nonone_kernelsize,
+            )
+
+        return rf_dict
