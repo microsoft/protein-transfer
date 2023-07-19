@@ -3,20 +3,20 @@
 from scr.analysis.perlayer import LayerLoss
 
 
-# print("Running results analysis and plotting for sklearn CARP...")
+print("Running results analysis and plotting for sklearn CARP...")
 
-# LayerLoss(
-#     input_path="results/sklearn-carp",
-#     output_path="results/sklearn-carp_layer"
-# )
+LayerLoss(
+    input_path="results/sklearn-carp",
+    output_path="results/sklearn-carp_layer"
+)
 
-# print("Running results analysis and plotting for sklearn ESM...")
+print("Running results analysis and plotting for sklearn ESM...")
 
-# LayerLoss(
-#     input_path="results/sklearn-esm",
-#     output_path="results/sklearn-esm_layer",
-#     add_checkpoint=False
-# )
+LayerLoss(
+    input_path="results/sklearn-esm",
+    output_path="results/sklearn-esm_layer",
+    add_checkpoint=False
+)
 
 print("Running results analysis and plotting for pytorch CARP...")
 

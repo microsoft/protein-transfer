@@ -305,11 +305,11 @@ class TaskProcess:
         self._forceregen = forceregen
         self._showplot = showplot
 
-        # sumamarize all files in the data folder
-        self._sum_file_df = self.sum_files()
-        self._sum_file_df.to_csv(f"{data_folder}summary.csv")
+        # save the sumamarize for all files in the data folder
+        self.sum_file_df.to_csv(self.sum_file_df_path)
 
-    def sum_files(self) -> pd.DataFrame:
+
+    def _sum_files(self) -> pd.DataFrame:
         """
         Summarize all files in the data folder
 
@@ -413,8 +413,13 @@ class TaskProcess:
     @property
     def sum_file_df(self) -> pd.DataFrame:
         """A summary table for all files in the data folder"""
-        return self._sum_file_df
-
+        return self._sum_files()
+    
+    @property
+    def sum_file_df_path(self) -> pd.DataFrame:
+        """A summary table for all files in the data folder"""
+        return f"{self._data_folder}summary.csv"
+    
 
 class ProtranDataset(Dataset):
 

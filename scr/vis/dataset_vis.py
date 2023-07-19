@@ -8,12 +8,80 @@ from glob import glob
 
 import pandas as pd
 
+import matplotlib.pyplot as plt
+
 import iqplot
 
 from scr.params.vis import PLOT_EXTS, PRESENTATION_PALETTE_SATURATE_DICT
 from scr.vis.vis_utils import BokehSave
 from scr.vis.iqplot_striphis import striphistogram
-from scr.utils import get_task_data_split, read_std_csv, pickle_load
+from scr.utils import get_task_data_split, read_std_csv, pickle_load, checkNgen_folder
+
+class DatasetSeqLenHist:
+    """
+    A class for plotting dataset length histograms
+    """
+
+    def __init__(
+        self,
+        df_path: str,
+        result_subfolder: str = "results/dataset_vis/len_hist",
+    ) -> None:
+
+        self._df_path = df_path
+        self._result_subfolder = checkNgen_folder(result_subfolder)
+
+        for iflog in [True, False]:
+            self._plot_len_hist(iflog=iflog)
+
+    def _plot_len_hist(self, iflog: bool = False):
+        """
+        plot histogram of seq len with if log option
+        """
+
+        plot_title = f"{self.df_dets} seq length histogram"
+
+        if iflog:
+            log_det = " log scale"
+        else:
+            log_det = ""
+
+        len_hist = self.seqlen.hist(bins=self.bin_numb, log=iflog)
+        len_hist.set_xlabel("Length")
+        len_hist.set_ylabel("Counts")
+        len_hist.set_title(plot_title)
+        
+        plt.grid(False)
+
+        len_hist.get_figure().savefig(
+            os.path.join(
+                self._result_subfolder, f"{plot_title}{log_det}.png".replace(" ", "_")
+            ),
+            bbox_inches="tight",
+        )
+
+        plt.close()
+    
+
+    @property
+    def df(self) -> pd.DataFrame:
+        """Return the dataframe from the path"""
+        return pd.read_csv(self._df_path)
+
+    @property
+    def df_dets(self) -> str:
+        """Details for the dataset"""
+        return os.path.splitext(self._df_path)[0].split("data/")[-1].replace("/", " ")
+
+    @property
+    def seqlen(self) -> pd.Series:
+        """Get a series for seq len"""
+        return self.df.sequence.str.len()
+
+    @property
+    def bin_numb(self) -> int:
+        """Number of bins for the hist"""
+        return int(self.seqlen.max() / 10)
 
 
 class DatasetECDF(BokehSave):
