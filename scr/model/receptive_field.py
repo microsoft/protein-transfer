@@ -91,7 +91,7 @@ class ReceptiveField:
 
         return int(rl)
 
-    def _get_r0(self) -> int:
+    def _get_r0(self, L: int) -> int:
 
         """
         Calculate rl for the first layer following equation (2) in
@@ -105,9 +105,14 @@ class ReceptiveField:
 
         Thus, the product of all sl will be 1
         kl - 1 will all be 4
+
+        Here, we chop off the arch and ask for r0
+
+        Args:
+        - L: int, layer number for the chop off arch
         """
 
-        return self._layer_numb * (self.conv_unique_nonone_kernelsize - 1) + 1
+        return L * (self.conv_unique_nonone_kernelsize - 1) + 1
 
     @property
     def conv_stat_dict(self) -> dict:
@@ -162,11 +167,6 @@ class ReceptiveField:
         return conv_unique_nonone_kernelsize[0]
 
     @property
-    def r0(self) -> int:
-        """Get rf for layer 0"""
-        return self._get_r0()
-
-    @property
     def rf_dict(self) -> dict:
         """
         A dict with rf for each ByteNetBlock layer
@@ -179,16 +179,7 @@ class ReceptiveField:
             - the sequence1 and sequence2 does not impact the rf of each layer
         """
 
-        rf_dict = {0: self.r0}
-
-        for layer in range(1, self._layer_numb + 1):
-            rf_dict[layer] = self._get_rl(
-                rl_prev=rf_dict[layer - 1],
-                sl=self.conv_unique_stride,
-                kl=self.conv_unique_nonone_kernelsize,
-            )
-
-        return rf_dict
+        return {layer: self._get_r0(L=layer) for layer in range(self._layer_numb + 1)}
 
     @property
     def rf_df(self) -> pd.DataFrame:
@@ -213,7 +204,7 @@ def run_carp_rf(rf_folder: str = "results/rf"):
         1,
         len(encoder_names),
         sharey=True,
-        figsize=(10, 2),
+        figsize=(10, 2.5),
         squeeze=False,  # not get rid off the extra dim if 1D
     )
 
@@ -247,6 +238,10 @@ def run_carp_rf(rf_folder: str = "results/rf"):
     for ax in axs.flatten():
         ax.set_xlabel("layers", fontsize=12)
         ax.tick_params(axis="x", labelsize=12)
+
+    # add column names
+    for ax, col in zip(axs[0], encoder_names):
+        ax.set_title(col, fontsize=12)
 
     axs[0, 0].set_ylabel("rf_size", fontsize=12)
 
