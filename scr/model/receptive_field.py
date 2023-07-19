@@ -33,7 +33,7 @@ class ReceptiveField:
         # total number of layers
         self._layer_numb = CARP_INFO[self._encoder_name][1]
 
-        self._conv_stat = defaultdict(dict)
+        self._conv_stat_dict = defaultdict(dict)
 
         for layer_name, _ in self._model.model.embedder.state_dict().items():
             # take out bias and weight in the name
@@ -48,29 +48,51 @@ class ReceptiveField:
 
                 kernel_size = getattr(conv_layer, "kernel_size")
                 stride = getattr(conv_layer, "stride")
+                dilation = getattr(conv_layer, "dilation")
 
-                assert len(kernel_size) == 1, "kernel_size not 1D"
-                assert len(stride) == 1, "stride not 1D"
+                for conv_param in [kernel_size, stride, dilation]:
+                    assert len(conv_param) == 1, f"{conv_param=} not 1D"
 
                 common_dict = {
                     "kernel_size": kernel_size[0],
                     "stride": stride[0],
+                    "dilation": dilation[0],
+                    "adjusted_kernel_size": self._adjust_kl(
+                        kl=kernel_size[0], dl=dilation[0]
+                    ),
                 }
 
                 if "up_embedder" in conv_layer_name:
-                    self._conv_stat["up_embedder"][conv_layer_name] = common_dict
+                    self._conv_stat_dict["up_embedder"][conv_layer_name] = common_dict
                 elif "layers" in conv_layer_name:
                     sequence_numb = ""
                     if "sequence" in conv_layer_name:
                         sequence_numb = conv_layer_name.split(".")[2]
 
-                    self._conv_stat["layers"][conv_layer_name] = {
+                    self._conv_stat_dict["layers"][conv_layer_name] = {
                         **common_dict,
                         "layer_numb": conv_layer_name.split(".")[1],
                         "sequence_numb": sequence_numb,
                     }
 
-    def _get_rl(self, rl_prev: int, sl: int, kl: int) -> int:
+    def _adjust_kl(self, kl: int, dl: int) -> int:
+
+        """
+        adjust the kernel_size for layer l with dilation of layer l
+
+        dl * (kl - 1) + 1
+
+        Args:
+        - kl: int, kernel size of layer l
+        - dl: int, dilation factor of layer l
+        """
+
+        if kl > 0:
+            return dl * (kl - 1) + 1
+        else:
+            return kl
+
+    def _get_rl(self, rl_prev: int, sl: int, kl: int, dl: int) -> int:
 
         """
         Calculate rl following equation (1) in
@@ -79,13 +101,13 @@ class ReceptiveField:
         Given rl_prev = sl * rl + kl - sl
         rl = (rl_prev + sl - kl)/sl
 
-        Args
+        Args:
         - rl_prev: int, receptive field of l-1
         - sl: int, stride of layer l
         - kl: int, kernel size of layer l
         """
 
-        rl = (rl_prev + sl - kl) / sl
+        rl = (rl_prev + sl - self._adjust_kl(kl=kl, dl=dl)) / sl
 
         assert rl.is_integer(), f"rl = {rl} should be int"
 
@@ -112,12 +134,20 @@ class ReceptiveField:
         - L: int, layer number for the chop off arch
         """
 
-        return L * (self.conv_unique_nonone_kernelsize - 1) + 1
+        r0 = 1
+
+        for l in range(L):
+            r0 += (
+                self.conv_layers_df.loc[f"layers.{str(l)}.conv", "adjusted_kernel_size"]
+                * self.conv_unique_stride
+            )
+
+        return r0
 
     @property
     def conv_stat_dict(self) -> dict:
         """Get the dict with all layer kernel and stride info"""
-        return self._conv_stat
+        return self._conv_stat_dict
 
     @property
     def conv_layers_df(self) -> pd.DataFrame:
