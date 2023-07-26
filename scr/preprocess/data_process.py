@@ -134,7 +134,7 @@ class AddMutInfo:
 
 
 def std_split_ssdf(
-    ssdf_path: str = "data/structure/secondary_structure/tape_ss3.csv",
+    ssdf_path: str = "data/structure/ss3/tape.csv",
     split_test: bool = True,
 ) -> None:
     """
@@ -331,7 +331,7 @@ class TaskProcess:
 
             if task == "structure":
                 csv_paths = set(csv_paths) - set(
-                    glob(f"{dataset_folder}/tape_ss3*.csv")
+                    glob(f"{dataset_folder}/tape*.csv")
                 )
 
             fasta_paths = glob(f"{dataset_folder}/*.fasta")
