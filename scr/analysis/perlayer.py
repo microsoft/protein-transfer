@@ -14,6 +14,7 @@ from matplotlib.ticker import FormatStrFormatter
 from scr.encoding.encoding_classes import get_emb_info
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.vis import CHECKPOINT_COLOR
+from scr.analysis.utils import METRIC_DICT
 from scr.utils import pickle_load, get_filename, checkNgen_folder
 
 
@@ -26,26 +27,7 @@ class LayerLoss:
         checkpoint_list: list = [0.5, 0.25, 0.125],
         input_path: str = "results/sklearn",
         output_path: str = "results/sklearn_layer",
-        metric_dict: dict[list[str]] = {
-            "proeng": ["train_mse", "val_mse", "test_mse", "test_ndcg", "test_rho"],
-            "annotation": [
-                "train_cross-entropy",
-                "val_cross-entropy",
-                "test_cross-entropy",
-                "test_acc",
-                "test_rocauc",
-            ],
-            "structure": [
-                "train_cross-entropy",
-                "val_cross-entropy",
-                "casp12_acc",
-                "casp12_rocauc",
-                "cb513_acc",
-                "cb513_rocauc",
-                "ts115_acc",
-                "ts115_rocauc",
-            ],
-        },
+        metric_dict: dict[list[str]] = METRIC_DICT,
     ):
         """
         Args:
