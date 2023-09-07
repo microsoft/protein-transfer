@@ -1,8 +1,9 @@
 """Script for running results analysis and plotting"""
 
 from scr.analysis.perlayer import LayerLoss
+from scr.analysis.result_reorg import ResultReorg
 
-
+"""
 print("Running results analysis and plotting for sklearn CARP...")
 
 LayerLoss(
@@ -32,3 +33,6 @@ LayerLoss(
     output_path="results/pytorch-esm_layer",
     add_checkpoint=False
 )
+"""
+
+ResultReorg()

@@ -147,7 +147,7 @@ class LayerLoss:
                     onehot_flatten_emb_name = "flatten"
                 self._onehot_baseline_dict[
                     f"{task}_{dataset}_{split}"
-                ] = self.parse_result_dicts(
+                ]["onehot"] = self.parse_result_dicts(
                     dataset_folder.replace(self._input_path, onehot_path)
                     .replace(encoder_name, "onehot")
                     .replace(flatten_emb, onehot_flatten_emb_name),
@@ -247,7 +247,7 @@ class LayerLoss:
                     # overlay onehot baseline
                     if add_onehot:
                         axs[m, n].axhline(
-                            self._onehot_baseline_dict[onehot_name][metric],
+                            self._onehot_baseline_dict[onehot_name]["onehot"][metric],
                             label="onehot",
                             color="#000000",  # black or #D3D3D3 light grey
                             linestyle="dotted",
@@ -296,7 +296,7 @@ class LayerLoss:
                 # using the first label info
 
                 axs[0, 0].axhline(
-                    self._onehot_baseline_dict[onehot_name][
+                    self._onehot_baseline_dict[onehot_name]["onehot"][
                         self._metric_dict[collage_name.split("_")[0]][0]
                     ],
                     label=" ",
@@ -305,7 +305,7 @@ class LayerLoss:
                 )
 
                 axs[0, 0].axhline(
-                    self._onehot_baseline_dict[onehot_name][
+                    self._onehot_baseline_dict[onehot_name]["onehot"][
                         self._metric_dict[collage_name.split("_")[0]][0]
                     ],
                     label=" ",

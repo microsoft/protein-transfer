@@ -23,6 +23,15 @@ METRIC_DICT = {
             ],
         }
 
+# default ablation list
+DEFAULT_AB_LIST = ["emb", "rand", "stat", "onehot"]
+
+# pretrain arch list
+PRETRAIN_ARCH_LIST = ["carp", "esm"]
+
+# downstream model list
+DS_MODEL_LIST = ["sklearn", "pytorch"]
+
 # def a func to convert to metric to simper lables
 def metric_simplifier(metric_label: str) -> str:
 
@@ -42,8 +51,8 @@ def metric_simplifier(metric_label: str) -> str:
     split, metric = metric_label.split("_")
 
     if metric in ["mse", "cross-entropy"]:
-        return "_".join(split, "loss")
+        return "_".join([split, "loss"])
     elif metric in ["ndcg", "rocauc"]:
-        return "_".join(split, "performance_1")
+        return "_".join([split, "performance_1"])
     elif metric in ["rho", "acc"]:
-        return "_".join(split, "performance_2")
+        return "_".join([split, "performance_2"])
