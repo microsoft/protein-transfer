@@ -49,8 +49,11 @@ class ResultReorg:
 
         # init dataframe
         master_results = pd.DataFrame(
-            columns=["arch", "task", "model", "ablation", "metric"]
+            columns=["arch", "task", "model", "ablation", "metric", "value"]
         )
+
+        # make value np array compatible
+        master_results["value"] = master_results["value"].astype("object")
 
         for arch in PRETRAIN_ARCH_LIST:
 
@@ -103,14 +106,16 @@ class ResultReorg:
                                                 "model": model,
                                                 "ablation": ablation,
                                                 "metric": metric_simplifier(metric),
-                                                "value": [
+                                                "value": [list(
                                                     ablation_dict[task][model][metric]
-                                                ],
+                                                )],
                                             }
                                         ),
                                     ],
                                     ignore_index=True,
                                 )
+
+        return master_results
 
     @property
     def summary_df(self) -> pd.DataFrame:
