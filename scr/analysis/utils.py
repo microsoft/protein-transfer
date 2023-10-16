@@ -23,6 +23,8 @@ METRIC_DICT = {
             ],
         }
 
+STRUCT_TESTS = ["casp12", "cb513", "ts115"]
+
 # default ablation list
 DEFAULT_AB_LIST = ["emb", "rand", "stat", "onehot"]
 

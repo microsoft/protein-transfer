@@ -8,6 +8,7 @@ import pandas as pd
 from scr.utils import checkNgen_folder
 from scr.analysis.utils import (
     metric_simplifier,
+    STRUCT_TESTS,
     DEFAULT_AB_LIST,
     PRETRAIN_ARCH_LIST,
     DS_MODEL_LIST,
@@ -96,6 +97,20 @@ class ResultReorg:
                     for task in ablation_dict.keys():
                         for model in ablation_dict[task].keys():
                             for metric in ablation_dict[task][model].keys():
+                                # update metric and task if ss3
+                                metric = metric_simplifier(metric)
+                                test_name = metric.split("_")[0]
+
+                                if test_name in STRUCT_TESTS:
+                                    metric = metric.replace(test_name, "test")
+                                    
+                                    # before update task: structure_ss3_tape_processed_noflatten
+                                    if "tape_processed" in task:
+                                        task = task.replace("tape_processed", test_name)
+                                    else:
+                                        split_list = task.split("_")
+                                        task = "_".join(split_list[:-1] + [test_name] + split_list[-1:])
+
                                 master_results = pd.concat(
                                     [
                                         master_results,
@@ -105,7 +120,7 @@ class ResultReorg:
                                                 "task": task,
                                                 "model": model,
                                                 "ablation": ablation,
-                                                "metric": metric_simplifier(metric),
+                                                "metric": metric,
                                                 "value": [list(
                                                     ablation_dict[task][model][metric]
                                                 )],
