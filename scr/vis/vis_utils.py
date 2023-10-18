@@ -126,12 +126,12 @@ class BokehSave:
         for (plotext, plotpath) in zip(self.plot_exts, self._plotpaths):
 
             if plotext == ".svg":
-                export_svg(self.bokeh_plot, filename=plotpath)
+                export_svg(self.bokeh_plot, filename=plotpath, timeout=3000)
             elif plotext == ".png":
                 # Need to remove the tool bar and logos
                 self.bokeh_plot.toolbar.logo = None
                 self.bokeh_plot.toolbar_location = None
-                export_png(self.bokeh_plot, filename=plotpath)
+                export_png(self.bokeh_plot, filename=plotpath, timeout=300)
 
     @property
     def plotpaths(self):

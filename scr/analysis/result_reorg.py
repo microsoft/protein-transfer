@@ -46,11 +46,15 @@ class ResultReorg:
     def _summary_layer(
         self,
     ):
-        """A function for summary layer wise results"""
+        """
+        A function for summary layer wise results
+
+        ptp = pre-train percent
+        """
 
         # init dataframe
         master_results = pd.DataFrame(
-            columns=["arch", "task", "model", "ablation", "metric", "value"]
+            columns=["arch", "task", "model", "ablation", "ptp", "metric", "value"]
         )
 
         # make value np array compatible
@@ -94,6 +98,18 @@ class ResultReorg:
                     ]
 
                 for (ablation, ablation_dict) in zip(ablation_list, ablation_dict_list):
+                    
+                    rename_ablation = ablation
+
+                    if ablation == "emb":
+                        ptp = 1
+                    # for carp checkpoints
+                    elif arch == "carp" and "carp" in ablation:
+                        rename_ablation = "emb"
+                        ptp = float(ablation.split("-")[-1])
+                    else:
+                        ptp = 0
+
                     for task in ablation_dict.keys():
                         for model in ablation_dict[task].keys():
                             for metric in ablation_dict[task][model].keys():
@@ -127,7 +143,8 @@ class ResultReorg:
                                                 "arch": arch,
                                                 "task": rename_task,
                                                 "model": model,
-                                                "ablation": ablation,
+                                                "ablation": rename_ablation,
+                                                "ptp": ptp,
                                                 "metric": rename_metric,
                                                 "value": [
                                                     list(
