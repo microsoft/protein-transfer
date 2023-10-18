@@ -14,13 +14,6 @@ from holoviews import dim
 
 hv.extension("bokeh")
 
-import bokeh.io
-import bokeh.plotting
-
-# Enable viewing Bokeh plots in the notebook
-bokeh.io.output_notebook()
-
-
 from scr.vis.vis_utils import BokehSave
 from scr.params.emb import MODEL_SIZE
 from scr.params.vis import ORDERED_TASK_LIST, TASK_LEGEND_MAP
@@ -73,7 +66,7 @@ class PlotLayerDelta:
         slice_df["task"] = pd.Categorical(
             slice_df["task"], categories=ORDERED_TASK_LIST, ordered=True
         ).map(TASK_LEGEND_MAP)
-        slice_df = slice_df.sort_values("task")
+        slice_df = slice_df.sort_values(["task", "ptp"], ascending=[True, False])
 
         # add pre-train degree to that
 
@@ -158,33 +151,6 @@ def plot_layer_delta(
         alpha = 0.8
     else:
         alpha = "ptp"
-
-    hv.Scatter(
-            df,
-            kdims=["x-0"],
-            vdims=["f-x", "task", "model_size", "ptp"],
-        ).opts(
-            color="task",
-            cmap={
-                l: c
-                for l, c in zip(
-                    list(TASK_LEGEND_MAP.values()),
-                    list(
-                        sns.color_palette(
-                            "blend:#EDA,#7AB", len(ORDERED_TASK_LIST)
-                        ).as_hex()
-                    ),
-                )
-            },
-            alpha=alpha,
-            line_width=2,
-            width=800,
-            height=400,
-            legend_position="right",
-            legend_offset=(1, 0),
-            size=np.log(dim("model_size")) * 1.5,
-            title=plot_title,
-        )
     
     delta_scatter = hv.render(
         hv.Scatter(
@@ -210,7 +176,7 @@ def plot_layer_delta(
             height=400,
             legend_position="right",
             legend_offset=(1, 0),
-            size=np.log(dim("model_size")) * 1.5,
+            size=np.log(dim("model_size")+1) * 1.5,
             title=plot_title,
         )
     )  # * hv.Curve([[0, 0], [0.15, 0.15]]).opts(line_dash="dotted", color="gray")
