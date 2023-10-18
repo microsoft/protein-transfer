@@ -72,7 +72,7 @@ class ResultReorg:
                     output_path=os.path.join(
                         self._layer_folder, f"{ds_model}-{arch}_layer"
                     ),
-                    add_checkpoint=add_checkpoint
+                    add_checkpoint=add_checkpoint,
                 )
 
                 # init ablation list
@@ -98,18 +98,26 @@ class ResultReorg:
                         for model in ablation_dict[task].keys():
                             for metric in ablation_dict[task][model].keys():
                                 # update metric and task if ss3
-                                metric = metric_simplifier(metric)
+                                rename_metric = metric_simplifier(metric)
                                 test_name = metric.split("_")[0]
 
                                 if test_name in STRUCT_TESTS:
-                                    metric = metric.replace(test_name, "test")
-                                    
+                                    rename_metric = rename_metric.replace(test_name, "test")
+
                                     # before update task: structure_ss3_tape_processed_noflatten
                                     if "tape_processed" in task:
-                                        task = task.replace("tape_processed", test_name)
+                                        rename_task = task.replace(
+                                            "tape_processed", test_name
+                                        )
                                     else:
                                         split_list = task.split("_")
-                                        task = "_".join(split_list[:-1] + [test_name] + split_list[-1:])
+                                        rename_task = "_".join(
+                                            split_list[:-1]
+                                            + [test_name]
+                                            + split_list[-1:]
+                                        )
+                                else:
+                                    rename_task = task
 
                                 master_results = pd.concat(
                                     [
@@ -117,13 +125,17 @@ class ResultReorg:
                                         pd.DataFrame(
                                             {
                                                 "arch": arch,
-                                                "task": task,
+                                                "task": rename_task,
                                                 "model": model,
                                                 "ablation": ablation,
-                                                "metric": metric,
-                                                "value": [list(
-                                                    ablation_dict[task][model][metric]
-                                                )],
+                                                "metric": rename_metric,
+                                                "value": [
+                                                    list(
+                                                        ablation_dict[task][model][
+                                                            metric
+                                                        ]
+                                                    )
+                                                ],
                                             }
                                         ),
                                     ],

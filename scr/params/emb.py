@@ -19,6 +19,18 @@ CARP_INFO = {
     "carp_640M": (1280, 56),
 }
 
+# model parameter number in M
+MODEL_SIZE = {
+    "esm1_t6_43M_UR50S": 43,
+    "esm1_t12_85M_UR50S": 85,
+    "esm1_t34_670M_UR50S": 670,
+    "esm1b_t33_650M_UR50S": 650,
+    "carp_600k": 0.6,
+    "carp_38M": 38,
+    "carp_76M": 76,
+    "carp_640M": 640,
+}
+
 # TODO integrate to be auto fromr sheet
 CARP_CHECKPOINTS = {
     "carp_600k": {0.5: 239263, 0.25: 114344, 0.125: 52039},
