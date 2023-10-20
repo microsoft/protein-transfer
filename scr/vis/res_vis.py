@@ -16,7 +16,7 @@ hv.extension("bokeh")
 
 from scr.vis.vis_utils import BokehSave
 from scr.params.emb import MODEL_SIZE
-from scr.params.vis import ORDERED_TASK_LIST, TASK_LEGEND_MAP
+from scr.params.vis import ORDERED_TASK_LIST, TASK_LEGEND_MAP, TASK_COLORS
 
 class PlotLayerDelta:
     """
@@ -147,6 +147,8 @@ def plot_layer_delta(
 
     plot_title = f"{arch.upper()} layer {metric} at x = {layer_cut}"
 
+    print(f"Plotting {plot_title}...")
+
     if arch == "esm":
         alpha = 0.8
     else:
@@ -163,11 +165,7 @@ def plot_layer_delta(
                 l: c
                 for l, c in zip(
                     list(TASK_LEGEND_MAP.values()),
-                    list(
-                        sns.color_palette(
-                            "blend:#EDA,#7AB", len(ORDERED_TASK_LIST)
-                        ).as_hex()
-                    ),
+                    TASK_COLORS,
                 )
             },
             alpha=alpha,
@@ -184,17 +182,11 @@ def plot_layer_delta(
     # turn off legend box line
     delta_scatter.legend.border_line_alpha = 0
 
+    print(f"Saving to {path2folder}...")
+
     BokehSave(
         bokeh_plot=delta_scatter,
         path2folder=path2folder,
         plot_name=plot_title,
-        # plot_exts=PLOT_EXTS,
-        # plot_height = 400,
         plot_width = 800,
-        # axis_font_size = "10pt",
-        # title_font_size = "10pt",
-        # x_name = "x-0",
-        # y_name = "f-x",
-        # gridoff = True,
-        # showplot = True
     )

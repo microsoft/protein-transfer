@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import seaborn as sns
+
 # allowed dimension reduction types
 ALLOWED_DIM_RED_TYPES = ["pca", "tsne", "umap"]
 PLOT_EXTS = [".png", ".svg"]
@@ -13,6 +15,25 @@ PRESENTATION_PALETTE_SATURATE_DICT = {
     "purple":"#8064a2",
     "gray":"#666666",
 }
+
+# blue, orange, green, yellow, purple, gray
+PRESENTATION_PALETTE_SATURATE6 = [
+    "#4bacc6",
+    "#f79646ff",
+    "#9bbb59",
+    "#f9be00",
+    "#8064a2",
+    "#666666",
+]
+
+
+
+TASK_COLORS = (
+    sns.dark_palette(PRESENTATION_PALETTE_SATURATE6[1], 4).as_hex()[1:]
+    + sns.dark_palette(PRESENTATION_PALETTE_SATURATE6[0], 3).as_hex()[1:]
+    + [PRESENTATION_PALETTE_SATURATE6[3], PRESENTATION_PALETTE_SATURATE6[4]]
+    + sns.dark_palette(PRESENTATION_PALETTE_SATURATE6[2], 4).as_hex()[1:]
+)
 
 # blue, orange, green, purple, gray
 PRESENTATION_PALETTE_SATURATE = list(PRESENTATION_PALETTE_SATURATE_DICT.keys())
