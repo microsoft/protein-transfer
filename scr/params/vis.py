@@ -74,4 +74,8 @@ ORDERED_TASK_LIST_SIMPLE =[
     "SS3 - TS115"
 ]
 
+# assume same order
 TASK_LEGEND_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST, ORDERED_TASK_LIST_SIMPLE)}
+
+# assume same order
+TASK_SIMPLE_COLOR_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST_SIMPLE, TASK_COLORS)}
