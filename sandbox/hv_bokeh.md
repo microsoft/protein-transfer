@@ -1,7 +1,6 @@
 Notes and links for adding dot size and shade to Holoviews Bokeh backend plot legends
 
-* Holoviews bokeh legend GitHub issues [here](https://github.com/bokeh/bokeh/issues/2603) and [here](GitHub issue) as well as a Holoviz [discourse](https://discourse.holoviz.org/t/point-size-legend/4330) with a `matplotlib` getaway
-https://github.com/holoviz/holoviews/issues/5305
+* Holoviews bokeh legend GitHub issues [here](https://github.com/bokeh/bokeh/issues/2603) and [here](GitHub issue) as well as a Holoviz [discourse](https://github.com/holoviz/holoviews/issues/5305) with a `matplotlib` getaway (https://discourse.holoviz.org/t/point-size-legend/4330)
 * Just `matplotlib` [scatter_with_legend](https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_with_legend.html)
 
 So Bokeh likely will NOT work and should have used good old day matplotlib... But some resources for the future:
