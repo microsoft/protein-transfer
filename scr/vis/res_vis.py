@@ -190,7 +190,7 @@ def plot_layer_delta_plt(
     handles, labels = scatter.legend_elements(prop="sizes", color="k", alpha=0.8)
     legend2 = ax.legend(
         handles,
-        list(MODEL_SIZE.keys())[:4],
+        size_legend_label,
         bbox_to_anchor=(1, 0.5925),
         loc="upper left",
         title="Model sizes",
