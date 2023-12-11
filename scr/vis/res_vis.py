@@ -5,6 +5,8 @@ import ast
 
 import os
 
+import math
+
 import numpy as np
 import pandas as pd
 
@@ -28,6 +30,154 @@ from scr.params.vis import (
     PLOT_EXTS,
 )
 from scr.utils import checkNgen_folder
+
+
+class PlotResultScatter:
+    """
+    A class handling plotting results in scatter plots, including:
+    - PlotLayerDelta
+    - PlotEmbvsOnehot
+    """
+
+    def __init__(
+        self,
+        sum_folder: str = "results/summary",
+        sum_df_name: str = "all_results",
+    ) -> None:
+
+        self._sum_folder = checkNgen_folder(os.path.normpath(sum_folder))
+        self._sum_df_name = sum_df_name
+
+    def plot_emb_onhot(
+        self,
+        metric: str = "test_performance_1",
+        arch: str = "esm",
+    ) -> pd.DataFrame:
+        """
+        A method for getting df for emb vs onehot
+        """
+
+        df = self.prep_df.copy()
+
+        slice_df = df[(df["metric"] == metric) & (df["arch"] == arch)].copy()
+
+        slice_df = slice_df[
+            (slice_df["ablation"] == "onehot") | (slice_df["ablation"] == "emb")
+        ]
+
+        # get the max perform layer
+        slice_df["value"] = slice_df["value"].apply(np.max)
+
+        # Find the index of the maximum value in 'value_column' for each group
+        max_indices = (
+            slice_df.groupby(["task", "ablation"])["value"].idxmax().dropna()
+        )
+
+        # Use loc to select the rows corresponding to the max indices
+        slice_df = slice_df.loc[max_indices]
+
+        # now plot and save
+        vs_plot = plot_emb_onhot(
+            df=slice_df,
+            arch=arch,
+            metric=metric,
+            path2folder=checkNgen_folder(os.path.join(self._sum_folder, "embvsonetho")),
+        )
+
+        return slice_df, vs_plot
+
+    def plot_layer_delta(
+        self,
+        layer_cut: int,
+        metric: str = "test_performance_1",
+        ablation: str = "emb",
+        arch: str = "esm",
+    ) -> pd.DataFrame:
+
+        """
+        A method for getting the sliced dataframe
+
+        Add per-train degree as a col
+        """
+
+        df = self.prep_df.copy()
+
+        slice_df = df[
+            (df["metric"] == metric)
+            & (df["ablation"] == ablation)
+            & (df["arch"] == arch)
+        ].copy()
+
+        # Apply the function and generate two new columns
+        slice_df["x-0"], slice_df["f-x"] = zip(
+            *slice_df.apply(
+                lambda row: delta_layer(layer_cut=layer_cut, value_array=row["value"]),
+                axis=1,
+            )
+        )
+
+        # now plot and save
+        delta_plot = plot_layer_delta_plt(
+            df=slice_df,
+            layer_cut=layer_cut,
+            arch=arch,
+            metric=metric,
+            path2folder=checkNgen_folder(os.path.join(self._sum_folder, "layerdelta")),
+        )
+
+        return slice_df, delta_plot
+
+    @property
+    def result_df_path(self) -> str:
+        """Return full summary result csv path"""
+        df_path = os.path.join(
+            os.path.normpath(self._sum_folder), self._sum_df_name + ".csv"
+        )
+
+        assert os.path.exists(df_path), f"{df_path} does not exist"
+
+        return df_path
+
+    @property
+    def result_df(self) -> pd.DataFrame:
+        """Return full result df with value cleaned up"""
+
+        result_df = pd.read_csv(self.result_df_path)
+
+        # check column name existance
+        for c in ["metric", "ablation", "arch", "value", "task", "model", "ptp"]:
+            assert c in result_df.columns, f"{c} not in df from {self.result_df_path}"
+
+        # Convert the string of lists to NumPy arrays
+        result_df["value"] = result_df["value"].apply(ast.literal_eval).apply(np.array)
+
+        # make ptp float
+        result_df["ptp"] = result_df["ptp"].astype(float)
+
+        return result_df
+
+    @property
+    def prep_df(self) -> pd.DataFrame:
+        """Return a more plotting compatible df"""
+
+        prepped_df = self.result_df.copy()
+
+        # add task type and model size details for plotting legends
+        prepped_df["task_type"] = prepped_df["task"].str.split("_").str[0]
+        prepped_df["model_size"] = prepped_df["model"].map(MODEL_SIZE)
+
+        # get rid of pooling details
+        prepped_df["task"] = prepped_df["task"].str.replace("_mean", "")
+        prepped_df["task"] = prepped_df["task"].str.replace("_noflatten", "")
+
+        # sort based on given task order for plot legend
+        prepped_df["task"] = pd.Categorical(
+            prepped_df["task"], categories=ORDERED_TASK_LIST, ordered=True
+        ).map(TASK_LEGEND_MAP)
+        prepped_df = prepped_df.sort_values(["task", "ptp"], ascending=[True, False])
+
+        return prepped_df
+
 
 class PlotLayerDelta:
     """
@@ -91,7 +241,7 @@ class PlotLayerDelta:
             layer_cut=layer_cut,
             arch=arch,
             metric=metric,
-            path2folder=checkNgen_folder(os.path.join(self._sum_folder, "layerdelta"))
+            path2folder=checkNgen_folder(os.path.join(self._sum_folder, "layerdelta")),
         )
 
         return slice_df, delta_plot
@@ -151,12 +301,80 @@ def delta_layer(layer_cut: int, value_array: np.array) -> np.array:
     return np.array([layer_perf - value_array[0], value_array[-1] - layer_perf])
 
 
+def plot_emb_onhot(
+    df: pd.DataFrame,
+    arch: str,
+    metric: str,
+    path2folder: str = "results/summary/embonehot",
+):
+    """A function for plotting best emb vs onehot"""
+
+    plot_title = f"{arch.upper()} best {metric} against onehot baseline"
+
+    print(f"Plotting {plot_title}...")
+
+    fig, ax = plt.subplots()
+    fig.set_size_inches(6, 6)
+
+    # get the min x or y for the diagnol line
+    diag_min = 1
+
+    for (task, c) in TASK_SIMPLE_COLOR_MAP.items():
+        sliced_df = df[df["task"] == task]
+        emb_df = sliced_df[sliced_df["ablation"] == "emb"]
+        onehot_df = sliced_df[sliced_df["ablation"] == "onehot"]
+
+        x = emb_df["value"].values
+        # note their is only one onehot for all embeddings for each tast
+        y = onehot_df["value"].values
+        y = np.repeat(y, len(x))
+
+        min_xy = min(min(x), min(y))
+        if min_xy < diag_min:
+            diag_min = min_xy
+
+        c = c
+        
+        scatter = ax.scatter(x, y, c=c, s=200, alpha=0.8, label=task, edgecolors="none")
+
+    # diag min to smallest one decimal
+    diag_min = math.floor(diag_min * 10) / 10
+    
+    # Add a diagonal line
+    plt.plot(
+        [diag_min, 1],
+        [diag_min, 1],
+        linestyle=":",
+        color="grey",  # label='Diagonal Line'
+    )
+
+    legend1 = ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left")
+    ax.add_artist(legend1)
+
+    plt.xlabel("Best embedding test performance")
+    plt.ylabel("Onehot")
+    plt.title(plot_title)
+
+    path2folder = os.path.normpath(path2folder)
+
+    print(f"Saving to {path2folder}...")
+
+    for ext in PLOT_EXTS:
+        plot_title_no_space = plot_title.replace(" ", "_")
+        plt.savefig(
+            os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
+            bbox_inches="tight",
+        )
+
+    return fig
+
+
 def plot_layer_delta_plt(
     df: pd.DataFrame,
     layer_cut: int,
     arch: str,
     metric: str,
-    path2folder: str = "results/summary",
+    path2folder: str = "results/summary/layerdelta",
 ):
     """A function for plotting and saving layer delta"""
 
@@ -239,6 +457,8 @@ def plot_layer_delta_plt(
             os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
             bbox_inches="tight",
         )
+
+    return fig
 
 
 def plot_layer_delta_hv(

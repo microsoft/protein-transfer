@@ -2,7 +2,8 @@
 
 from scr.analysis.perlayer import LayerLoss
 from scr.analysis.result_reorg import ResultReorg
-from scr.vis.res_vis import PlotLayerDelta
+from scr.vis.res_vis import PlotLayerDelta, PlotResultScatter
+from scr.params.vis import ARCH_CUT_DICT
 
 """
 print("Running results analysis and plotting for sklearn CARP...")
@@ -38,20 +39,20 @@ LayerLoss(
 
 # ResultReorg()
 
+plot_class = PlotResultScatter()
+
 for metric in ["test_performance_1", "test_performance_2"]:
 
-    for cut in [2, 4, 6, 12]:
-
-        PlotLayerDelta().plot_sub_df(
-            layer_cut=cut,
+    for arch in ["esm", "carp"]:
+        plot_class.plot_emb_onhot(
             metric = metric,
-            ablation = "emb",
-            arch = "carp",);
+            arch = arch
+        );
 
-    for cut in [2, 3, 4, 6,]:
-
-        PlotLayerDelta().plot_sub_df(
-            layer_cut=cut,
-            metric = metric,
-            ablation = "emb",
-            arch = "esm",);
+        for cut in ARCH_CUT_DICT[arch]:
+            plot_class.plot_layer_delta(
+                layer_cut=cut,
+                metric=metric,
+                ablation="emb",
+                arch=arch
+            );
