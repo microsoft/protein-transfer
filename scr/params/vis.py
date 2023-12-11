@@ -48,16 +48,16 @@ CHECKPOINT_COLOR = {
 
 # the order for plotting legend
 ORDERED_TASK_LIST = [
-    "proeng_gb1_sampled_mean",
-    "proeng_gb1_low_vs_high_mean",
-    "proeng_gb1_two_vs_rest_mean",
-    "proeng_aav_two_vs_many_mean",
-    "proeng_aav_one_vs_many_mean",
-    "proeng_thermo_mixed_split_mean",
-    "annotation_scl_balanced_mean",
-    "structure_ss3_casp12_noflatten",
-    "structure_ss3_cb513_noflatten",
-    "structure_ss3_ts115_noflatten"
+    "proeng_gb1_sampled",
+    "proeng_gb1_low_vs_high",
+    "proeng_gb1_two_vs_rest",
+    "proeng_aav_two_vs_many",
+    "proeng_aav_one_vs_many",
+    "proeng_thermo_mixed_split",
+    "annotation_scl_balanced",
+    "structure_ss3_casp12",
+    "structure_ss3_cb513",
+    "structure_ss3_ts115"
 ]
 
 # assume same order as the above

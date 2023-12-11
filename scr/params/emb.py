@@ -29,6 +29,7 @@ MODEL_SIZE = {
     "carp_38M": 38,
     "carp_76M": 76,
     "carp_640M": 640,
+    "onehot": 0.02
 }
 
 # TODO integrate to be auto fromr sheet
