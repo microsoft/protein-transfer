@@ -38,18 +38,20 @@ LayerLoss(
 
 # ResultReorg()
 
-for cut in [2, 4, 6, 12]:
+for metric in ["test_performance_1", "test_performance_2"]:
 
-    PlotLayerDelta().plot_sub_df(
-        layer_cut=cut,
-        metric = "test_performance_1",
-        ablation = "emb",
-        arch = "carp",);
+    for cut in [2, 4, 6, 12]:
 
-for cut in [2, 3, 4, 6,]:
+        PlotLayerDelta().plot_sub_df(
+            layer_cut=cut,
+            metric = metric,
+            ablation = "emb",
+            arch = "carp",);
 
-    PlotLayerDelta().plot_sub_df(
-        layer_cut=cut,
-        metric = "test_performance_1",
-        ablation = "emb",
-        arch = "esm",);
+    for cut in [2, 3, 4, 6,]:
+
+        PlotLayerDelta().plot_sub_df(
+            layer_cut=cut,
+            metric = metric,
+            ablation = "emb",
+            arch = "esm",);

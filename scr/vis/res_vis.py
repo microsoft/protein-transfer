@@ -27,7 +27,7 @@ from scr.params.vis import (
     TASK_SIMPLE_COLOR_MAP,
     PLOT_EXTS,
 )
-
+from scr.utils import checkNgen_folder
 
 class PlotLayerDelta:
     """
@@ -40,7 +40,7 @@ class PlotLayerDelta:
         sum_df_name: str = "all_results",
     ) -> None:
 
-        self._sum_folder = os.path.normpath(sum_folder)
+        self._sum_folder = checkNgen_folder(os.path.normpath(sum_folder))
         self._sum_df_name = sum_df_name
 
     def plot_sub_df(
@@ -73,6 +73,10 @@ class PlotLayerDelta:
         slice_df["task_type"] = slice_df["task"].str.split("_").str[0]
         slice_df["model_size"] = slice_df["model"].map(MODEL_SIZE)
 
+        # get rid of pooling details
+        slice_df["task"] = slice_df["task"].str.replace("_mean", "")
+        slice_df["task"] = slice_df["task"].str.replace("_noflatten", "")
+
         # sort based on given task order for plot legend
         slice_df["task"] = pd.Categorical(
             slice_df["task"], categories=ORDERED_TASK_LIST, ordered=True
@@ -87,7 +91,7 @@ class PlotLayerDelta:
             layer_cut=layer_cut,
             arch=arch,
             metric=metric,
-            path2folder=self._sum_folder,
+            path2folder=checkNgen_folder(os.path.join(self._sum_folder, "layerdelta"))
         )
 
         return slice_df, delta_plot
