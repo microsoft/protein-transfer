@@ -21,7 +21,7 @@ from holoviews import dim
 hv.extension("bokeh")
 
 from scr.vis.vis_utils import BokehSave
-from scr.params.emb import MODEL_SIZE, ARCH_TYPE
+from scr.params.emb import MODEL_SIZE, MODEL_LAYER, ARCH_TYPE
 from scr.params.vis import (
     ORDERED_TASK_LIST,
     TASK_LEGEND_MAP,
@@ -72,7 +72,23 @@ class PlotResultScatter:
             ),
         )
 
-        return vs_plot
+        # get a bar plot with percent performance achieved
+        emb_df = slice_df[slice_df["ablation"] == "emb"].copy()
+        emb_df["model_layer_percent"] = (
+            emb_df["best_layer"] / emb_df["model_layer"]
+        )
+
+        bar_plot = plot_best_layer_bar(
+            df=emb_df,
+            metric=metric.replace("test_performance_1", "test performance").replace(
+                "test_performance_2", "test performance"
+            ),
+            path2folder=checkNgen_folder(
+                os.path.join(self._sum_folder, "bestemblayer", metric)
+            ),
+        )
+
+        return vs_plot, bar_plot
 
     def plot_layer_delta(
         self,
@@ -193,6 +209,7 @@ class PlotResultScatter:
         # add task type and model size details for plotting legends
         prepped_df["task_type"] = prepped_df["task"].str.split("_").str[0]
         prepped_df["model_size"] = prepped_df["model"].map(MODEL_SIZE)
+        prepped_df["model_layer"] = prepped_df["model"].map(MODEL_LAYER)
 
         # get rid of pooling details
         prepped_df["task"] = prepped_df["task"].str.replace("_mean", "")
@@ -221,8 +238,9 @@ def get_best_metric_df(
         (slice_df["ablation"] == "onehot") | (slice_df["ablation"] == "emb")
     ]
 
-    # get the max perform layer
+    # get the max perform layer and the layer number
     slice_df["best_value"] = slice_df["value"].apply(np.max)
+    slice_df["best_layer"] = slice_df["value"].apply(np.argmax)
 
     # Find the index of the maximum value in 'value_column' for each group
     max_indices = slice_df.groupby(["task", "ablation"])["best_value"].idxmax().dropna()
@@ -256,6 +274,48 @@ def delta_layer(layer_cut: int, value_array: np.array) -> np.array:
     layer_perf = value_array[layer_cut]
 
     return np.array([layer_perf - value_array[0], value_array[-1] - layer_perf])
+
+
+def plot_best_layer_bar(df: pd.DataFrame, metric: str, path2folder: str):
+
+    """
+    A function for plotting a bar plot for
+    """
+
+    plot_title = f"Best {metric} achieved at percent depth of pretrain model"
+
+    print(f"Plotting {plot_title}...")
+
+    fig, ax = plt.subplots()
+
+    df.plot(
+        kind="bar",
+        x="task",
+        y="model_layer_percent",
+        color=[TASK_SIMPLE_COLOR_MAP.get(task, "gray") for task in df["task"]],
+        ax=ax,
+        legend=None,
+    )
+
+    ax.set_ylim(0, 1)
+
+    # set labels and title
+    plt.xlabel("Task")
+    plt.ylabel("Percent")
+    plt.title(plot_title, pad=10)
+
+    path2folder = os.path.normpath(path2folder)
+
+    print(f"Saving to {path2folder}...")
+
+    for ext in PLOT_EXTS:
+        plot_title_no_space = plot_title.replace(" ", "_")
+        plt.savefig(
+            os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
+            bbox_inches="tight",
+        )
+
+    return fig
 
 
 def plot_emb_onehot(
@@ -525,7 +585,7 @@ def plot_layer_delta_hv(
             size=np.log(dim("model_size") + 1) * 1.5,
             title=plot_title,
         )
-    )  # * hv.Curve([[0, 0], [0.15, 0.15]]).opts(line_dash="dotted", color="gray")
+    )
 
     # turn off legend box line
     delta_scatter.legend.border_line_alpha = 0

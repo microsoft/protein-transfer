@@ -40,6 +40,12 @@ MODEL_SIZE = {
     "onehot": 0.02
 }
 
+MODEL_LAYER = {
+    model_name: model_dets[1]
+    for info_dict in [TRANSFORMER_INFO, CARP_INFO, {"onehot": (1, 1)}]
+    for model_name, model_dets in info_dict.items()
+}
+
 # TODO integrate to be auto fromr sheet
 CARP_CHECKPOINTS = {
     "carp_600k": {0.5: 239263, 0.25: 114344, 0.125: 52039},

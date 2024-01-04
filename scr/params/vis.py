@@ -46,6 +46,9 @@ CHECKPOINT_COLOR = {
     0.125: "#492303"
 }
 
+# note that "structure_ss3_tape_processed" is not considered
+# as only for train and val
+
 # the order for plotting legend
 ORDERED_TASK_LIST = [
     "proeng_gb1_sampled",
