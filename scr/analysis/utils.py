@@ -40,7 +40,7 @@ INIT_DICT = {
     "stat": "stat transfer"
 }
 
-INIT_SIMPLE_LIST = INIT_DICT.keys()
+INIT_SIMPLE_LIST = list(INIT_DICT.keys())
 
 # pretrain arch list
 PRETRAIN_ARCH_LIST = ["carp", "esm"]

@@ -159,11 +159,12 @@ class PlotResultScatter:
 
         randstat_plot_dict = {}
 
-        for randstat in INIT_SIMPLE_LIST:
-            randstat_plot_dict[randstat] = {}
-
-            for delta_onehot in [0, 1]:
-                randstat_plot_dict[randstat][delta_onehot] = plot_randstat(
+        for delta_onehot in [0, 1]:
+            randstat_plot_dict[delta_onehot] = {}     
+                    
+            for randstat in INIT_SIMPLE_LIST + [""]:
+            
+                randstat_plot_dict[delta_onehot][randstat] = plot_randstat(
                     df=emb_df,
                     metric=simplify_test_metric(metric),
                     randstat=randstat,
@@ -514,9 +515,18 @@ def plot_randstat(
     path2folder: str = "results/summary/randstat",
 ):
 
-    """ """
+    """ 
+    A function for plotting emb vs rand or stat
+    or rand vs stat
+    """
 
-    plot_title = f"Best {metric} embedding against same layer {INIT_DICT[randstat]}"
+    if randstat == "":
+        comp_det = " vs ".join(list(INIT_DICT.values()))
+        plot_title = f"Best {metric} embedding same layer {comp_det}"
+        pathrandstat = "vs"
+    else:
+        plot_title = f"Best {metric} embedding against same layer {INIT_DICT[randstat]}"
+        pathrandstat = randstat
 
     print(f"Plotting {plot_title}...")
 
@@ -541,8 +551,12 @@ def plot_randstat(
         task_df = df[df["task"] == task]
 
         if delta_onehot:
-            x = task_df["emb - onehot"].values
-            y = task_df[f"{randstat} - onehot"].values
+            if randstat == "":
+                x = task_df["rand - onehot"].values
+                y = task_df["stat - onehot"].values
+            else:
+                x = task_df["emb - onehot"].values
+                y = task_df[f"{randstat} - onehot"].values
 
             max_xy = max(max(x), max(y))
 
@@ -550,8 +564,12 @@ def plot_randstat(
                 diag_max = max_xy
 
         else:
-            x = task_df["best_value"].values
-            y = task_df[randstat].values
+            if randstat == "":
+                x = task_df["rand"].values
+                y = task_df["stat"].values
+            else:
+                x = task_df["best_value"].values
+                y = task_df[randstat].values
 
         min_xy = min(min(y), min(x))
 
@@ -578,12 +596,17 @@ def plot_randstat(
 
     ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
 
-    plt.xlabel(f"Best embedding {label_append}")
-    plt.ylabel(f"{INIT_DICT[randstat].capitalize()} {label_append}")
+    if randstat == "":
+        plt.xlabel(f"Best embedding random init {label_append}")
+        plt.ylabel(f"Best embedding stat transfer {label_append}")
+    else:
+        plt.xlabel(f"Best embedding {label_append}")
+        plt.ylabel(f"{INIT_DICT[randstat].capitalize()} {label_append}")
+    
     plt.title(plot_title)
 
     path2folder = checkNgen_folder(
-        os.path.normpath(os.path.join(path2folder, randstat, path_append))
+        os.path.normpath(os.path.join(path2folder, pathrandstat, path_append))
     )
 
     print(f"Saving to {path2folder}...")
