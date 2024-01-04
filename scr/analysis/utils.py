@@ -1,6 +1,8 @@
 """Utils for the results analysis"""
 
 from __future__ import annotations
+
+from scr.params.sys import DEFAULT_SPLIT
  
 METRIC_DICT = {
             "proeng": ["train_mse", "val_mse", "test_mse", "test_ndcg", "test_rho"],
@@ -23,10 +25,22 @@ METRIC_DICT = {
             ],
         }
 
+METRIC_TYPE = ["loss", "performance_1", "performance_2"] 
+
+SIMPLE_METRIC_LIST = [f"{s}_{t}" for s in DEFAULT_SPLIT for t in METRIC_TYPE]
+
 STRUCT_TESTS = ["casp12", "cb513", "ts115"]
 
 # default ablation list
 DEFAULT_AB_LIST = ["emb", "rand", "stat", "onehot"]
+
+# default rand stat init dict
+INIT_DICT = {
+    "rand": "random init",
+    "stat": "stat transfer"
+}
+
+INIT_SIMPLE_LIST = INIT_DICT.keys()
 
 # pretrain arch list
 PRETRAIN_ARCH_LIST = ["carp", "esm"]

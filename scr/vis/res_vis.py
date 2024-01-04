@@ -29,6 +29,7 @@ from scr.params.vis import (
     TASK_SIMPLE_COLOR_MAP,
     PLOT_EXTS,
 )
+from scr.analysis.utils import INIT_DICT, INIT_SIMPLE_LIST, SIMPLE_METRIC_LIST
 from scr.utils import checkNgen_folder
 
 
@@ -48,6 +49,79 @@ class PlotResultScatter:
         self._sum_folder = checkNgen_folder(os.path.normpath(sum_folder))
         self._sum_df_name = sum_df_name
 
+    def _get_best_metric_df_dicts(self) -> list[dict]:
+
+        """A method for spliting the df into dict based on the best metric"""
+
+        best_metric_df_dict = {"all": {}, "emb": {}}
+
+        for m in SIMPLE_METRIC_LIST:
+
+            slice_df = get_best_metric_df(df=self.prepped_df.copy(), metric=m)
+
+            best_metric_df_dict["all"][m] = slice_df
+            best_metric_df_dict["emb"][m] = slice_df[
+                slice_df["ablation"] == "emb"
+            ].copy()
+
+        return best_metric_df_dict
+
+    def _append_randstat(self, emb_df: pd.DataFrame) -> pd.DataFrame:
+
+        """
+        A method for adding rand stat and delta onehot info to
+        best performance based on given metric
+        """
+
+        # add rand stat
+        for ab in INIT_SIMPLE_LIST:
+            emb_df[ab] = np.nan
+            emb_df[f"{ab} - onehot"] = np.nan
+
+        emb_df["emb - onehot"] = np.nan
+
+        emb_df = emb_df.reset_index(drop=True)
+
+        # get the corresponding stat and rand value at the layer
+        for i, row in emb_df.iterrows():
+
+            # Convert the row to a dictionary
+            row_dict = row.to_dict()
+
+            # Select certain keys from the dictionary
+            selected_keys = ["arch", "task", "metric", "model"]
+
+            # pick the row to match
+            row_to_match = {key: row_dict[key] for key in selected_keys}
+
+            # get the onehot baseline
+            onehot_val = get_layer_value(
+                df=self.prepped_df,
+                row_to_match={
+                    key: row_dict[key] if i < 3 else "onehot"
+                    for i, key in enumerate(selected_keys)
+                },
+                ablation="onehot",
+                layer_numb=0,
+            )
+
+            # calc best emb perf del
+            emb_df.at[i, "emb - onehot"] = emb_df.at[i, "best_value"] - onehot_val
+
+            for ab in INIT_SIMPLE_LIST:
+
+                randstat_val = get_layer_value(
+                    df=self.prepped_df,
+                    row_to_match=row_to_match,
+                    ablation=ab,
+                    layer_numb=row_dict["best_layer"],
+                )
+
+                emb_df.at[i, ab] = randstat_val
+                emb_df.at[i, f"{ab} - onehot"] = randstat_val - onehot_val
+
+        return emb_df
+
     def plot_emb_onehot(self, metric: str = "test_performance_1") -> pd.DataFrame:
 
         """
@@ -57,36 +131,47 @@ class PlotResultScatter:
         - ifclean_metric: bool = True, simplify test performance
         """
 
-        df = self.prep_df.copy()
-
-        slice_df = get_best_metric_df(df=df, metric=metric)
+        slice_df = self.best_metric_df_dict["all"][metric]
 
         # now plot and save
         vs_plot = plot_emb_onehot(
             df=slice_df,
-            metric=metric.replace("test_performance_1", "test performance").replace(
-                "test_performance_2", "test performance"
-            ),
+            metric=simplify_test_metric(metric),
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "embvsonetho", metric)
             ),
         )
 
         # get a bar plot with percent performance achieved
-        emb_df = slice_df[slice_df["ablation"] == "emb"].copy()
-        emb_df["model_layer_percent"] = (
-            emb_df["best_layer"] / emb_df["model_layer"]
-        )
+        emb_df = self.best_metric_df_dict["emb"][metric]
+        emb_df["model_layer_percent"] = emb_df["best_layer"] / emb_df["model_layer"]
 
         bar_plot = plot_best_layer_bar(
             df=emb_df,
-            metric=metric.replace("test_performance_1", "test performance").replace(
-                "test_performance_2", "test performance"
-            ),
+            metric=simplify_test_metric(metric),
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "bestemblayer", metric)
             ),
         )
+
+        # now add rand stat info to emb_df
+        emb_df = self._append_randstat(emb_df=emb_df)
+
+        randstat_plot_dict = {}
+
+        for randstat in INIT_SIMPLE_LIST:
+            randstat_plot_dict[randstat] = {}
+
+            for delta_onehot in [0, 1]:
+                randstat_plot_dict[randstat][delta_onehot] = plot_randstat(
+                    df=emb_df,
+                    metric=simplify_test_metric(metric),
+                    randstat=randstat,
+                    delta_onehot=delta_onehot,
+                    path2folder=checkNgen_folder(
+                        os.path.join(self._sum_folder, "randstat", metric)
+                    ),
+                )
 
         return vs_plot, bar_plot
 
@@ -109,7 +194,7 @@ class PlotResultScatter:
 
         assert arch in ARCH_TYPE, f"{arch} not in {ARCH_TYPE}"
 
-        df = self.prep_df.copy()
+        df = self.prepped_df.copy()
 
         # get rid of onehot
         df = df[df["ablation"] == "emb"].copy()
@@ -132,9 +217,7 @@ class PlotResultScatter:
             delta_plot = plot_layer_delta_simple(
                 df=slice_df,
                 layer_cut=layer_cut,
-                metric=metric.replace("test_performance_1", "test performance").replace(
-                    "test_performance_2", "test performance"
-                ),
+                metric=simplify_test_metric(metric),
                 path2folder=checkNgen_folder(
                     os.path.join(self._sum_folder, "layerdelta_simple", metric)
                 ),
@@ -157,13 +240,11 @@ class PlotResultScatter:
             )
 
             # now plot and save
-            delta_plot = plot_layer_delta_plt(
+            delta_plot = plot_layer_delta_det(
                 df=slice_df,
                 layer_cut=layer_cut,
                 arch=arch,
-                metric=metric.replace("test_performance_1", "test performance").replace(
-                    "test_performance_2", "test performance"
-                ),
+                metric=simplify_test_metric(metric),
                 path2folder=checkNgen_folder(
                     os.path.join(self._sum_folder, "layerdelta", metric)
                 ),
@@ -184,6 +265,7 @@ class PlotResultScatter:
 
     @property
     def result_df(self) -> pd.DataFrame:
+
         """Return full result df with value cleaned up"""
 
         result_df = pd.read_csv(self.result_df_path)
@@ -201,7 +283,8 @@ class PlotResultScatter:
         return result_df
 
     @property
-    def prep_df(self) -> pd.DataFrame:
+    def prepped_df(self) -> pd.DataFrame:
+
         """Return a more plotting compatible df"""
 
         prepped_df = self.result_df.copy()
@@ -222,6 +305,24 @@ class PlotResultScatter:
         prepped_df = prepped_df.sort_values(["task", "ptp"], ascending=[True, False])
 
         return prepped_df
+
+    @property
+    def best_metric_df_dict(self) -> dict:
+
+        """Return a dict splicing the df based on best metric"""
+
+        return self._get_best_metric_df_dicts()
+
+def simplify_test_metric(metric: str) -> str:
+
+    """
+    A function to unify metric for plotting
+    """
+
+    for t in ["test_performance_1", "test_performance_2"]:
+        metric = metric.replace(t, "test performance")
+
+    return metric
 
 
 def get_best_metric_df(
@@ -251,6 +352,30 @@ def get_best_metric_df(
     return slice_df.copy()
 
 
+def get_layer_value(
+    df: pd.DataFrame, row_to_match: dict, ablation: str, layer_numb: int
+) -> float:
+
+    """
+    A function to get value of a given layer and other specifics
+    """
+
+    row_to_match["ablation"] = ablation
+
+    # Create a boolean mask for each condition
+    conditions = [df[col] == value for col, value in row_to_match.items()]
+
+    # Combine the conditions with AND (use np.all)
+    mask = np.all(conditions, axis=0)
+
+    # Use the mask to select the matching row(s)
+    matching_rows = df[mask]
+
+    assert len(matching_rows) == 1, f"{matching_rows} len not 1!"
+
+    return matching_rows["value"].to_numpy()[0][int(layer_numb)]
+
+
 def delta_layer(layer_cut: int, value_array: np.array) -> np.array:
     """
     A function return the difference between a given layer performance
@@ -276,7 +401,9 @@ def delta_layer(layer_cut: int, value_array: np.array) -> np.array:
     return np.array([layer_perf - value_array[0], value_array[-1] - layer_perf])
 
 
-def plot_best_layer_bar(df: pd.DataFrame, metric: str, path2folder: str):
+def plot_best_layer_bar(
+    df: pd.DataFrame, metric: str, path2folder: str = "results/summary/bestemblayer"
+):
 
     """
     A function for plotting a bar plot for
@@ -336,20 +463,15 @@ def plot_emb_onehot(
     diag_min = 1
 
     for (task, c) in TASK_SIMPLE_COLOR_MAP.items():
-        sliced_df = df[df["task"] == task]
-        emb_df = sliced_df[sliced_df["ablation"] == "emb"]
-        onehot_df = sliced_df[sliced_df["ablation"] == "onehot"]
 
-        y = emb_df["best_value"].values
-        # note their is only one onehot for all embeddings for each tast
-        x = onehot_df["best_value"].values
-        x = np.repeat(x, len(y))
+        sliced_df = df[df["task"] == task]
+
+        x = sliced_df[sliced_df["ablation"] == "onehot"]["best_value"].values
+        y = sliced_df[sliced_df["ablation"] == "emb"]["best_value"].values
 
         min_xy = min(min(y), min(x))
         if min_xy < diag_min:
             diag_min = min_xy
-
-        c = c
 
         scatter = ax.scatter(x, y, c=c, s=200, alpha=0.8, label=task, edgecolors="none")
 
@@ -364,14 +486,105 @@ def plot_emb_onehot(
         color="grey",
     )
 
-    legend1 = ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left")
-    ax.add_artist(legend1)
+    ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
 
     plt.ylabel("Best embedding test performance")
     plt.xlabel("Onehot")
     plt.title(plot_title)
 
     path2folder = os.path.normpath(path2folder)
+
+    print(f"Saving to {path2folder}...")
+
+    for ext in PLOT_EXTS:
+        plot_title_no_space = plot_title.replace(" ", "_")
+        plt.savefig(
+            os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
+            bbox_inches="tight",
+        )
+
+    return fig
+
+
+def plot_randstat(
+    df: pd.DataFrame,
+    metric: str,
+    randstat: str,
+    delta_onehot: bool = True,
+    path2folder: str = "results/summary/randstat",
+):
+
+    """ """
+
+    plot_title = f"Best {metric} embedding against same layer {INIT_DICT[randstat]}"
+
+    print(f"Plotting {plot_title}...")
+
+    fig, ax = plt.subplots()
+    fig.set_size_inches(6, 6)
+
+    # get the min x or y for the diagnol line
+    diag_min = 1
+
+    if delta_onehot:
+        diag_max = 0
+        label_append = "- onehot"
+        path_append = "onehot"
+
+    else:
+        diag_max = 1
+        label_append = ""
+        path_append = ""
+
+    for (task, c) in TASK_SIMPLE_COLOR_MAP.items():
+
+        task_df = df[df["task"] == task]
+
+        if delta_onehot:
+            x = task_df["emb - onehot"].values
+            y = task_df[f"{randstat} - onehot"].values
+
+            max_xy = max(max(x), max(y))
+
+            if max_xy > diag_max:
+                diag_max = max_xy
+
+        else:
+            x = task_df["best_value"].values
+            y = task_df[randstat].values
+
+        min_xy = min(min(y), min(x))
+
+        if min_xy < diag_min:
+            diag_min = min_xy
+
+        min_xy = min(min(y), min(x))
+        if min_xy < diag_min:
+            diag_min = min_xy
+
+        scatter = ax.scatter(x, y, c=c, s=200, alpha=0.8, label=task, edgecolors="none")
+
+    # diag min to smallest one decimal and max to largest
+    diag_min = math.floor(diag_min * 10) / 10
+    diag_max = math.ceil(diag_max * 10) / 10
+
+    # Add a diagonal line
+    plt.plot(
+        [diag_min, diag_max],
+        [diag_min, diag_max],
+        linestyle=":",
+        color="grey",
+    )
+
+    ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
+
+    plt.xlabel(f"Best embedding {label_append}")
+    plt.ylabel(f"{INIT_DICT[randstat].capitalize()} {label_append}")
+    plt.title(plot_title)
+
+    path2folder = checkNgen_folder(
+        os.path.normpath(os.path.join(path2folder, randstat, path_append))
+    )
 
     print(f"Saving to {path2folder}...")
 
@@ -408,6 +621,7 @@ def plot_layer_delta_simple(
     diag_max = 0
 
     for (task, c) in TASK_SIMPLE_COLOR_MAP.items():
+
         sliced_df = df[df["task"] == task]
         x = sliced_df["x-0"].values
         y = sliced_df["f-x"].values
@@ -456,7 +670,7 @@ def plot_layer_delta_simple(
     return fig
 
 
-def plot_layer_delta_plt(
+def plot_layer_delta_det(
     df: pd.DataFrame,
     layer_cut: int,
     arch: str,

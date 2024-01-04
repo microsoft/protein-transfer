@@ -26,8 +26,6 @@ PRESENTATION_PALETTE_SATURATE6 = [
     "#666666",
 ]
 
-
-
 TASK_COLORS = (
     sns.dark_palette(PRESENTATION_PALETTE_SATURATE6[1], 4).as_hex()[1:]
     + sns.dark_palette(PRESENTATION_PALETTE_SATURATE6[0], 3).as_hex()[1:]
