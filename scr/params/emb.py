@@ -1,5 +1,13 @@
 """Embedding constants"""
 
+ARCH_TYPE = ["esm", "carp"]
+
+ARCH_CUT_DICT = {
+    "": [2, 3, 4, 6],
+    "carp": [2, 4, 6, 12],
+    "esm": [2, 3, 4, 6]
+}
+
 # the longest seq for esm1b is 1022 with CLS and EOS
 MAX_SEQ_LEN = 1022
 

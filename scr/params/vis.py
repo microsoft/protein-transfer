@@ -79,8 +79,3 @@ TASK_LEGEND_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST, ORDERED_TASK_LIST_SIM
 
 # assume same order
 TASK_SIMPLE_COLOR_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST_SIMPLE, TASK_COLORS)}
-
-ARCH_CUT_DICT = {
-    "carp": [2, 4, 6, 12],
-    "esm": [2, 3, 4, 6]
-}
