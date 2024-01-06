@@ -20,8 +20,8 @@ from holoviews import dim
 
 hv.extension("bokeh")
 
-from scr.vis.vis_utils import BokehSave
-from scr.params.emb import MODEL_SIZE, MODEL_LAYER, ARCH_TYPE
+from scr.vis.vis_utils import BokehSave, save_plt
+from scr.params.emb import MODEL_SIZE, MODEL_LAYER, ARCH_TYPE, CHECKPOINT_PERCENT
 from scr.params.vis import (
     ORDERED_TASK_LIST,
     TASK_LEGEND_MAP,
@@ -51,9 +51,18 @@ class PlotResultScatter:
 
     def _get_best_metric_df_dicts(self) -> list[dict]:
 
-        """A method for spliting the df into dict based on the best metric"""
+        """
+        A method for spliting the df into dict based on the best metric
+
+        'all' means best within emb and onehot
+        'emb' means best slicing out emb from all
+        'carp' or 'esm' means best given arch
+        """
 
         best_metric_df_dict = {"all": {}, "emb": {}}
+
+        for arch in ARCH_TYPE:
+            best_metric_df_dict[arch] = {}
 
         for m in SIMPLE_METRIC_LIST:
 
@@ -63,6 +72,14 @@ class PlotResultScatter:
             best_metric_df_dict["emb"][m] = slice_df[
                 slice_df["ablation"] == "emb"
             ].copy()
+
+            for arch in ARCH_TYPE:
+                arch_df = get_best_metric_df(
+                    df=self.prepped_df.copy(), metric=m, arch=arch
+                )
+                best_metric_df_dict[arch][m] = arch_df[
+                    arch_df["ablation"] == "emb"
+                ].copy()
 
         return best_metric_df_dict
 
@@ -122,6 +139,54 @@ class PlotResultScatter:
 
         return emb_df
 
+    def _append_ptp(self, emb_df: pd.DataFrame) -> pd.DataFrame:
+
+        """A method for adding pretrain percent best performance"""
+
+        for ptp in CHECKPOINT_PERCENT:
+            emb_df[str(ptp)] = np.nan
+            emb_df[f"{str(ptp)} - onehot"] = np.nan
+
+        emb_df = emb_df.reset_index(drop=True)
+
+        # get the corresponding stat and rand value at the layer
+        for i, row in emb_df.iterrows():
+
+            # Convert the row to a dictionary
+            row_dict = row.to_dict()
+
+            # Select certain keys from the dictionary
+            selected_keys = ["arch", "task", "metric", "model"]
+
+            # pick the row to match
+            row_to_match = {key: row_dict[key] for key in selected_keys}
+
+            # get the onehot baseline
+            onehot_val = get_layer_value(
+                df=self.prepped_df,
+                row_to_match={
+                    key: row_dict[key] if i < 3 else "onehot"
+                    for i, key in enumerate(selected_keys)
+                },
+                ablation="onehot",
+                layer_numb=0,
+            )
+
+            for ptp in CHECKPOINT_PERCENT:
+
+                statorrand_val = get_layer_value(
+                    df=self.prepped_df,
+                    row_to_match=row_to_match,
+                    ablation="emb",
+                    ptp=ptp,
+                    layer_numb=row_dict["best_layer"],
+                )
+
+                emb_df.at[i, str(ptp)] = statorrand_val
+                emb_df.at[i, f"{str(ptp)} - onehot"] = statorrand_val - onehot_val
+
+        return emb_df
+
     def plot_emb_onehot(self, metric: str = "test_performance_1") -> pd.DataFrame:
 
         """
@@ -160,10 +225,10 @@ class PlotResultScatter:
         randstat_plot_dict = {}
 
         for delta_onehot in [0, 1]:
-            randstat_plot_dict[delta_onehot] = {}     
-                    
+            randstat_plot_dict[delta_onehot] = {}
+
             for randstat in INIT_SIMPLE_LIST + [""]:
-            
+
                 randstat_plot_dict[delta_onehot][randstat] = plot_randstat(
                     df=emb_df,
                     metric=simplify_test_metric(metric),
@@ -253,6 +318,25 @@ class PlotResultScatter:
 
         return slice_df, delta_plot
 
+    def plot_pretrain_degree(
+        self,
+        metric: str = "test_performance_1",
+        arch: str = "carp"
+    ):
+
+        """A method for plotting the pretraining arch"""
+
+        for delta_onehot in [0, 1]:
+            plot_pretrain_degree(
+                emb_df=self._append_ptp(self.best_metric_df_dict[arch][metric]),
+                metric=simplify_test_metric(metric),
+                arch=arch,
+                delta_onehot=delta_onehot,
+                path2folder=checkNgen_folder(
+                    os.path.join(self._sum_folder, "pretraindegree", arch, metric)
+                ),
+            )
+
     @property
     def result_df_path(self) -> str:
         """Return full summary result csv path"""
@@ -309,10 +393,9 @@ class PlotResultScatter:
 
     @property
     def best_metric_df_dict(self) -> dict:
-
         """Return a dict splicing the df based on best metric"""
-
         return self._get_best_metric_df_dicts()
+
 
 def simplify_test_metric(metric: str) -> str:
 
@@ -327,7 +410,7 @@ def simplify_test_metric(metric: str) -> str:
 
 
 def get_best_metric_df(
-    df: pd.DataFrame, metric: str = "test_performance_1"
+    df: pd.DataFrame, metric: str = "test_performance_1", arch: str = ""
 ) -> pd.DataFrame:
 
     """
@@ -340,9 +423,13 @@ def get_best_metric_df(
         (slice_df["ablation"] == "onehot") | (slice_df["ablation"] == "emb")
     ]
 
-    # get the max perform layer and the layer number
+    # get the max perform layer
     slice_df["best_value"] = slice_df["value"].apply(np.max)
     slice_df["best_layer"] = slice_df["value"].apply(np.argmax)
+
+    # slice out particular arch else comb carp and esm
+    if arch != "":
+        slice_df = slice_df[(slice_df["arch"] == arch)].copy()
 
     # Find the index of the maximum value in 'value_column' for each group
     max_indices = slice_df.groupby(["task", "ablation"])["best_value"].idxmax().dropna()
@@ -354,14 +441,25 @@ def get_best_metric_df(
 
 
 def get_layer_value(
-    df: pd.DataFrame, row_to_match: dict, ablation: str, layer_numb: int
+    df: pd.DataFrame,
+    row_to_match: dict,
+    ablation: str,
+    layer_numb: int,
+    ptp: float = -1,
 ) -> float:
 
     """
     A function to get value of a given layer and other specifics
+
+    Args:
+    - ptp: float = -1, include ptp only when ptp not default -1
     """
 
     row_to_match["ablation"] = ablation
+
+    # overwrite default
+    if ptp > -1:
+        row_to_match["ptp"] = ptp
 
     # Create a boolean mask for each condition
     conditions = [df[col] == value for col, value in row_to_match.items()]
@@ -436,12 +534,7 @@ def plot_best_layer_bar(
 
     print(f"Saving to {path2folder}...")
 
-    for ext in PLOT_EXTS:
-        plot_title_no_space = plot_title.replace(" ", "_")
-        plt.savefig(
-            os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
-            bbox_inches="tight",
-        )
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
 
     return fig
 
@@ -515,7 +608,7 @@ def plot_randstat(
     path2folder: str = "results/summary/randstat",
 ):
 
-    """ 
+    """
     A function for plotting emb vs rand or stat
     or rand vs stat
     """
@@ -602,7 +695,7 @@ def plot_randstat(
     else:
         plt.xlabel(f"Best embedding {label_append}")
         plt.ylabel(f"{INIT_DICT[randstat].capitalize()} {label_append}")
-    
+
     plt.title(plot_title)
 
     path2folder = checkNgen_folder(
@@ -611,12 +704,79 @@ def plot_randstat(
 
     print(f"Saving to {path2folder}...")
 
-    for ext in PLOT_EXTS:
-        plot_title_no_space = plot_title.replace(" ", "_")
-        plt.savefig(
-            os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
-            bbox_inches="tight",
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
+
+    return fig
+
+
+def plot_pretrain_degree(
+    emb_df: pd.DataFrame,
+    metric: str = "test_performance_1",
+    arch: str = "carp",
+    delta_onehot: bool = True,
+    path2folder: str = "results/summary/pretraindegree",
+):
+
+    """A method for plotting the pretraining arch"""
+
+    plot_title = f"Best {metric} cross different pretrain degrees of {arch}"
+
+    if delta_onehot:
+        melt_cols = ["task"] + [str(p) + " - onehot" for p in CHECKPOINT_PERCENT]
+        label_append = " - onehot"
+        path_append = "onehot"
+        y_max = None
+    else:
+        melt_cols = ["task"] + [str(p) for p in CHECKPOINT_PERCENT]
+        label_append = ""
+        path_append = ""
+        y_max = 1
+
+    x_name = "Pretrain degree"
+    y_name = "Best test performance" + label_append
+
+    emb_df_melt = pd.melt(
+        emb_df[melt_cols],
+        id_vars="task",
+        var_name=x_name,
+        value_name=y_name,
+    )
+
+    # Plot dots with colors corresponding to the category
+    fig, ax = plt.subplots()
+    fig.set_size_inches(6, 6)
+
+    for category, group in emb_df_melt.groupby("task"):
+
+        ax.plot(
+            [float(x.replace(label_append, "")) for x in group[x_name]],
+            group[y_name],
+            marker="o",
+            markersize=12,
+            alpha=0.8,
+            label=category,
+            color=TASK_SIMPLE_COLOR_MAP.get(category, "gray"),
+            mec="none",
         )
+
+    ax.set_xticks(CHECKPOINT_PERCENT)
+    ax.set_xticklabels([str(tick) for tick in CHECKPOINT_PERCENT])
+
+    ax.set_xlim(0, 1.125)
+    ax.set_ylim(None, y_max)
+
+    # Set labels and title
+    ax.set_xlabel(x_name)
+    ax.set_ylabel(y_name)
+    ax.set_title(plot_title, pad=10)
+
+    ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
+
+    path2folder = checkNgen_folder(os.path.join(os.path.normpath(path2folder), path_append))
+
+    print(f"Saving to {path2folder}...")
+
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
 
     return fig
 
@@ -683,12 +843,7 @@ def plot_layer_delta_simple(
 
     print(f"Saving to {path2folder}...")
 
-    for ext in PLOT_EXTS:
-        plot_title_no_space = plot_title.replace(" ", "_")
-        plt.savefig(
-            os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
-            bbox_inches="tight",
-        )
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
 
     return fig
 
@@ -775,12 +930,7 @@ def plot_layer_delta_det(
 
     print(f"Saving to {path2folder}...")
 
-    for ext in PLOT_EXTS:
-        plot_title_no_space = plot_title.replace(" ", "_")
-        plt.savefig(
-            os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
-            bbox_inches="tight",
-        )
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
 
     return fig
 

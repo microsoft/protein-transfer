@@ -55,3 +55,8 @@ for metric in ["test_performance_1", "test_performance_2"]:
                 metric=metric,
                 arch=arch
             );
+
+    # get pretrain degree for carp only
+    plot_class.plot_pretrain_degree(
+        metric=metric,
+        arch="carp")

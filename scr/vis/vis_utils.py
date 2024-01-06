@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 
+import matplotlib.pyplot as plt
+
 import bokeh
 from bokeh.io import show, export_svg, export_png
 from bokeh.plotting import show
@@ -16,6 +18,23 @@ import holoviews as hv
 hv.extension("bokeh")
 
 from scr.params.vis import PLOT_EXTS
+from scr.utils import checkNgen_folder
+
+
+def save_plt(fig, plot_title: str, path2folder: str):
+
+    """
+    A helper function for saving plt plots
+    """
+
+    for ext in PLOT_EXTS:
+        plot_title_no_space = plot_title.replace(" ", "_")
+        plt.savefig(
+            os.path.join(checkNgen_folder(path2folder), f"{plot_title_no_space}{ext}"),
+            bbox_inches="tight",
+        )
+    
+    plt.close()
 
 
 class BokehSave:

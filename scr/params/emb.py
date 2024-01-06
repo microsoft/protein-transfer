@@ -46,7 +46,9 @@ MODEL_LAYER = {
     for model_name, model_dets in info_dict.items()
 }
 
-# TODO integrate to be auto fromr sheet
+CHECKPOINT_PERCENT = [0.125, 0.25, 0.5, 1]
+
+# TODO integrate to be auto from sheet
 CARP_CHECKPOINTS = {
     "carp_600k": {0.5: 239263, 0.25: 114344, 0.125: 52039},
     "carp_38M": {0.5: 517622, 0.25: 256897, 0.125: 129575},
