@@ -60,3 +60,8 @@ for metric in ["test_performance_1", "test_performance_2"]:
     plot_class.plot_pretrain_degree(
         metric=metric,
         arch="carp")
+    
+    # plot for arch size
+    plot_class.plot_arch_size(
+        metric=metric
+    )

@@ -28,6 +28,7 @@ from scr.params.vis import (
     TASK_COLORS,
     TASK_SIMPLE_COLOR_MAP,
     PLOT_EXTS,
+    ARCH_STYLE_DICT,
 )
 from scr.analysis.utils import INIT_DICT, INIT_SIMPLE_LIST, SIMPLE_METRIC_LIST
 from scr.utils import checkNgen_folder
@@ -66,7 +67,7 @@ class PlotResultScatter:
 
         for m in SIMPLE_METRIC_LIST:
 
-            slice_df = get_best_metric_df(df=self.prepped_df.copy(), metric=m)
+            slice_df = get_bestorlast_metric_df(df=self.prepped_df.copy(), metric=m)
 
             best_metric_df_dict["all"][m] = slice_df
             best_metric_df_dict["emb"][m] = slice_df[
@@ -74,7 +75,7 @@ class PlotResultScatter:
             ].copy()
 
             for arch in ARCH_TYPE:
-                arch_df = get_best_metric_df(
+                arch_df = get_bestorlast_metric_df(
                     df=self.prepped_df.copy(), metric=m, arch=arch
                 )
                 best_metric_df_dict[arch][m] = arch_df[
@@ -82,6 +83,30 @@ class PlotResultScatter:
                 ].copy()
 
         return best_metric_df_dict
+
+    def _get_last_metric_df_dict(self) -> list[dict]:
+
+        """
+        A method for spliting the df into dict gettin last layer performance
+        based on the metric
+
+        'all' means best within emb and onehot
+        'emb' means best slicing out emb from all
+        'carp' or 'esm' means best given arch
+        """
+
+        last_metric_dict = {}
+
+        for m in SIMPLE_METRIC_LIST:
+
+            last_metric_dict[m] = {}
+
+            for arch in ARCH_TYPE:
+                last_metric_dict[m][arch] = get_bestorlast_metric_df(
+                    df=self.prepped_df.copy(), metric=m, arch=arch, bestorlast="last"
+                )
+
+        return last_metric_dict
 
     def _append_randstat(self, emb_df: pd.DataFrame) -> pd.DataFrame:
 
@@ -267,7 +292,7 @@ class PlotResultScatter:
 
         if ifsimple or arch is None:
 
-            slice_df = get_best_metric_df(df=df, metric=metric)
+            slice_df = get_bestorlast_metric_df(df=df, metric=metric)
 
             # Apply the function and generate two new columns
             slice_df["x-0"], slice_df["f-x"] = zip(
@@ -319,9 +344,7 @@ class PlotResultScatter:
         return slice_df, delta_plot
 
     def plot_pretrain_degree(
-        self,
-        metric: str = "test_performance_1",
-        arch: str = "carp"
+        self, metric: str = "test_performance_1", arch: str = "carp"
     ):
 
         """A method for plotting the pretraining arch"""
@@ -333,9 +356,28 @@ class PlotResultScatter:
                 arch=arch,
                 delta_onehot=delta_onehot,
                 path2folder=checkNgen_folder(
-                    os.path.join(self._sum_folder, "pretraindegree", arch, metric)
+                    os.path.join(self._sum_folder, "pretraindegree", metric, arch)
                 ),
             )
+
+    def plot_arch_size(
+        self,
+        metric: str = "test_performance_1",
+    ):
+
+        """A method for plotting arch size"""
+
+        for delta_onehot in [0, 1]:
+            for arch in ARCH_TYPE + [""]:
+                plot_arch_size(
+                    arch_df_dict=self.last_metric_df_dict,
+                    metric=metric,
+                    arch=arch,
+                    delta_onehot=delta_onehot,
+                    path2folder=checkNgen_folder(
+                        os.path.join(self._sum_folder, "archsize", metric, arch)
+                    ),
+                )
 
     @property
     def result_df_path(self) -> str:
@@ -393,8 +435,13 @@ class PlotResultScatter:
 
     @property
     def best_metric_df_dict(self) -> dict:
-        """Return a dict splicing the df based on best metric"""
+        """Return a dict splicing the df with best metric based on best metric"""
         return self._get_best_metric_df_dicts()
+
+    @property
+    def last_metric_df_dict(self) -> dict:
+        """Return a dict splicin the df with the last layer value given metric"""
+        return self._get_last_metric_df_dict()
 
 
 def simplify_test_metric(metric: str) -> str:
@@ -409,8 +456,11 @@ def simplify_test_metric(metric: str) -> str:
     return metric
 
 
-def get_best_metric_df(
-    df: pd.DataFrame, metric: str = "test_performance_1", arch: str = ""
+def get_bestorlast_metric_df(
+    df: pd.DataFrame,
+    metric: str = "test_performance_1",
+    arch: str = "",
+    bestorlast: str = "best",
 ) -> pd.DataFrame:
 
     """
@@ -423,19 +473,33 @@ def get_best_metric_df(
         (slice_df["ablation"] == "onehot") | (slice_df["ablation"] == "emb")
     ]
 
-    # get the max perform layer
-    slice_df["best_value"] = slice_df["value"].apply(np.max)
-    slice_df["best_layer"] = slice_df["value"].apply(np.argmax)
-
-    # slice out particular arch else comb carp and esm
+    # comb carp and esm
     if arch != "":
         slice_df = slice_df[(slice_df["arch"] == arch)].copy()
 
-    # Find the index of the maximum value in 'value_column' for each group
-    max_indices = slice_df.groupby(["task", "ablation"])["best_value"].idxmax().dropna()
+    if bestorlast == "best":
 
-    # Use loc to select the rows corresponding to the max indices
-    slice_df = slice_df.loc[max_indices]
+        # get the max perform layer
+        slice_df["best_value"] = slice_df["value"].apply(np.max)
+        slice_df["best_layer"] = slice_df["value"].apply(np.argmax)
+
+        # Find the index of the maximum value in 'value_column' for each group
+        max_indices = (
+            slice_df.groupby(["task", "ablation"])["best_value"].idxmax().dropna()
+        )
+
+        # Use loc to select the rows corresponding to the max indices
+        slice_df = slice_df.loc[max_indices]
+
+    elif bestorlast == "last":
+
+        # get last layer
+        slice_df["last_value"] = slice_df["value"].apply(
+            lambda x: x[-1] if len(x) > 0 else None
+        )
+
+    else:
+        print(f"{bestorlast} is not 'best' or 'last'")
 
     return slice_df.copy()
 
@@ -719,7 +783,7 @@ def plot_pretrain_degree(
 
     """A method for plotting the pretraining arch"""
 
-    plot_title = f"Best {metric} cross different pretrain degrees of {arch}"
+    plot_title = f"Best {metric} cross different pretrain degrees of {arch.upper()}"
 
     if delta_onehot:
         melt_cols = ["task"] + [str(p) + " - onehot" for p in CHECKPOINT_PERCENT]
@@ -772,7 +836,154 @@ def plot_pretrain_degree(
 
     ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
 
-    path2folder = checkNgen_folder(os.path.join(os.path.normpath(path2folder), path_append))
+    path2folder = checkNgen_folder(
+        os.path.join(os.path.normpath(path2folder), path_append)
+    )
+
+    print(f"Saving to {path2folder}...")
+
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
+
+    return fig
+
+
+def plot_arch_size(
+    arch_df_dict: dict,
+    metric: str = "test_performance_1",
+    arch: str = "",
+    delta_onehot: bool = True,
+    path2folder: str = "results/summary/archsize",
+):
+
+    """
+    A function for plotting performance vs arch size
+
+    Args:
+    - arch: str = "", for both arch combined
+    """
+
+    if arch == "":
+        arch_name = "architectures"
+        arch_list = ARCH_TYPE
+    else:
+        arch_name = arch.upper()
+        arch_list = [arch]
+
+    plot_title = f"Last layer {metric} cross different sizes of pretrain {arch_name}"
+
+    if delta_onehot:
+        label_append = " - onehot"
+        path_append = "onehot"
+        y_max = None
+    else:
+        label_append = ""
+        path_append = ""
+        y_max = 1
+
+    # Plot dots with colors corresponding to the category
+    fig, ax = plt.subplots()
+    fig.set_size_inches(6, 6)
+
+    for i, a in enumerate(arch_list):
+
+        arch_df = arch_df_dict[metric][a]
+
+        if a == "carp":
+            # ignore ptp not 1 or 0
+            # Select rows where 'Column2' has a value from the list
+            arch_df = arch_df[
+                arch_df["ptp"].isin(arch_df_dict[metric]["esm"]["ptp"].unique())
+            ]
+
+        # get rid of esm1b
+        elif a == "esm":
+            arch_df = arch_df[~arch_df["model"].isin(["esm1b_t33_650M_UR50S"])]
+
+        else:
+            print(f"{a} not in {ARCH_TYPE}")
+
+        for category, group in arch_df.sort_values(["model_size"]).groupby("task"):
+
+            # to not duplicate label
+            if i == 0:
+                label = category
+            else:
+                label = None
+
+            if delta_onehot:
+
+                group = group.reset_index(drop=True).copy()
+
+                # Identify the onehot row
+                onehot_row = group[group["ablation"] == "onehot"].index
+                onehot_val = group.loc[
+                    group["ablation"] == "onehot", "last_value"
+                ].iloc[0]
+
+                # subtract the onehot value from other rows
+                group["last_value"] -= onehot_val
+
+                # drop the onehot row
+                group = group.drop(index=onehot_row)
+
+            ax.plot(
+                group["model_size"],
+                group["last_value"],
+                marker="o",
+                markersize=12,
+                alpha=0.8,
+                label=label,
+                color=TASK_SIMPLE_COLOR_MAP.get(category, "gray"),
+                **ARCH_STYLE_DICT[a],
+            )
+
+    # add additional legend if for both
+    if arch == "":
+        arch_legend_dict = {}
+
+        for a in ARCH_TYPE:
+
+            if a == "carp":
+                mfc = "none"
+            else:
+                mfc = "gray"
+
+            arch_legend_dict[a] = Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="gray",
+                linestyle=ARCH_STYLE_DICT[a]["linestyle"],
+                label=a.upper(),
+                markerfacecolor="k",
+                markersize=12,
+                mfc=mfc,
+            )
+
+        ax.add_artist(
+            ax.legend(
+                handles=list(arch_legend_dict.values()),
+                bbox_to_anchor=(1, 0.49),
+                loc="upper left",
+                title="Pretrained architectures",
+            )
+        )
+
+    plt.xscale("log")
+
+    # Set y-axis limits
+    ax.set_ylim(bottom=None, top=y_max)
+
+    # Set labels and title
+    ax.set_xlabel("Log model size (M)")
+    ax.set_ylabel(f"Last layer test performance{label_append}")
+    ax.set_title(plot_title)
+
+    ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
+
+    path2folder = checkNgen_folder(
+        os.path.join(os.path.normpath(path2folder), path_append)
+    )
 
     print(f"Saving to {path2folder}...")
 

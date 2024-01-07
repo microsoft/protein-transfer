@@ -80,3 +80,7 @@ TASK_LEGEND_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST, ORDERED_TASK_LIST_SIM
 
 # assume same order
 TASK_SIMPLE_COLOR_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST_SIMPLE, TASK_COLORS)}
+
+# for lines
+ARCH_STYLE_DICT = {"esm": {"linestyle": "solid", "mec": "none"}, 
+                    "carp": {"linestyle": "dotted", "mfc": "none"}}
