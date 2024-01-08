@@ -41,7 +41,7 @@ LayerLoss(
 
 plot_class = PlotResultScatter()
 
-for metric in ["test_performance_1", "test_performance_2"]:
+for metric in ["test_loss", "test_performance_1", "test_performance_2"]:
 
     plot_class.plot_emb_onehot(
             metric = metric,

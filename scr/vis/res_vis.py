@@ -221,12 +221,10 @@ class PlotResultScatter:
         - ifclean_metric: bool = True, simplify test performance
         """
 
-        slice_df = self.best_metric_df_dict["all"][metric]
-
         # now plot and save
         vs_plot = plot_emb_onehot(
-            df=slice_df,
-            metric=simplify_test_metric(metric),
+            df=self.best_metric_df_dict["all"][metric],
+            metric=metric,
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "embvsonetho", metric)
             ),
@@ -238,7 +236,7 @@ class PlotResultScatter:
 
         bar_plot = plot_best_layer_bar(
             df=emb_df,
-            metric=simplify_test_metric(metric),
+            metric=metric,
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "bestemblayer", metric)
             ),
@@ -256,7 +254,7 @@ class PlotResultScatter:
 
                 randstat_plot_dict[delta_onehot][randstat] = plot_randstat(
                     df=emb_df,
-                    metric=simplify_test_metric(metric),
+                    metric=metric,
                     randstat=randstat,
                     delta_onehot=delta_onehot,
                     path2folder=checkNgen_folder(
@@ -308,7 +306,7 @@ class PlotResultScatter:
             delta_plot = plot_layer_delta_simple(
                 df=slice_df,
                 layer_cut=layer_cut,
-                metric=simplify_test_metric(metric),
+                metric=metric,
                 path2folder=checkNgen_folder(
                     os.path.join(self._sum_folder, "layerdelta_simple", metric)
                 ),
@@ -335,7 +333,7 @@ class PlotResultScatter:
                 df=slice_df,
                 layer_cut=layer_cut,
                 arch=arch,
-                metric=simplify_test_metric(metric),
+                metric=metric,
                 path2folder=checkNgen_folder(
                     os.path.join(self._sum_folder, "layerdelta", metric)
                 ),
@@ -352,7 +350,7 @@ class PlotResultScatter:
         for delta_onehot in [0, 1]:
             plot_pretrain_degree(
                 emb_df=self._append_ptp(self.best_metric_df_dict[arch][metric]),
-                metric=simplify_test_metric(metric),
+                metric=metric,
                 arch=arch,
                 delta_onehot=delta_onehot,
                 path2folder=checkNgen_folder(
@@ -450,7 +448,7 @@ def simplify_test_metric(metric: str) -> str:
     A function to unify metric for plotting
     """
 
-    for t in ["test_performance_1", "test_performance_2"]:
+    for t in ["test_performance_1", "test_performance_2", "test_loss"]:
         metric = metric.replace(t, "test performance")
 
     return metric
@@ -479,17 +477,31 @@ def get_bestorlast_metric_df(
 
     if bestorlast == "best":
 
-        # get the max perform layer
-        slice_df["best_value"] = slice_df["value"].apply(np.max)
-        slice_df["best_layer"] = slice_df["value"].apply(np.argmax)
+        if metric == "test_loss":
+            # get the max perform layer
+            slice_df["best_value"] = slice_df["value"].apply(np.min)
+            slice_df["best_layer"] = slice_df["value"].apply(np.argmin)
 
-        # Find the index of the maximum value in 'value_column' for each group
-        max_indices = (
-            slice_df.groupby(["task", "ablation"])["best_value"].idxmax().dropna()
-        )
+            # Find the index of the maximum value in 'value_column' for each group
+            min_indices = (
+                slice_df.groupby(["task", "ablation"])["best_value"].idxmin().dropna()
+            )
 
-        # Use loc to select the rows corresponding to the max indices
-        slice_df = slice_df.loc[max_indices]
+            # Use loc to select the rows corresponding to the max indices
+            slice_df = slice_df.loc[min_indices]
+
+        else:
+            # get the max perform layer
+            slice_df["best_value"] = slice_df["value"].apply(np.max)
+            slice_df["best_layer"] = slice_df["value"].apply(np.argmax)
+
+            # Find the index of the maximum value in 'value_column' for each group
+            max_indices = (
+                slice_df.groupby(["task", "ablation"])["best_value"].idxmax().dropna()
+            )
+
+            # Use loc to select the rows corresponding to the max indices
+            slice_df = slice_df.loc[max_indices]
 
     elif bestorlast == "last":
 
@@ -572,7 +584,9 @@ def plot_best_layer_bar(
     A function for plotting a bar plot for
     """
 
-    plot_title = f"Best {metric} achieved at percent depth of pretrain model"
+    plot_title = "Best {} achieved at percent depth of pretrain model".format(
+        simplify_test_metric(metric)
+    )
 
     print(f"Plotting {plot_title}...")
 
@@ -610,7 +624,9 @@ def plot_emb_onehot(
 ):
     """A function for plotting best emb vs onehot"""
 
-    plot_title = f"Best {metric} embedding against onehot baseline"
+    plot_title = "Best {} embedding against onehot baseline".format(
+        simplify_test_metric(metric)
+    )
 
     print(f"Plotting {plot_title}...")
 
@@ -627,24 +643,30 @@ def plot_emb_onehot(
         x = sliced_df[sliced_df["ablation"] == "onehot"]["best_value"].values
         y = sliced_df[sliced_df["ablation"] == "emb"]["best_value"].values
 
-        min_xy = min(min(y), min(x))
-        if min_xy < diag_min:
-            diag_min = min_xy
+        if metric != "test_loss":
+            min_xy = min(min(y), min(x))
+            if min_xy < diag_min:
+                diag_min = min_xy
 
         scatter = ax.scatter(x, y, c=c, s=200, alpha=0.8, label=task, edgecolors="none")
 
-    # diag min to smallest one decimal
-    diag_min = math.floor(diag_min * 10) / 10
+    if metric != "test_loss":
+        # diag min to smallest one decimal
+        diag_min = math.floor(diag_min * 10) / 10
 
-    # Add a diagonal line
-    plt.plot(
-        [diag_min, 1],
-        [diag_min, 1],
-        linestyle=":",
-        color="grey",
-    )
+        # Add a diagonal line
+        plt.plot(
+            [diag_min, 1],
+            [diag_min, 1],
+            linestyle=":",
+            color="grey",
+        )
 
     ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
+
+    if metric == "test_loss":
+        plt.xscale("log")
+        plt.yscale("log")
 
     plt.ylabel("Best embedding test performance")
     plt.xlabel("Onehot")
@@ -679,10 +701,14 @@ def plot_randstat(
 
     if randstat == "":
         comp_det = " vs ".join(list(INIT_DICT.values()))
-        plot_title = f"Best {metric} embedding same layer {comp_det}"
+        plot_title = "Best {} embedding same layer {}".format(
+            simplify_test_metric(metric), comp_det
+        )
         pathrandstat = "vs"
     else:
-        plot_title = f"Best {metric} embedding against same layer {INIT_DICT[randstat]}"
+        plot_title = "Best {} embedding against same layer {}".format(
+            simplify_test_metric(metric), INIT_DICT[randstat]
+        )
         pathrandstat = randstat
 
     print(f"Plotting {plot_title}...")
@@ -715,10 +741,12 @@ def plot_randstat(
                 x = task_df["emb - onehot"].values
                 y = task_df[f"{randstat} - onehot"].values
 
-            max_xy = max(max(x), max(y))
+            if metric != "test_loss":
 
-            if max_xy > diag_max:
-                diag_max = max_xy
+                max_xy = max(max(x), max(y))
+
+                if max_xy > diag_max:
+                    diag_max = max_xy
 
         else:
             if randstat == "":
@@ -728,28 +756,32 @@ def plot_randstat(
                 x = task_df["best_value"].values
                 y = task_df[randstat].values
 
-        min_xy = min(min(y), min(x))
+        if metric != "test_loss":
 
-        if min_xy < diag_min:
-            diag_min = min_xy
+            min_xy = min(min(y), min(x))
 
-        min_xy = min(min(y), min(x))
-        if min_xy < diag_min:
-            diag_min = min_xy
+            if min_xy < diag_min:
+                diag_min = min_xy
+
+            min_xy = min(min(y), min(x))
+            if min_xy < diag_min:
+                diag_min = min_xy
 
         scatter = ax.scatter(x, y, c=c, s=200, alpha=0.8, label=task, edgecolors="none")
 
-    # diag min to smallest one decimal and max to largest
-    diag_min = math.floor(diag_min * 10) / 10
-    diag_max = math.ceil(diag_max * 10) / 10
+    if metric != "test_loss":
 
-    # Add a diagonal line
-    plt.plot(
-        [diag_min, diag_max],
-        [diag_min, diag_max],
-        linestyle=":",
-        color="grey",
-    )
+        # diag min to smallest one decimal and max to largest
+        diag_min = math.floor(diag_min * 10) / 10
+        diag_max = math.ceil(diag_max * 10) / 10
+
+        # Add a diagonal line
+        plt.plot(
+            [diag_min, diag_max],
+            [diag_min, diag_max],
+            linestyle=":",
+            color="grey",
+        )
 
     ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
 
@@ -783,7 +815,9 @@ def plot_pretrain_degree(
 
     """A method for plotting the pretraining arch"""
 
-    plot_title = f"Best {metric} cross different pretrain degrees of {arch.upper()}"
+    plot_title = "Best {} cross different pretrain degrees of {}".format(
+        simplify_test_metric(metric), arch.upper()
+    )
 
     if delta_onehot:
         melt_cols = ["task"] + [str(p) + " - onehot" for p in CHECKPOINT_PERCENT]
@@ -827,7 +861,9 @@ def plot_pretrain_degree(
     ax.set_xticklabels([str(tick) for tick in CHECKPOINT_PERCENT])
 
     ax.set_xlim(0, 1.125)
-    ax.set_ylim(None, y_max)
+
+    if metric != "test_loss":
+        ax.set_ylim(None, y_max)
 
     # Set labels and title
     ax.set_xlabel(x_name)
@@ -869,7 +905,9 @@ def plot_arch_size(
         arch_name = arch.upper()
         arch_list = [arch]
 
-    plot_title = f"Last layer {metric} cross different sizes of pretrain {arch_name}"
+    plot_title = "Last layer {} cross different sizes of pretrain {}".format(
+        simplify_test_metric(metric), arch_name
+    )
 
     if delta_onehot:
         label_append = " - onehot"
@@ -971,8 +1009,12 @@ def plot_arch_size(
 
     plt.xscale("log")
 
-    # Set y-axis limits
-    ax.set_ylim(bottom=None, top=y_max)
+    if metric == "test_loss":
+        plt.yscale("log")
+
+    if metric != "test_loss":
+        # Set y-axis limits
+        ax.set_ylim(bottom=None, top=y_max)
 
     # Set labels and title
     ax.set_xlabel("Log model size (M)")
@@ -1003,7 +1045,7 @@ def plot_layer_delta_simple(
     after selecting the best performance based on given metric
     """
 
-    plot_title = f"Best {metric} at x = {layer_cut}"
+    plot_title = "Best {} at x = {}".format(simplify_test_metric(metric), layer_cut)
 
     print(f"Plotting {plot_title}...")
 
@@ -1020,28 +1062,30 @@ def plot_layer_delta_simple(
         x = sliced_df["x-0"].values
         y = sliced_df["f-x"].values
 
-        min_xy = min(min(y), min(x))
-        max_xy = max(max(x), max(y))
+        if metric != "test_loss":
+            min_xy = min(min(y), min(x))
+            max_xy = max(max(x), max(y))
 
-        if min_xy < diag_min:
-            diag_min = min_xy
+            if min_xy < diag_min:
+                diag_min = min_xy
 
-        if max_xy > diag_max:
-            diag_max = max_xy
+            if max_xy > diag_max:
+                diag_max = max_xy
 
         scatter = ax.scatter(x, y, c=c, label=task, s=200, alpha=0.8, edgecolors="none")
 
-    # diag min to smallest one decimal
-    diag_min = math.floor(diag_min * 10) / 10
-    diag_max = math.ceil(diag_max * 10) / 10
+    if metric != "test_loss":
+        # diag min to smallest one decimal
+        diag_min = math.floor(diag_min * 10) / 10
+        diag_max = math.ceil(diag_max * 10) / 10
 
-    # Add a diagonal line
-    plt.plot(
-        [diag_min, diag_max],
-        [diag_min, diag_max],
-        linestyle=":",
-        color="grey",
-    )
+        # Add a diagonal line
+        plt.plot(
+            [diag_min, diag_max],
+            [diag_min, diag_max],
+            linestyle=":",
+            color="grey",
+        )
 
     # add colored task legend
     ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
@@ -1068,7 +1112,9 @@ def plot_layer_delta_det(
 ):
     """A function for plotting and saving layer delta"""
 
-    plot_title = f"{arch.upper()} layer {metric} at x = {layer_cut}"
+    plot_title = "{} layer {} at x = {}".format(
+        arch.upper(), simplify_test_metric(metric), layer_cut
+    )
 
     print(f"Plotting {plot_title}...")
 
@@ -1155,7 +1201,7 @@ def plot_layer_delta_hv(
 ):
     """A function for plotting and saving layer delta"""
 
-    plot_title = f"{arch.upper()} layer {metric} at x = {layer_cut}"
+    plot_title = "{} layer {} at x = {}".format(arch.upper(), metric, layer_cut)
 
     print(f"Plotting {plot_title}...")
 
