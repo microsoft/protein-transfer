@@ -28,7 +28,8 @@ from scr.params.vis import (
     TASK_COLORS,
     TASK_SIMPLE_COLOR_MAP,
     PLOT_EXTS,
-    ARCH_STYLE_DICT,
+    ARCH_LINE_STYLE_DICT,
+    ARCH_DOT_STYLE_DICT
 )
 from scr.analysis.utils import INIT_DICT, INIT_SIMPLE_LIST, SIMPLE_METRIC_LIST
 from scr.utils import checkNgen_folder
@@ -101,7 +102,7 @@ class PlotResultScatter:
 
             last_metric_dict[m] = {}
 
-            for arch in ARCH_TYPE:
+            for arch in ARCH_TYPE + [""]:
                 last_metric_dict[m][arch] = get_bestorlast_metric_df(
                     df=self.prepped_df.copy(), metric=m, arch=arch, bestorlast="last"
                 )
@@ -226,7 +227,7 @@ class PlotResultScatter:
             df=self.best_metric_df_dict["all"][metric],
             metric=metric,
             path2folder=checkNgen_folder(
-                os.path.join(self._sum_folder, "embvsonetho", metric)
+                os.path.join(self._sum_folder, "best", "embvsonetho", metric)
             ),
         )
 
@@ -238,10 +239,20 @@ class PlotResultScatter:
             df=emb_df,
             metric=metric,
             path2folder=checkNgen_folder(
-                os.path.join(self._sum_folder, "bestemblayer", metric)
+                os.path.join(self._sum_folder, "best", "bestemblayer", metric)
             ),
         )
 
+        last_df = self.last_metric_df_dict[metric][""]
+
+        # now plot more detailed last layer emb vs onehot and save
+        vs_plot_det = plot_emb_onehot_det(
+            df=last_df[last_df["ptp"].isin([0, 1])], # ignore ptp not 1 or 0
+            metric=metric,
+            path2folder=checkNgen_folder(
+                os.path.join(self._sum_folder, "last", "embvsonetho", metric)
+            ),
+        )
         # now add rand stat info to emb_df
         emb_df = self._append_randstat(emb_df=emb_df)
 
@@ -258,7 +269,7 @@ class PlotResultScatter:
                     randstat=randstat,
                     delta_onehot=delta_onehot,
                     path2folder=checkNgen_folder(
-                        os.path.join(self._sum_folder, "randstat", metric)
+                        os.path.join(self._sum_folder, "best", "randstat", metric)
                     ),
                 )
 
@@ -308,7 +319,7 @@ class PlotResultScatter:
                 layer_cut=layer_cut,
                 metric=metric,
                 path2folder=checkNgen_folder(
-                    os.path.join(self._sum_folder, "layerdelta_simple", metric)
+                    os.path.join(self._sum_folder, "best", "layerdelta_simple", metric)
                 ),
             )
 
@@ -335,7 +346,7 @@ class PlotResultScatter:
                 arch=arch,
                 metric=metric,
                 path2folder=checkNgen_folder(
-                    os.path.join(self._sum_folder, "layerdelta", metric)
+                    os.path.join(self._sum_folder, "best", "layerdelta", metric)
                 ),
             )
 
@@ -354,7 +365,7 @@ class PlotResultScatter:
                 arch=arch,
                 delta_onehot=delta_onehot,
                 path2folder=checkNgen_folder(
-                    os.path.join(self._sum_folder, "pretraindegree", metric, arch)
+                    os.path.join(self._sum_folder, "best", "pretraindegree", metric, arch)
                 ),
             )
 
@@ -620,7 +631,7 @@ def plot_best_layer_bar(
 def plot_emb_onehot(
     df: pd.DataFrame,
     metric: str,
-    path2folder: str = "results/summary/embonehot",
+    path2folder: str = "results/summary/best/embonehot",
 ):
     """A function for plotting best emb vs onehot"""
 
@@ -685,6 +696,136 @@ def plot_emb_onehot(
 
     return fig
 
+
+# make df no ptp dets already
+def plot_emb_onehot_det(
+    df: pd.DataFrame,
+    metric: str,
+    path2folder: str = "results/summary/last/embonehot",
+):
+
+    """
+    A function for plotting emb with different size and arch vs onehot
+    """
+
+    plot_title = "Best {} embedding against onehot baseline".format(
+        simplify_test_metric(metric)
+    )
+
+    print(f"Plotting {plot_title}...")
+
+    fig, ax = plt.subplots()
+    fig.set_size_inches(6, 6)
+
+    if "best_value" in df.columns:
+        val_col = "best_value"
+    elif "last_value" in df.columns:
+        val_col = "last_value"
+
+    # get the min x or y for the diagnol line
+    diag_min = 1
+
+    for arch in ARCH_TYPE:
+
+        for (task, c) in TASK_SIMPLE_COLOR_MAP.items():
+
+            sliced_df = df[(df["task"] == task) & (df["arch"] == arch)]
+
+            onehot_df = sliced_df[sliced_df["ablation"] == "onehot"]
+            emb_df = sliced_df[sliced_df["ablation"] == "emb"]
+
+            x = onehot_df[val_col].values
+            y = emb_df[val_col].values
+            # x will be onehot for esm or carp for the given task
+            # and y will be all different arch
+            x = np.repeat(x, len(y))
+
+            if metric != "test_loss":
+                min_xy = min(min(y), min(x))
+                if min_xy < diag_min:
+                    diag_min = min_xy
+
+            s = np.log(emb_df["model_size"].values + 1) * 18
+
+            arch_dict = ARCH_DOT_STYLE_DICT[arch]
+
+            if arch == "esm":
+                arch_dict["c"] = c
+                arch_dict["label"] = task
+            elif arch == "carp":
+                arch_dict["edgecolor"] = c
+
+            scatter = ax.scatter(x, y, s=s, **arch_dict)
+
+    if metric != "test_loss":
+        # diag min to smallest one decimal
+        diag_min = math.floor(diag_min * 10) / 10
+
+        # Add a diagonal line
+        plt.plot(
+            [diag_min, 1],
+            [diag_min, 1],
+            linestyle=":",
+            color="grey",
+        )
+
+    ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
+
+    # add legend for arch size
+    arch_size_scatter = [None] * (len(MODEL_SIZE) - 1)
+
+    for i, (model, size) in enumerate(
+        {
+            model: size for model, size in MODEL_SIZE.items() if model not in ["onehot"]
+        }.items()
+    ):
+        
+        if "carp" in model:
+            mfc = "none"
+        else:
+            mfc = "gray"
+
+        arch_size_scatter[i] = Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=f"{model}: {size} M",
+            markersize=np.log(size + 1) + 2.75,
+            markerfacecolor="gray",
+            markeredgecolor="gray",
+            mfc=mfc,
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=list(arch_size_scatter),
+            bbox_to_anchor=(1, 0.49),
+            loc="upper left",
+            title="Pretrained architecture sizes",
+        )
+    )
+
+    if metric == "test_loss":
+        plt.xscale("log")
+        plt.yscale("log")
+
+    plt.ylabel("Best embedding test performance")
+    plt.xlabel("Onehot")
+    plt.title(plot_title)
+
+    path2folder = checkNgen_folder(os.path.normpath(path2folder))
+
+    print(f"Saving to {path2folder}...")
+
+    for ext in PLOT_EXTS:
+        plot_title_no_space = plot_title.replace(" ", "_")
+        plt.savefig(
+            os.path.join(path2folder, f"{plot_title_no_space}{ext}"),
+            bbox_inches="tight",
+        )
+
+    return fig
 
 def plot_randstat(
     df: pd.DataFrame,
@@ -972,7 +1113,7 @@ def plot_arch_size(
                 alpha=0.8,
                 label=label,
                 color=TASK_SIMPLE_COLOR_MAP.get(category, "gray"),
-                **ARCH_STYLE_DICT[a],
+                **ARCH_LINE_STYLE_DICT[a],
             )
 
     # add additional legend if for both
@@ -991,7 +1132,7 @@ def plot_arch_size(
                 [0],
                 marker="o",
                 color="gray",
-                linestyle=ARCH_STYLE_DICT[a]["linestyle"],
+                linestyle=ARCH_LINE_STYLE_DICT[a]["linestyle"],
                 label=a.upper(),
                 markerfacecolor="k",
                 markersize=12,
