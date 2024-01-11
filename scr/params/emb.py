@@ -40,6 +40,9 @@ MODEL_SIZE = {
     "onehot": 0.02
 }
 
+# emb model parameter number in M
+EMB_MODEL_SIZE = {k: v for k, v in MODEL_SIZE.items() if k != "onehot"}
+
 MODEL_LAYER = {
     model_name: model_dets[1]
     for info_dict in [TRANSFORMER_INFO, CARP_INFO, {"onehot": (1, 1)}]
