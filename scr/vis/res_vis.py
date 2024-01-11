@@ -635,8 +635,13 @@ def plot_emb_onehot(
 ):
     """A function for plotting best emb vs onehot"""
 
-    plot_title = "Best {} embedding against onehot baseline".format(
-        simplify_test_metric(metric)
+    if "best" in path2folder:
+        bestorlast = "Best"
+    else:
+        bestorlast = "Last layer"
+
+    plot_title = "{} {} embedding against onehot baseline".format(
+        bestorlast, simplify_test_metric(metric)
     )
 
     print(f"Plotting {plot_title}...")
@@ -679,7 +684,7 @@ def plot_emb_onehot(
         plt.xscale("log")
         plt.yscale("log")
 
-    plt.ylabel("Best embedding test performance")
+    plt.ylabel(f"{bestorlast} embedding test performance")
     plt.xlabel("Onehot")
     plt.title(plot_title)
 
@@ -708,8 +713,13 @@ def plot_emb_onehot_det(
     A function for plotting emb with different size and arch vs onehot
     """
 
-    plot_title = "Best {} embedding against onehot baseline".format(
-        simplify_test_metric(metric)
+    if "best" in path2folder:
+        bestorlast = "Best"
+    else:
+        bestorlast = "Last layer"
+
+    plot_title = "{} {} embedding against onehot baseline".format(
+        bestorlast, simplify_test_metric(metric)
     )
 
     print(f"Plotting {plot_title}...")
@@ -810,7 +820,7 @@ def plot_emb_onehot_det(
         plt.xscale("log")
         plt.yscale("log")
 
-    plt.ylabel("Best embedding test performance")
+    plt.ylabel(f"{bestorlast} embedding test performance")
     plt.xlabel("Onehot")
     plt.title(plot_title)
 
@@ -832,7 +842,7 @@ def plot_randstat(
     metric: str,
     randstat: str,
     delta_onehot: bool = True,
-    path2folder: str = "results/summary/randstat",
+    path2folder: str = "results/summary/last/randstat",
 ):
 
     """
@@ -840,15 +850,20 @@ def plot_randstat(
     or rand vs stat
     """
 
+    if "best" in path2folder:
+        bestorlast = "Best"
+    else:
+        bestorlast = "Last layer"
+
     if randstat == "":
         comp_det = " vs ".join(list(INIT_DICT.values()))
-        plot_title = "Best {} embedding same layer {}".format(
-            simplify_test_metric(metric), comp_det
+        plot_title = "{} {} embedding same layer {}".format(
+            bestorlast, simplify_test_metric(metric), comp_det
         )
         pathrandstat = "vs"
     else:
-        plot_title = "Best {} embedding against same layer {}".format(
-            simplify_test_metric(metric), INIT_DICT[randstat]
+        plot_title = "{} {} embedding against same layer {}".format(
+            bestorlast, simplify_test_metric(metric), INIT_DICT[randstat]
         )
         pathrandstat = randstat
 
@@ -927,10 +942,10 @@ def plot_randstat(
     ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
 
     if randstat == "":
-        plt.xlabel(f"Best embedding random init {label_append}")
-        plt.ylabel(f"Best embedding stat transfer {label_append}")
+        plt.xlabel("{} embedding random init {}".format(bestorlast,label_append))
+        plt.ylabel("{} embedding stat transfer {}".format(bestorlast,label_append))
     else:
-        plt.xlabel(f"Best embedding {label_append}")
+        plt.xlabel("{} embedding {}".format(bestorlast,label_append))
         plt.ylabel(f"{INIT_DICT[randstat].capitalize()} {label_append}")
 
     plt.title(plot_title)
@@ -951,13 +966,19 @@ def plot_pretrain_degree(
     metric: str = "test_performance_1",
     arch: str = "carp",
     delta_onehot: bool = True,
-    path2folder: str = "results/summary/pretraindegree",
+    path2folder: str = "results/summar/last/pretraindegree",
 ):
 
     """A method for plotting the pretraining arch"""
 
-    plot_title = "Best {} cross different pretrain degrees of {}".format(
-        simplify_test_metric(metric), arch.upper()
+    if "best" in path2folder:
+        bestorlast = "Best"
+    else:
+        bestorlast = "Last layer"
+
+
+    plot_title = "{} {} cross different pretrain degrees of {}".format(
+        bestorlast, simplify_test_metric(metric), arch.upper()
     )
 
     if delta_onehot:
@@ -972,7 +993,7 @@ def plot_pretrain_degree(
         y_max = 1
 
     x_name = "Pretrain degree"
-    y_name = "Best test performance" + label_append
+    y_name = "{} test performance{}".format(bestorlast, label_append)
 
     emb_df_melt = pd.melt(
         emb_df[melt_cols],
@@ -1179,14 +1200,20 @@ def plot_layer_delta_simple(
     df: pd.DataFrame,
     layer_cut: int,
     metric: str,
-    path2folder: str = "results/summary/layerdelta_simple",
+    path2folder: str = "results/summary/last/layerdelta_simple",
 ):
     """
     A function for plotting and saving layer delta
     after selecting the best performance based on given metric
     """
 
-    plot_title = "Best {} at x = {}".format(simplify_test_metric(metric), layer_cut)
+    if "best" in path2folder:
+        bestorlast = "Best"
+    else:
+        bestorlast = "Last layer"
+
+
+    plot_title = "{} {} at x = {}".format(bestorlast, simplify_test_metric(metric), layer_cut)
 
     print(f"Plotting {plot_title}...")
 
