@@ -122,11 +122,20 @@ class PlotResultScatter:
         return last_metric_dict
 
     def _get_last_layer_bar_df(
-        self, metric: str, layers: list[int] = []
-    ) -> list[pd.DataFrame, pd.DataFrame]:
+        self, metric: str, ablation: str = "emb", layers: list[int] = []
+    ) -> list[pd.DataFrame, pd.DataFrame, list[str]]:
+
+        """
+        A method for slicing df with last layer info for bar plots
+        """
 
         df = get_bestorlast_metric_df(
-            df=self.prepped_df, metric=metric, arch="", bestorlast="last", layers=layers
+            df=self.prepped_df,
+            metric=metric,
+            arch="",
+            bestorlast="last",
+            ablation=ablation,
+            layers=layers,
         )
 
         get_val_col = [v for v in df.columns if "_value" in v]
@@ -145,7 +154,7 @@ class PlotResultScatter:
         ]
 
         # prep clean emb_df
-        emb_df = df[df["ablation"] == "emb"].reset_index(drop=True)
+        emb_df = df[df["ablation"] == ablation].reset_index(drop=True)
         # Convert 'model' to categorical with custom order
         emb_df["model"] = pd.Categorical(
             emb_df["model"], categories=list(EMB_MODEL_SIZE.keys()), ordered=True
@@ -160,13 +169,6 @@ class PlotResultScatter:
         onehot_df = onehot_df.drop("arch", axis=1)
         # Drop duplicate rows based on all columns
         onehot_df = onehot_df.drop_duplicates().reset_index(drop=True)
-
-        # fill nan in val col from 'last_value'
-        # df['Column1'].fillna(df['Column2']) fills NaN values in 'Column1'
-        # with corresponding values from 'Column2'
-        for c in get_val_col:
-            if "last" not in c:
-                onehot_df[c] = onehot_df[c].fillna(onehot_df["last_value"])
 
         return emb_df, onehot_df, sorted(get_val_col.copy())
 
@@ -331,17 +333,55 @@ class PlotResultScatter:
 
         # get diff layer emb vs onehot
         layer_emb_df, layer_onehot_df, layer_val_col = self._get_last_layer_bar_df(
-            metric=metric, layers=ARCH_BAR_LAYER
+            metric=metric, ablation="emb", layers=ARCH_BAR_LAYER
         )
-        layers_bar = plot_emb_layer_bar(
-            emb_df=layer_emb_df,
-            onehot_df=layer_onehot_df,
+
+        # minue onehot
+        layer_emb_delta_df = subtract_onehot(
+            df=layer_emb_df, onehot_df=layer_onehot_df, val_col=layer_val_col
+        )
+
+        plot_emb_layer_bar(
+            df=layer_emb_delta_df,
             val_col=layer_val_col,
             metric=metric,
+            ifratio=False,
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "last", "emblayersvsonehot_bar", metric)
             ),
         )
+
+        # now do rand and stat
+        for ablation in ["rand", "stat"]:
+            # get rand stat bar with layers
+            layer_ab_delta_df = subtract_onehot(
+                *self._get_last_layer_bar_df(
+                    metric=metric, layers=ARCH_BAR_LAYER, ablation=ablation
+                )
+            )
+
+            for r in [False, True]:
+
+                if r:
+                    df = take_ratio(
+                        ablation_df=layer_ab_delta_df,
+                        emb_df=layer_emb_delta_df,
+                        val_col=layer_val_col,
+                    )
+                else:
+                    df = layer_ab_delta_df
+
+                plot_emb_layer_bar(
+                    df=df,
+                    val_col=layer_val_col,
+                    metric=metric,
+                    ifratio=r,
+                    path2folder=checkNgen_folder(
+                        os.path.join(
+                            self._sum_folder, "last", "emblayersvsonehot_bar", metric
+                        )
+                    ),
+                )
 
         # add rand stat info to emb_df
         emb_df = self._append_randstat(emb_df=emb_df)
@@ -363,7 +403,7 @@ class PlotResultScatter:
                     ),
                 )
 
-        return vs_plot, bar_plot, vs_plot_det, last_layer_bar, layers_bar
+        return vs_plot, bar_plot, vs_plot_det, last_layer_bar
 
     def plot_layer_delta(
         self,
@@ -562,6 +602,7 @@ def get_bestorlast_metric_df(
     metric: str = "test_performance_1",
     arch: str = "",
     bestorlast: str = "best",
+    ablation: str = "emb",
     layers: list[int] = [],
 ) -> pd.DataFrame:
 
@@ -575,7 +616,7 @@ def get_bestorlast_metric_df(
     slice_df = df[(df["metric"] == metric)].copy()
 
     slice_df = slice_df[
-        (slice_df["ablation"] == "onehot") | (slice_df["ablation"] == "emb")
+        (slice_df["ablation"] == "onehot") | (slice_df["ablation"] == ablation)
     ]
 
     # comb carp and esm
@@ -628,6 +669,37 @@ def get_bestorlast_metric_df(
         print(f"{bestorlast} is not 'best' or 'last'")
 
     return slice_df.copy()
+
+
+def subtract_onehot(df: pd.DataFrame, onehot_df: pd.DataFrame, val_col: list[str]):
+
+    """A function for subtracting onehot from emb vals"""
+
+    # Merge dataframes on common columns
+    merged_df = pd.merge(
+        df,
+        onehot_df[["task", "last_value"]].rename(
+            columns={"last_value": "onehot_value"}
+        ),
+        on=["task"],
+        how="left",
+    )
+
+    # Perform the desired subtraction for all val col
+
+    for c in val_col:
+        merged_df[c] = merged_df[c] - merged_df["onehot_value"]
+
+    # Drop the onehot val columns
+    return merged_df.drop(columns=["onehot_value"])
+
+
+def take_ratio(ablation_df: pd.DataFrame, emb_df: pd.DataFrame, val_col: list[str]):
+    """
+    Return df ratio
+    """
+    ablation_df[val_col] = ablation_df[val_col] / emb_df[val_col]
+    return ablation_df
 
 
 def get_layer_value(
@@ -921,16 +993,36 @@ def plot_emb_df_last_layer_bar(
 
 
 def plot_emb_layer_bar(
-    emb_df: pd.DataFrame,
-    onehot_df: pd.DataFrame,
+    df: pd.DataFrame,
     val_col: list[str],
     metric: str,
+    ifratio: bool = False,
     path2folder: str = "results/summary/last/emblayersvsonehot_bar",
 ):
     """A function for plotting different layer of emb"""
 
-    plot_title = "Different layer embedding {} compared against onehot".format(
-        simplify_test_metric(metric)
+    if "emb" in df["ablation"].values:
+        title_ab = "embedding"
+        ylabel = "Embedding - Onehot"
+    elif "rand" in df["ablation"].values:
+        title_ab = "random init"
+        if ifratio:
+            path2folder = path2folder.replace("emblayersvsonehot_bar", "randembvsonehot_bar")
+            ylabel = "(Random init - Onehot) / (Embedding - Onehot)"
+        else:
+            path2folder = path2folder.replace("emblayersvsonehot_bar", "randvsonehot_bar")
+            ylabel = "Random init - Onehot"
+    elif "stat" in df["ablation"].values:
+        title_ab = "stat transfer"
+        if ifratio:
+            path2folder = path2folder.replace("emblayersvsonehot_bar", "statembvsonehot_bar")
+            ylabel = "(Stat transfer - Onehot) / (Embedding - Onehot)"
+        else:
+            path2folder = path2folder.replace("emblayersvsonehot_bar", "statvsonehot_bar")
+            ylabel = "Stat transfer - Onehot"
+
+    plot_title = "Different layer {} {} compared against onehot".format(
+        title_ab, simplify_test_metric(metric)
     )
 
     # Create a three-degree nested multiclass bar plot
@@ -947,11 +1039,11 @@ def plot_emb_layer_bar(
     # Plotting the bars with different levels of customization
     for i, (t, st, sst, ml, vals) in enumerate(
         zip(
-            emb_df["task"],
-            emb_df["arch"],
-            emb_df["model"],
-            emb_df["model_layer"],
-            emb_df[val_col].to_numpy(),
+            df["task"],
+            df["arch"],
+            df["model"],
+            df["model_layer"],
+            df[val_col].to_numpy(),
         )
     ):
 
@@ -960,8 +1052,8 @@ def plot_emb_layer_bar(
 
         # plot the scatter for diff emb layer
         ax.scatter(
-            [x] * len(val_col), # make x y same size
-            vals - onehot_df[onehot_df["task"] == t]["last_value"].values[0],
+            [x] * len(val_col),  # make x y same size
+            vals,
             alpha=LAYER_ALPHAS,
             s=80,
             edgecolor="none",
@@ -980,16 +1072,8 @@ def plot_emb_layer_bar(
             alpha=0.8,
         )
 
-    # add onehot y=0 line
-    ax.axhline(
-        y=0,
-        linestyle="--",
-        color="gray",
-        linewidth=1.2,
-    )
-
     # Manually create legend elements
-    arch_legend_list = [None] * (len(ARCH_TYPE) + 1)
+    arch_legend_list = [None] * len(ARCH_TYPE)
 
     for i, a in enumerate(ARCH_TYPE):
 
@@ -1004,9 +1088,24 @@ def plot_emb_layer_bar(
             markerfacecolor="gray",
             markeredgecolor="none",
         )
-    
-    arch_legend_list[-1] = Line2D(
-        [0], [0], linestyle="--", color="gray", label="Onehot"
+
+    # add onehot y=0 line
+
+    if ifratio:
+        ref_y = 1
+        ref_label = "Emb = Ablation"
+    else:
+        ref_y = 0
+        ref_label = "Onehot"
+
+    ax.axhline(
+        y=ref_y,
+        linestyle="--",
+        color="gray",
+        linewidth=1.2,
+    )
+    arch_legend_list.append(
+        Line2D([0], [0], linestyle="--", color="gray", label=ref_label)
     )
 
     ax.add_artist(
@@ -1090,8 +1189,8 @@ def plot_emb_layer_bar(
 
     # Set x and y value ranges
     ax.set_xlim(0.36, 112.6)
-    
-    if metric == "test_loss":
+
+    if metric == "test_loss" or ifratio:
         ax.set_yscale("symlog")
 
     # Set x-axis ticks and align them to the middle of the corresponding labels
@@ -1106,7 +1205,7 @@ def plot_emb_layer_bar(
 
     # Set labels and title
     ax.set_xlabel("Tasks")
-    ax.set_ylabel("Different layer embedding test performance minus onehot")
+    ax.set_ylabel(ylabel)
 
     # Adjust layout for better visibility of legends
     plt.subplots_adjust(right=0.7, bottom=0.2)
@@ -1636,7 +1735,7 @@ def plot_arch_size(
                 markersize=12,
                 mfc=mfc,
             )
-        
+
         ax.add_artist(
             ax.legend(
                 handles=arch_legend_list,
