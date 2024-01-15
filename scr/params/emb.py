@@ -2,11 +2,9 @@
 
 ARCH_TYPE = ["esm", "carp"]
 
-ARCH_CUT_DICT = {
-    "": [2, 3, 4, 6],
-    "carp": [2, 4, 6, 12],
-    "esm": [2, 3, 4, 6]
-}
+ARCH_BAR_LAYER = [0, 2, 4, 6]
+
+ARCH_CUT_DICT = {"": [2, 3, 4, 6], "carp": [2, 4, 6, 12], "esm": [2, 3, 4, 6]}
 
 # the longest seq for esm1b is 1022 with CLS and EOS
 MAX_SEQ_LEN = 1022
@@ -37,7 +35,7 @@ MODEL_SIZE = {
     "carp_38M": 38,
     "carp_76M": 76,
     "carp_640M": 640,
-    "onehot": 0.02
+    "onehot": 0.02,
 }
 
 # emb model parameter number in M
@@ -49,6 +47,8 @@ MODEL_LAYER = {
     for model_name, model_dets in info_dict.items()
 }
 
+EMB_MODEL_LAYER = {k: v for k, v in MODEL_LAYER.items() if k != "onehot"}
+
 CHECKPOINT_PERCENT = [0.125, 0.25, 0.5, 1]
 
 # TODO integrate to be auto from sheet
@@ -57,6 +57,33 @@ CARP_CHECKPOINTS = {
     "carp_38M": {0.5: 517622, 0.25: 256897, 0.125: 129575},
     "carp_76M": {0.5: 327960, 0.25: 162959, 0.125: 83180},
     "carp_640M": {0.5: 311757, 0.25: 154698, 0.125: 78810},
+}
+
+CARP_CHECKPOINT_LOSSES = {
+    "carp_600k": {
+        1: 2.5051483969586483,
+        0.5: 2.5123053303486858,
+        0.25: 2.517630364015801,
+        0.125: 2.5268538140067247,
+    },
+    "carp_38M": {
+        1: 2.3030167711945997,
+        0.5: 2.3189422531432275,
+        0.25: 2.338586726549564,
+        0.125: 2.3630260306320774,
+    },
+    "carp_76M": {
+        1: 2.2056100474366542,
+        0.5: 2.224771098829285,
+        0.25: 2.248077081483563,
+        0.125: 2.277597215778113,
+    },
+    "carp_640M": {
+        1: 2.0194828284458466,
+        0.5: 2.0535276480066376,
+        0.25: 2.094229900229448,
+        0.125: 2.1455246604919718,
+    },
 }
 
 CARP_600K = {

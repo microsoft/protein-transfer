@@ -11,9 +11,9 @@ PLOT_EXTS = [".png", ".svg"]
 PRESENTATION_PALETTE_SATURATE_DICT = {
     "blue": "#4bacc6",
     "orange": "#f79646",
-    "green":"#9bbb59",
-    "purple":"#8064a2",
-    "gray":"#666666",
+    "green": "#9bbb59",
+    "purple": "#8064a2",
+    "gray": "#666666",
 }
 
 # blue, orange, green, yellow, purple, gray
@@ -38,11 +38,7 @@ PRESENTATION_PALETTE_SATURATE = list(PRESENTATION_PALETTE_SATURATE_DICT.keys())
 
 # lgihter organes: 45%, 30%, 15%
 # from https://www.w3schools.com/colors/colors_picker.asp
-CHECKPOINT_COLOR = {
-    0.5: "#dc6809",
-    0.25: "#934506",
-    0.125: "#492303"
-}
+CHECKPOINT_COLOR = {0.5: "#dc6809", 0.25: "#934506", 0.125: "#492303"}
 
 # note that "structure_ss3_tape_processed" is not considered
 # as only for train and val
@@ -58,11 +54,11 @@ ORDERED_TASK_LIST = [
     "annotation_scl_balanced",
     "structure_ss3_casp12",
     "structure_ss3_cb513",
-    "structure_ss3_ts115"
+    "structure_ss3_ts115",
 ]
 
 # assume same order as the above
-ORDERED_TASK_LIST_SIMPLE =[
+ORDERED_TASK_LIST_SIMPLE = [
     "GB1 - sampled",
     "GB1 - low vs high",
     "GB1 - two vs rest",
@@ -72,7 +68,7 @@ ORDERED_TASK_LIST_SIMPLE =[
     "Subcellular localization",
     "SS3 - CASP12",
     "SS3 - CB513",
-    "SS3 - TS115"
+    "SS3 - TS115",
 ]
 
 # assume same order
@@ -82,9 +78,21 @@ TASK_LEGEND_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST, ORDERED_TASK_LIST_SIM
 TASK_SIMPLE_COLOR_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST_SIMPLE, TASK_COLORS)}
 
 # for lines
-ARCH_LINE_STYLE_DICT = {"esm": {"linestyle": "solid", "mec": "none"}, 
-                    "carp": {"linestyle": "dotted", "mfc": "none"}}
+ARCH_LINE_STYLE_DICT = {
+    "carp": {"linestyle": "solid", "mec": "none"},
+    "esm": {"linestyle": "dotted", "mfc": "none"},
+}
 
 # for dots
-ARCH_DOT_STYLE_DICT = {"esm": {"edgecolors": "none", "alpha": 0.8}, 
-                    "carp": {"facecolors": "none"}}
+ARCH_DOT_STYLE_DICT = {
+    "carp": {"facecolors": "none"},
+    "esm": {"edgecolors": "none", "alpha": 0.8},
+}
+
+# for scatter
+ARCH_SCATTER_STYLE_DICT = {
+    "carp": "o",
+    "esm": "X",
+}
+
+LAYER_ALPHAS = [0.2, 0.4, 0.6, 0.8, 1]

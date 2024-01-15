@@ -27,7 +27,9 @@ from scr.params.emb import (
     MODEL_SIZE,
     EMB_MODEL_SIZE,
     MODEL_LAYER,
+    EMB_MODEL_LAYER,
     ARCH_TYPE,
+    ARCH_BAR_LAYER,
     CHECKPOINT_PERCENT,
 )
 from scr.params.vis import (
@@ -38,6 +40,8 @@ from scr.params.vis import (
     PLOT_EXTS,
     ARCH_LINE_STYLE_DICT,
     ARCH_DOT_STYLE_DICT,
+    ARCH_SCATTER_STYLE_DICT,
+    LAYER_ALPHAS,
 )
 from scr.analysis.utils import INIT_DICT, INIT_SIMPLE_LIST, SIMPLE_METRIC_LIST
 from scr.utils import checkNgen_folder
@@ -117,19 +121,27 @@ class PlotResultScatter:
 
         return last_metric_dict
 
-    def _get_last_layer_bar_df(self, metric: str) -> list[pd.DataFrame, pd.DataFrame]:
-
-        """
-        A method for slicing df with last layer info for bar plots
-        """
+    def _get_last_layer_bar_df(
+        self, metric: str, layers: list[int] = []
+    ) -> list[pd.DataFrame, pd.DataFrame]:
 
         df = get_bestorlast_metric_df(
-            df=self.prepped_df, metric=metric, arch="", bestorlast="last"
+            df=self.prepped_df, metric=metric, arch="", bestorlast="last", layers=layers
         )
+
+        get_val_col = [v for v in df.columns if "_value" in v]
 
         # do not consider diff deg of pretrain just yet in this case
         df = df[df["ptp"].isin([0, 1])][
-            ["arch", "task", "model", "ablation", "model_size", "last_value"]
+            [
+                "arch",
+                "task",
+                "model",
+                "ablation",
+                "model_size",
+                "model_layer",
+                *get_val_col,
+            ]
         ]
 
         # prep clean emb_df
@@ -140,7 +152,7 @@ class PlotResultScatter:
         )
 
         # Sort the DataFrame based on the custom order in 'model'
-        emb_df = emb_df.sort_values(by=["task", "model"])
+        emb_df = emb_df.sort_values(by=["task", "model"]).reset_index(drop=True)
 
         # prep clean emb_df
         onehot_df = df[df["ablation"] == "onehot"].reset_index(drop=True)
@@ -149,7 +161,14 @@ class PlotResultScatter:
         # Drop duplicate rows based on all columns
         onehot_df = onehot_df.drop_duplicates().reset_index(drop=True)
 
-        return emb_df, onehot_df
+        # fill nan in val col from 'last_value'
+        # df['Column1'].fillna(df['Column2']) fills NaN values in 'Column1'
+        # with corresponding values from 'Column2'
+        for c in get_val_col:
+            if "last" not in c:
+                onehot_df[c] = onehot_df[c].fillna(onehot_df["last_value"])
+
+        return emb_df, onehot_df, sorted(get_val_col.copy())
 
     def _append_randstat(self, emb_df: pd.DataFrame) -> pd.DataFrame:
 
@@ -255,7 +274,9 @@ class PlotResultScatter:
 
         return emb_df
 
-    def plot_emb_onehot(self, metric: str = "test_performance_1") -> pd.DataFrame:
+    def plot_emb_onehot(
+        self, metric: str = "test_performance_1", layers: list[int] = [2, 4, 6]
+    ) -> pd.DataFrame:
 
         """
         A method for getting df for emb vs onehot
@@ -297,7 +318,7 @@ class PlotResultScatter:
         )
 
         # plot embvsonehot in bar plots
-        bar_emb_df, bar_onehot_df = self._get_last_layer_bar_df(metric=metric)
+        bar_emb_df, bar_onehot_df, _ = self._get_last_layer_bar_df(metric=metric)
 
         last_layer_bar = plot_emb_df_last_layer_bar(
             emb_df=bar_emb_df,
@@ -305,6 +326,20 @@ class PlotResultScatter:
             metric=metric,
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "last", "embvsonehot_bar", metric)
+            ),
+        )
+
+        # get diff layer emb vs onehot
+        layer_emb_df, layer_onehot_df, layer_val_col = self._get_last_layer_bar_df(
+            metric=metric, layers=ARCH_BAR_LAYER
+        )
+        layers_bar = plot_emb_layer_bar(
+            emb_df=layer_emb_df,
+            onehot_df=layer_onehot_df,
+            val_col=layer_val_col,
+            metric=metric,
+            path2folder=checkNgen_folder(
+                os.path.join(self._sum_folder, "last", "emblayersvsonehot_bar", metric)
             ),
         )
 
@@ -328,7 +363,7 @@ class PlotResultScatter:
                     ),
                 )
 
-        return vs_plot, bar_plot, vs_plot_det, last_layer_bar
+        return vs_plot, bar_plot, vs_plot_det, last_layer_bar, layers_bar
 
     def plot_layer_delta(
         self,
@@ -527,10 +562,14 @@ def get_bestorlast_metric_df(
     metric: str = "test_performance_1",
     arch: str = "",
     bestorlast: str = "best",
+    layers: list[int] = [],
 ) -> pd.DataFrame:
 
     """
     A function for cleaning up the df to get best layer based on chosen metric
+
+    Args:
+    - layers: list[int] = [], a list of ints for what other layers to extract
     """
 
     slice_df = df[(df["metric"] == metric)].copy()
@@ -577,6 +616,13 @@ def get_bestorlast_metric_df(
         slice_df["last_value"] = slice_df["value"].apply(
             lambda x: x[-1] if len(x) > 0 else None
         )
+
+        if len(layers) != 0:
+            for l in layers:
+                # get last layer
+                slice_df[f"{l}_value"] = slice_df["value"].apply(
+                    lambda x: x[l] if len(x) > l else None
+                )
 
     else:
         print(f"{bestorlast} is not 'best' or 'last'")
@@ -799,7 +845,7 @@ def plot_emb_df_last_layer_bar(
 
     for i, (model, size) in enumerate(EMB_MODEL_SIZE.items()):
 
-        if "carp" in model:
+        if "esm" in model:
             mfc = "none"
         else:
             mfc = "gray"
@@ -818,7 +864,7 @@ def plot_emb_df_last_layer_bar(
 
     ax.add_artist(
         ax.legend(
-            handles=list(arch_size_scatter),
+            handles=arch_size_scatter,
             bbox_to_anchor=(1, 0.55),
             loc="upper left",
             title="Pretrained architecture sizes",
@@ -861,6 +907,206 @@ def plot_emb_df_last_layer_bar(
     # Set labels and title
     ax.set_xlabel("Tasks")
     ax.set_ylabel("Last layer embedding test performance")
+
+    # Adjust layout for better visibility of legends
+    plt.subplots_adjust(right=0.7, bottom=0.2)
+
+    path2folder = checkNgen_folder(os.path.normpath(path2folder))
+
+    print(f"Saving to {path2folder}...")
+
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
+
+    return fig
+
+
+def plot_emb_layer_bar(
+    emb_df: pd.DataFrame,
+    onehot_df: pd.DataFrame,
+    val_col: list[str],
+    metric: str,
+    path2folder: str = "results/summary/last/emblayersvsonehot_bar",
+):
+    """A function for plotting different layer of emb"""
+
+    plot_title = "Different layer embedding {} compared against onehot".format(
+        simplify_test_metric(metric)
+    )
+
+    # Create a three-degree nested multiclass bar plot
+    fig, ax = plt.subplots()
+    fig.set_size_inches(24, 6)
+
+    # set up over lay grid
+    gs = GridSpec(2, 1, height_ratios=[0.5, 4], hspace=0)
+
+    # Scatter plot above the main bar plot
+    ax = plt.subplot(gs[1])
+    ax_scatter = plt.subplot(gs[0], sharex=ax)
+
+    # Plotting the bars with different levels of customization
+    for i, (t, st, sst, ml, vals) in enumerate(
+        zip(
+            emb_df["task"],
+            emb_df["arch"],
+            emb_df["model"],
+            emb_df["model_layer"],
+            emb_df[val_col].to_numpy(),
+        )
+    ):
+
+        # x-position for each bar
+        x = 1.2 * i + 1 + math.ceil((i + 1) / 4) * 0.5 + math.ceil((i + 1) / 8) * 0.5
+
+        # plot the scatter for diff emb layer
+        ax.scatter(
+            [x] * len(val_col), # make x y same size
+            vals - onehot_df[onehot_df["task"] == t]["last_value"].values[0],
+            alpha=LAYER_ALPHAS,
+            s=80,
+            edgecolor="none",
+            marker=ARCH_SCATTER_STYLE_DICT[st],
+            color=TASK_SIMPLE_COLOR_MAP[t],
+        )
+
+        # Overlay scatter plot indicating another parameter
+        ax_scatter.scatter(
+            x,
+            0.95,
+            s=ml * 1.5,
+            edgecolor="gray",
+            marker=ARCH_SCATTER_STYLE_DICT[st],
+            color="grey",
+            alpha=0.8,
+        )
+
+    # add onehot y=0 line
+    ax.axhline(
+        y=0,
+        linestyle="--",
+        color="gray",
+        linewidth=1.2,
+    )
+
+    # Manually create legend elements
+    arch_legend_list = [None] * (len(ARCH_TYPE) + 1)
+
+    for i, a in enumerate(ARCH_TYPE):
+
+        arch_legend_list[i] = Line2D(
+            [0],
+            [0],
+            marker=ARCH_SCATTER_STYLE_DICT[a],
+            color="w",
+            linestyle=ARCH_LINE_STYLE_DICT[a]["linestyle"],
+            label=a.upper(),
+            markersize=10,
+            markerfacecolor="gray",
+            markeredgecolor="none",
+        )
+    
+    arch_legend_list[-1] = Line2D(
+        [0], [0], linestyle="--", color="gray", label="Onehot"
+    )
+
+    ax.add_artist(
+        ax.legend(
+            handles=arch_legend_list,
+            bbox_to_anchor=(1, 1.012),
+            loc="upper left",
+            title="Pretrained architectures",
+        )
+    )
+
+    # add legend for arch size
+    arch_size_scatter = [None] * (len(EMB_MODEL_LAYER))
+
+    for i, (model, tl) in enumerate(EMB_MODEL_LAYER.items()):
+
+        if "esm" in model:
+            arch_type = "esm"
+        else:
+            arch_type = "carp"
+
+        arch_size_scatter[i] = Line2D(
+            [0],
+            [0],
+            marker=ARCH_SCATTER_STYLE_DICT[arch_type],
+            color="w",
+            label=f"{model}: {tl} layer",
+            markersize=np.log(tl) * 2.5,
+            markerfacecolor="gray",
+            markeredgecolor="none",
+            # mfc=mfc,
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=arch_size_scatter,
+            bbox_to_anchor=(1, 0.55),
+            loc="upper left",
+            title="Pretrained architecture total layer",
+        )
+    )
+
+    # add alpha legend
+    alpha_legend = [None] * len(LAYER_ALPHAS)
+
+    for i, (c, a) in enumerate(zip(sorted(val_col.copy()), sorted(LAYER_ALPHAS))):
+        alpha_legend[i] = Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=c.replace("_value", ""),
+            alpha=a,
+            markerfacecolor="k",
+            markersize=10,
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=alpha_legend,
+            bbox_to_anchor=(1.135, 1.012),
+            loc="upper left",
+            title="Layer",
+        )
+    )
+
+    # Remove x and y axis labels for scatter plot
+    ax_scatter.xaxis.set_visible(False)
+    ax_scatter.set_yticks([])
+
+    # Set y-axis range for scatter plot
+    ax_scatter.set_ylim(0, 2)
+
+    # Remove box around the scatter plot
+    ax_scatter.spines["top"].set_visible(False)
+    ax_scatter.spines["right"].set_visible(False)
+    ax_scatter.spines["bottom"].set_visible(False)
+    ax_scatter.spines["left"].set_visible(False)
+
+    ax_scatter.set_title(plot_title, pad=0)
+
+    # Set x and y value ranges
+    ax.set_xlim(0.36, 112.6)
+    
+    if metric == "test_loss":
+        ax.set_yscale("symlog")
+
+    # Set x-axis ticks and align them to the middle of the corresponding labels
+    ax.set_xticks(np.linspace(0.36 + 6, 112.6 - 6, 10))
+    ax.set_xticklabels(
+        [
+            k.replace(" - ", "\n").replace("r l", "r\nl")
+            for k in TASK_SIMPLE_COLOR_MAP.keys()
+        ],
+        ha="center",
+    )
+
+    # Set labels and title
+    ax.set_xlabel("Tasks")
+    ax.set_ylabel("Different layer embedding test performance minus onehot")
 
     # Adjust layout for better visibility of legends
     plt.subplots_adjust(right=0.7, bottom=0.2)
@@ -1023,13 +1269,9 @@ def plot_emb_onehot_det(
     ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
 
     # add legend for arch size
-    arch_size_scatter = [None] * (len(MODEL_SIZE) - 1)
+    arch_size_scatter = [None] * len(EMB_MODEL_SIZE)
 
-    for i, (model, size) in enumerate(
-        {
-            model: size for model, size in MODEL_SIZE.items() if model not in ["onehot"]
-        }.items()
-    ):
+    for i, (model, size) in enumerate(EMB_MODEL_SIZE.items()):
 
         if "carp" in model:
             mfc = "none"
@@ -1050,7 +1292,7 @@ def plot_emb_onehot_det(
 
     ax.add_artist(
         ax.legend(
-            handles=list(arch_size_scatter),
+            handles=arch_size_scatter,
             bbox_to_anchor=(1, 0.49),
             loc="upper left",
             title="Pretrained architecture sizes",
@@ -1341,7 +1583,7 @@ def plot_arch_size(
         for category, group in arch_df.sort_values(["model_size"]).groupby("task"):
 
             # to not duplicate label
-            if i == 0:
+            if a == "carp":
                 label = category
             else:
                 label = None
@@ -1375,30 +1617,29 @@ def plot_arch_size(
 
     # add additional legend if for both
     if arch == "":
-        arch_legend_dict = {}
+        arch_legend_list = [None] * len(ARCH_TYPE)
 
-        for a in ARCH_TYPE:
+        for i, a in enumerate(ARCH_TYPE):
 
-            if a == "carp":
+            if a == "esm":
                 mfc = "none"
             else:
                 mfc = "gray"
 
-            arch_legend_dict[a] = Line2D(
+            arch_legend_list[i] = Line2D(
                 [0],
                 [0],
                 marker="o",
                 color="gray",
                 linestyle=ARCH_LINE_STYLE_DICT[a]["linestyle"],
                 label=a.upper(),
-                markerfacecolor="k",
                 markersize=12,
                 mfc=mfc,
             )
-
+        
         ax.add_artist(
             ax.legend(
-                handles=list(arch_legend_dict.values()),
+                handles=arch_legend_list,
                 bbox_to_anchor=(1, 0.49),
                 loc="upper left",
                 title="Pretrained architectures",
