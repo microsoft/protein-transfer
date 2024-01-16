@@ -341,8 +341,8 @@ class PlotResultScatter:
 
         # minue onehot
         layer_emb_delta_df = subtract_onehot(
-            df=layer_emb_df, onehot_df=layer_onehot_df, val_col=layer_val_col
-        )
+            df=layer_emb_df.copy(), onehot_df=layer_onehot_df.copy(), val_col=layer_val_col
+        ).copy()
 
         plot_emb_layer_bar(
             df=layer_emb_delta_df,
@@ -363,18 +363,18 @@ class PlotResultScatter:
                 *self._get_last_layer_bar_df(
                     metric=metric, layers=ARCH_BAR_LAYER, ablation=ablation
                 )
-            )
+            ).copy()
 
             for r in [False, True]:
 
                 if r:
                     df = take_ratio(
-                        ablation_df=layer_ab_delta_df_dict[ablation],
-                        emb_df=layer_emb_delta_df,
+                        ablation_df=layer_ab_delta_df_dict[ablation].copy(),
+                        emb_df=layer_emb_delta_df.copy(),
                         val_col=layer_val_col,
                     )
                 else:
-                    df = layer_ab_delta_df_dict[ablation]
+                    df = layer_ab_delta_df_dict[ablation].copy()
 
                 plot_emb_layer_bar(
                     df=df,
@@ -394,24 +394,28 @@ class PlotResultScatter:
             [
                 take_ratio(
                     ablation_df=merge_rand_stat(
-                        layer_ab_delta_df_dict["rand"],
-                        layer_ab_delta_df_dict["stat"],
-                        layer_onehot_df,
-                        layer_val_col,
-                        True
-                    ),
+                        rand_df=layer_ab_delta_df_dict["rand"].copy(),
+                        stat_df=layer_ab_delta_df_dict["stat"].copy(),
+                        onehot_df=layer_onehot_df.copy(),
+                        val_col=layer_val_col,
+                        ifdelta=True
+                    ).copy(),
                     emb_df=merge_rand_stat(
-                        layer_emb_delta_df, layer_emb_delta_df, layer_onehot_df, layer_val_col, True
-                    ),
+                        rand_df=layer_emb_delta_df.copy(), 
+                        stat_df=layer_emb_delta_df.copy(), 
+                        onehot_df=layer_onehot_df.copy(), 
+                        val_col=layer_val_col, 
+                        ifdelta=True
+                    ).copy(),
                     val_col=randstat_col,
                 ),
                 merge_rand_stat(
-                    layer_ab_delta_df_dict["rand"],
-                    layer_ab_delta_df_dict["stat"],
-                    layer_onehot_df,
-                    layer_val_col,
-                    True
-                ),
+                    rand_df=layer_ab_delta_df_dict["rand"].copy(),
+                    stat_df=layer_ab_delta_df_dict["stat"].copy(),
+                    onehot_df=layer_onehot_df.copy(),
+                    val_col=layer_val_col,
+                    ifdelta=True
+                ).copy(),
             ],
             [True, False],
         ):
