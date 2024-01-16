@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+
 import seaborn as sns
 
 # allowed dimension reduction types
@@ -81,13 +83,17 @@ TASK_SIMPLE_COLOR_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST_SIMPLE, TASK_COL
 ARCH_LINE_STYLE_DICT = {
     "carp": {"linestyle": "solid", "mec": "none"},
     "esm": {"linestyle": "dotted", "mfc": "none"},
-}
+}.copy()
 
 # for dots
 ARCH_DOT_STYLE_DICT = {
     "carp": {"facecolors": "none"},
     "esm": {"edgecolors": "none", "alpha": 0.8},
-}
+}.copy()
+
+ARCH_AB_DOT_STYLE_DICT = {
+    ab: s for ab, s in zip(["rand", "stat"], copy.deepcopy(ARCH_DOT_STYLE_DICT).values())
+}.copy()
 
 # for scatter
 ARCH_SCATTER_STYLE_DICT = {

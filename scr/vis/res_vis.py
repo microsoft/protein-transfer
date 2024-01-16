@@ -30,6 +30,8 @@ from scr.params.emb import (
     EMB_MODEL_LAYER,
     ARCH_TYPE,
     ARCH_BAR_LAYER,
+    ARCH_AB,
+    ARCH_AB_DICT,
     CHECKPOINT_PERCENT,
 )
 from scr.params.vis import (
@@ -40,6 +42,7 @@ from scr.params.vis import (
     PLOT_EXTS,
     ARCH_LINE_STYLE_DICT,
     ARCH_DOT_STYLE_DICT,
+    ARCH_AB_DOT_STYLE_DICT,
     ARCH_SCATTER_STYLE_DICT,
     LAYER_ALPHAS,
 )
@@ -351,10 +354,12 @@ class PlotResultScatter:
             ),
         )
 
+        layer_ab_delta_df_dict = {}
+
         # now do rand and stat
-        for ablation in ["rand", "stat"]:
+        for ablation in ARCH_AB:
             # get rand stat bar with layers
-            layer_ab_delta_df = subtract_onehot(
+            layer_ab_delta_df_dict[ablation] = subtract_onehot(
                 *self._get_last_layer_bar_df(
                     metric=metric, layers=ARCH_BAR_LAYER, ablation=ablation
                 )
@@ -364,12 +369,12 @@ class PlotResultScatter:
 
                 if r:
                     df = take_ratio(
-                        ablation_df=layer_ab_delta_df,
+                        ablation_df=layer_ab_delta_df_dict[ablation],
                         emb_df=layer_emb_delta_df,
                         val_col=layer_val_col,
                     )
                 else:
-                    df = layer_ab_delta_df
+                    df = layer_ab_delta_df_dict[ablation]
 
                 plot_emb_layer_bar(
                     df=df,
@@ -382,6 +387,48 @@ class PlotResultScatter:
                         )
                     ),
                 )
+
+        randstat_col = [f"{a}_value" for a in ARCH_AB]
+
+        for (df, r) in zip(
+            [
+                take_ratio(
+                    ablation_df=merge_rand_stat(
+                        layer_ab_delta_df_dict["rand"],
+                        layer_ab_delta_df_dict["stat"],
+                        layer_onehot_df,
+                        layer_val_col,
+                        True
+                    ),
+                    emb_df=merge_rand_stat(
+                        layer_emb_delta_df, layer_emb_delta_df, layer_onehot_df, layer_val_col, True
+                    ),
+                    val_col=randstat_col,
+                ),
+                merge_rand_stat(
+                    layer_ab_delta_df_dict["rand"],
+                    layer_ab_delta_df_dict["stat"],
+                    layer_onehot_df,
+                    layer_val_col,
+                    True
+                ),
+            ],
+            [True, False],
+        ):
+            
+            # now do the rand stat combined simpler one
+            plot_emb_layer_bar(
+                df=df,
+                val_col=randstat_col,
+                metric=metric,
+                iflast=True,
+                ifratio=r,
+                path2folder=checkNgen_folder(
+                        os.path.join(
+                            self._sum_folder, "last", "emblayersvsonehot_bar", metric
+                        )
+                    ),
+            )
 
         # add rand stat info to emb_df
         emb_df = self._append_randstat(emb_df=emb_df)
@@ -702,6 +749,44 @@ def take_ratio(ablation_df: pd.DataFrame, emb_df: pd.DataFrame, val_col: list[st
     return ablation_df
 
 
+def merge_rand_stat(
+    rand_df: pd.DataFrame,
+    stat_df: pd.DataFrame,
+    onehot_df: pd.DataFrame,
+    val_col: list[str],
+    ifdelta: bool = True,
+) -> pd.DataFrame:
+    """
+    A function merge rand and stat df subtract onehot
+
+    Args:
+    - ifdelta: bool = True, if the input dataframe already gone through `subtract_onehot`
+    """
+    if ifdelta:
+        return pd.merge(
+            rand_df.drop(columns=[v for v in val_col if "last" not in v])
+            .rename(columns={"last_value": "rand_value"})
+            .drop(columns=["ablation"]),
+            stat_df.drop(columns=[v for v in val_col if "last" not in v])
+            .rename(columns={"last_value": "stat_value"})
+            .drop(columns=["ablation"]),
+            on=["arch", "task", "model", "model_size", "model_layer"],
+            how="left",
+        )
+    else:
+        return pd.merge(
+            subtract_onehot(rand_df, onehot_df, ["last_value"])
+            .drop(columns=[v for v in val_col if "last" not in v])
+            .rename(columns={"last_value": "rand_value"})
+            .drop(columns=["ablation"]),
+            subtract_onehot(stat_df, onehot_df, ["last_value"])
+            .drop(columns=[v for v in val_col if "last" not in v])
+            .rename(columns={"last_value": "stat_value"})
+            .drop(columns=["ablation"]),
+            on=["arch", "task", "model", "model_size", "model_layer"],
+            how="left",
+        )
+
 def get_layer_value(
     df: pd.DataFrame,
     row_to_match: dict,
@@ -996,30 +1081,65 @@ def plot_emb_layer_bar(
     df: pd.DataFrame,
     val_col: list[str],
     metric: str,
+    iflast: bool = False,
     ifratio: bool = False,
     path2folder: str = "results/summary/last/emblayersvsonehot_bar",
 ):
-    """A function for plotting different layer of emb"""
+    """
+    A function for plotting different layer of emb
 
-    if "emb" in df["ablation"].values:
-        title_ab = "embedding"
-        ylabel = "Embedding - Onehot"
-    elif "rand" in df["ablation"].values:
-        title_ab = "random init"
+    Args:
+    - iflast: bool = False, if take only the last layer but combine rand and stat
+    - ifratio: bool = False, if take the ratio against emb
+    """
+
+    if iflast:
+
+        alpha_style = ARCH_AB_DOT_STYLE_DICT.copy()
+
+        title_ab = "embedding ablation"
+
         if ifratio:
-            path2folder = path2folder.replace("emblayersvsonehot_bar", "randembvsonehot_bar")
-            ylabel = "(Random init - Onehot) / (Embedding - Onehot)"
-        else:
-            path2folder = path2folder.replace("emblayersvsonehot_bar", "randvsonehot_bar")
-            ylabel = "Random init - Onehot"
-    elif "stat" in df["ablation"].values:
-        title_ab = "stat transfer"
-        if ifratio:
-            path2folder = path2folder.replace("emblayersvsonehot_bar", "statembvsonehot_bar")
-            ylabel = "(Stat transfer - Onehot) / (Embedding - Onehot)"
-        else:
-            path2folder = path2folder.replace("emblayersvsonehot_bar", "statvsonehot_bar")
-            ylabel = "Stat transfer - Onehot"
+            ylabel = "(Embedding ablation - Onehot) / (Embedding - Onehot)"
+            path2folder = path2folder.replace(
+                "emblayersvsonehot_bar", "randstatembvsonehot_bar"
+            )
+        else:     
+            ylabel = "Embedding ablation - Onehot"
+            path2folder = path2folder.replace(
+                "emblayersvsonehot_bar", "randstatvsonehot_bar"
+            )
+
+    else:
+        alpha_style = {"alpha": LAYER_ALPHAS, "edgecolor": "none"}
+
+        if "emb" in df["ablation"].values:
+            title_ab = "embedding"
+            ylabel = "Embedding - Onehot"
+        elif "rand" in df["ablation"].values:
+            title_ab = "random init"
+            if ifratio:
+                path2folder = path2folder.replace(
+                    "emblayersvsonehot_bar", "randembvsonehot_bar"
+                )
+                ylabel = "(Random init - Onehot) / (Embedding - Onehot)"
+            else:
+                path2folder = path2folder.replace(
+                    "emblayersvsonehot_bar", "randvsonehot_bar"
+                )
+                ylabel = "Random init - Onehot"
+        elif "stat" in df["ablation"].values:
+            title_ab = "stat transfer"
+            if ifratio:
+                path2folder = path2folder.replace(
+                    "emblayersvsonehot_bar", "statembvsonehot_bar"
+                )
+                ylabel = "(Stat transfer - Onehot) / (Embedding - Onehot)"
+            else:
+                path2folder = path2folder.replace(
+                    "emblayersvsonehot_bar", "statvsonehot_bar"
+                )
+                ylabel = "Stat transfer - Onehot"
 
     plot_title = "Different layer {} {} compared against onehot".format(
         title_ab, simplify_test_metric(metric)
@@ -1050,16 +1170,32 @@ def plot_emb_layer_bar(
         # x-position for each bar
         x = 1.2 * i + 1 + math.ceil((i + 1) / 4) * 0.5 + math.ceil((i + 1) / 8) * 0.5
 
-        # plot the scatter for diff emb layer
-        ax.scatter(
-            [x] * len(val_col),  # make x y same size
-            vals,
-            alpha=LAYER_ALPHAS,
-            s=80,
-            edgecolor="none",
-            marker=ARCH_SCATTER_STYLE_DICT[st],
-            color=TASK_SIMPLE_COLOR_MAP[t],
-        )
+        if iflast:
+
+            for v, col in enumerate(val_col):
+
+                val = col.split("_")[0]
+
+                # plot the scatter for diff emb layer
+                ax.scatter(
+                    x,
+                    vals[v],
+                    s=80,
+                    marker=ARCH_SCATTER_STYLE_DICT[st],
+                    color=TASK_SIMPLE_COLOR_MAP[t],
+                    **alpha_style[val],
+                )
+
+        else:
+            # plot the scatter for diff emb layer
+            ax.scatter(
+                [x] * len(val_col),  # make x y same size
+                vals,
+                s=80,
+                marker=ARCH_SCATTER_STYLE_DICT[st],
+                color=TASK_SIMPLE_COLOR_MAP[t],
+                **alpha_style,
+            )
 
         # Overlay scatter plot indicating another parameter
         ax_scatter.scatter(
@@ -1148,27 +1284,55 @@ def plot_emb_layer_bar(
         )
     )
 
-    # add alpha legend
-    alpha_legend = [None] * len(LAYER_ALPHAS)
+    if iflast:
+        alpha_title = "Embedding ablation"
 
-    for i, (c, a) in enumerate(zip(sorted(val_col.copy()), sorted(LAYER_ALPHAS))):
-        alpha_legend[i] = Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            label=c.replace("_value", ""),
-            alpha=a,
-            markerfacecolor="k",
-            markersize=10,
-        )
+        alpha_legend = [None] * len(val_col)
+
+        for i, c in enumerate(sorted(val_col.copy())):
+
+            ab = c.replace("_value", "")
+
+            if ab == "stat":
+                mfc = "none"
+            else:
+                mfc = "gray"
+
+            alpha_legend[i] = Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                label=ARCH_AB_DICT[ab].capitalize(),
+                markersize=10,
+                markerfacecolor="gray",
+                markeredgecolor="gray",
+                mfc=mfc,
+            )
+
+    else:
+        alpha_title = "Layer"
+        # add alpha legend
+        alpha_legend = [None] * len(LAYER_ALPHAS)
+
+        for i, (c, a) in enumerate(zip(sorted(val_col.copy()), sorted(LAYER_ALPHAS))):
+            alpha_legend[i] = Line2D(
+                [0],
+                [0],
+                marker="o",
+                color="w",
+                label=c.replace("_value", ""),
+                alpha=a,
+                markerfacecolor="k",
+                markersize=10,
+            )
 
     ax.add_artist(
         ax.legend(
             handles=alpha_legend,
             bbox_to_anchor=(1.135, 1.012),
             loc="upper left",
-            title="Layer",
+            title=alpha_title,
         )
     )
 
@@ -1192,6 +1356,7 @@ def plot_emb_layer_bar(
 
     if metric == "test_loss" or ifratio:
         ax.set_yscale("symlog")
+    ax.autoscale(axis="y")
 
     # Set x-axis ticks and align them to the middle of the corresponding labels
     ax.set_xticks(np.linspace(0.36 + 6, 112.6 - 6, 10))
