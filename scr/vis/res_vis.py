@@ -433,6 +433,24 @@ class PlotResultScatter:
                         )
                     ),
             )
+        
+        #TODO add just rand and stat ve emb (no onehot)
+        """
+        plot_emb_layer_bar(
+            df=merge_rand_stat(
+                subtract_emb(rand_df, emb_df, val_col=["last_value"]),
+                subtract_emb(stat_df, emb_df, val_col=["last_value"]),
+                emb_df[sel_col],
+                ["last_value"],
+                True,
+            ),
+            val_col=["rand_value", "stat_value"],
+            metric=metric,
+            iflast=True,
+            ifratio=False,
+            path2folder="results/summary/last/emblayersvsonehot_bar",
+        )
+        """
 
         # add rand stat info to emb_df
         emb_df = self._append_randstat(emb_df=emb_df)
@@ -453,7 +471,7 @@ class PlotResultScatter:
                         os.path.join(self._sum_folder, "best", "randstat", metric)
                     ),
                 )
-
+        
         return vs_plot, bar_plot, vs_plot_det, last_layer_bar
 
     def plot_layer_delta(
@@ -1087,6 +1105,7 @@ def plot_emb_layer_bar(
     metric: str,
     iflast: bool = False,
     ifratio: bool = False,
+    ifonehot: bool = True,
     path2folder: str = "results/summary/last/emblayersvsonehot_bar",
 ):
     """
