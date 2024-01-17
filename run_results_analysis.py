@@ -42,7 +42,7 @@ LayerLoss(
 plot_class = PlotResultScatter()
 
 for metric in ["test_loss", "test_performance_1", "test_performance_2"]:
-    """
+    
     plot_class.plot_emb_onehot(
             metric = metric,
         );
@@ -50,12 +50,14 @@ for metric in ["test_loss", "test_performance_1", "test_performance_2"]:
     for arch in ARCH_TYPE:
 
         for cut in ARCH_CUT_DICT[arch]:
-            plot_class.plot_layer_delta(
-                layer_cut=cut,
-                metric=metric,
-                arch=arch
-            );
-    """
+            for s in [True, False]:
+                plot_class.plot_layer_delta(
+                    layer_cut=cut,
+                    metric=metric,
+                    arch=arch,
+                    ifsimple=s
+                );
+    
     # get pretrain degree for carp only
     plot_class.plot_pretrain_degree(
         metric=metric,

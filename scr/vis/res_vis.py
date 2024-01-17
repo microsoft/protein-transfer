@@ -566,7 +566,7 @@ class PlotResultScatter:
                 arch=arch,
                 metric=metric,
                 path2folder=checkNgen_folder(
-                    os.path.join(self._sum_folder, "best", "layerdelta", metric)
+                    os.path.join(self._sum_folder, "best", "layerdelta_det", metric)
                 ),
             )
 
@@ -586,11 +586,6 @@ class PlotResultScatter:
         - ifloss: bool = True, over loss or pretrain degree
         """
 
-        if ifloss:
-            loss_append = "_loss"
-        else:
-            loss_append = ""
-
         for (bestorlast, df) in zip(
             ["best", "last"],
             [
@@ -600,22 +595,23 @@ class PlotResultScatter:
         ):
 
             for delta_onehot in [0, 1]:
-                plot_pretrain_degree(
-                    emb_df=self._append_ptp(df[df["ablation"] == "emb"].copy()),
-                    metric=metric,
-                    arch=arch,
-                    delta_onehot=delta_onehot,
-                    ifloss=ifloss,
-                    path2folder=checkNgen_folder(
-                        os.path.join(
-                            self._sum_folder,
-                            bestorlast,
-                            f"pretraindegree{loss_append}",
-                            metric,
-                            arch,
-                        )
-                    ),
-                )
+                for ifloss in [0, 1]:
+                    plot_pretrain_degree(
+                        emb_df=self._append_ptp(df[df["ablation"] == "emb"].copy()),
+                        metric=metric,
+                        arch=arch,
+                        delta_onehot=delta_onehot,
+                        ifloss=ifloss,
+                        path2folder=checkNgen_folder(
+                            os.path.join(
+                                self._sum_folder,
+                                bestorlast,
+                                "pretraindegree",
+                                metric,
+                                arch,
+                            )
+                        ),
+                    )
 
     def plot_arch_size(
         self,
@@ -1791,6 +1787,11 @@ def plot_pretrain_degree(
     else:
         bestorlast = "Last layer"
 
+    if ifloss:
+        loss_append = "_loss"
+    else:
+        loss_append = ""
+
     plot_title = "{} {} cross different pretrain degrees of {}".format(
         bestorlast, simplify_test_metric(metric), arch.upper()
     )
@@ -1818,20 +1819,13 @@ def plot_pretrain_degree(
         var_name=x_name,
         value_name=y_name,
     )
-    print(emb_df[melt_cols])
-    print(melt_id_cols)
-    print(emb_df_melt)
 
     # Plot dots with colors corresponding to the category
     fig, ax = plt.subplots()
     fig.set_size_inches(6, 6)
 
     for category, group in emb_df_melt.groupby("task"):
-        print(category)
-        print(group)
         for subc, subg in group.groupby("model"):
-            print(subc)
-            print(subg)
 
             if ifloss:
                 xs = [
@@ -1849,13 +1843,21 @@ def plot_pretrain_degree(
                 marker="o",
                 markersize=12,
                 linestyle="solid",
-                # color=TASK_SIMPLE_COLOR_MAP.get(category, "gray"),
-                # mec="none",
                 color=c,
                 markerfacecolor=c,
                 markeredgecolor=c,
                 alpha=CARP_ALPHA[subc],
             )
+
+    # add onehot baseline if delta
+    if delta_onehot:
+        ax.axhline(
+            y=0,
+            linestyle="--",
+            color="gray",
+            linewidth=1.2,
+        )
+
     # add task legend
     task_legend_list = [None] * len(TASK_SIMPLE_COLOR_MAP)
 
@@ -1869,12 +1871,10 @@ def plot_pretrain_degree(
             label=t,
             markersize=12,
             linestyle="solid",
-            # mec="none",
             markerfacecolor=c,
             markeredgecolor=c,
         )
 
-    # ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
     ax.add_artist(
         ax.legend(
             handles=task_legend_list,
@@ -1902,10 +1902,15 @@ def plot_pretrain_degree(
             markeredgecolor="gray",
         )
 
+    if delta_onehot:
+        arch_legend_list.append(
+            Line2D([0], [0], linestyle="--", color="gray", label="Onehot")
+        )
+
     ax.add_artist(
         ax.legend(
             handles=arch_legend_list,
-            bbox_to_anchor=(1, 0.49),
+            bbox_to_anchor=(1, 0.5025),
             loc="upper left",
             title="CARP models",
         )
@@ -1936,7 +1941,12 @@ def plot_pretrain_degree(
     ax.set_title(plot_title, pad=10)
 
     path2folder = checkNgen_folder(
-        os.path.join(os.path.normpath(path2folder), path_append)
+        os.path.join(
+            os.path.normpath(
+                path2folder.replace("pretraindegree", "pretraindegree" + loss_append)
+            ),
+            path_append,
+        )
     )
 
     print(f"Saving to {path2folder}...")
@@ -2038,6 +2048,15 @@ def plot_arch_size(
                 **ARCH_LINE_STYLE_DICT[a],
             )
 
+    # add onehot baseline if delta
+    if delta_onehot:
+        ax.axhline(
+            y=0,
+            linestyle="--",
+            color="gray",
+            linewidth=1.2,
+        )
+
     # add additional legend if for both
     if arch == "":
         arch_legend_list = [None] * len(ARCH_TYPE)
@@ -2060,17 +2079,22 @@ def plot_arch_size(
                 mfc=mfc,
             )
 
+        if delta_onehot:
+            arch_legend_list.append(
+                Line2D([0], [0], linestyle="--", color="gray", label="Onehot")
+            )
+
         ax.add_artist(
             ax.legend(
                 handles=arch_legend_list,
-                bbox_to_anchor=(1, 0.49),
+                bbox_to_anchor=(1, 0.5025),
                 loc="upper left",
                 title="Pretrained architectures",
             )
         )
     else:
         ax.legend(
-            bbox_to_anchor=(1, 0.49), loc="upper left", title="Pretrained architectures"
+            bbox_to_anchor=(1, 0.5025), loc="upper left", title="Pretrained architectures"
         )
 
     plt.xscale("log")
@@ -2126,40 +2150,13 @@ def plot_layer_delta_simple(
     fig, ax = plt.subplots()
     fig.set_size_inches(6, 6)
 
-    # get the min x or y for the diagnol line
-    diag_min = 1
-    diag_max = 0
-
     for (task, c) in TASK_SIMPLE_COLOR_MAP.items():
 
         sliced_df = df[df["task"] == task]
         x = sliced_df["x-0"].values
         y = sliced_df["f-x"].values
 
-        if metric != "test_loss":
-            min_xy = min(min(y), min(x))
-            max_xy = max(max(x), max(y))
-
-            if min_xy < diag_min:
-                diag_min = min_xy
-
-            if max_xy > diag_max:
-                diag_max = max_xy
-
         scatter = ax.scatter(x, y, c=c, label=task, s=200, alpha=0.8, edgecolors="none")
-
-    if metric != "test_loss":
-        # diag min to smallest one decimal
-        diag_min = math.floor(diag_min * 10) / 10
-        diag_max = math.ceil(diag_max * 10) / 10
-
-        # Add a diagonal line
-        plt.plot(
-            [diag_min, diag_max],
-            [diag_min, diag_max],
-            linestyle=":",
-            color="grey",
-        )
 
     # add colored task legend
     ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
@@ -2182,7 +2179,7 @@ def plot_layer_delta_det(
     layer_cut: int,
     arch: str,
     metric: str,
-    path2folder: str = "results/summary/layerdelta",
+    path2folder: str = "results/summary/layerdelta_det",
 ):
     """A function for plotting and saving layer delta"""
 
@@ -2201,7 +2198,7 @@ def plot_layer_delta_det(
         alaph_values = df["ptp"].values
         alpha_unique = list(df["ptp"].unique())
         alpha_label = [str(a) for a in alpha_unique]
-        size_legend_label = list(MODEL_SIZE.keys())[-4:]
+        size_legend_label = list(MODEL_SIZE.keys())[-5:-1]
 
     fig, ax = plt.subplots()
     fig.set_size_inches(10, 7.5)
@@ -2223,7 +2220,7 @@ def plot_layer_delta_det(
     legend2 = ax.legend(
         handles,
         size_legend_label,
-        bbox_to_anchor=(1, 0.5925),
+        bbox_to_anchor=(1, 0.59),
         loc="upper left",
         title="Model sizes",
     )

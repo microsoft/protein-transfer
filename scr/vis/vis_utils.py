@@ -32,6 +32,7 @@ def save_plt(fig, plot_title: str, path2folder: str):
         plt.savefig(
             os.path.join(checkNgen_folder(path2folder), f"{plot_title_no_space}{ext}"),
             bbox_inches="tight",
+            dpi=300
         )
     
     plt.close()
