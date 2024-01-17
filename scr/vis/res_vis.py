@@ -33,6 +33,7 @@ from scr.params.emb import (
     ARCH_AB,
     ARCH_AB_DICT,
     CHECKPOINT_PERCENT,
+    CARP_CHECKPOINT_LOSSES,
 )
 from scr.params.vis import (
     ORDERED_TASK_LIST,
@@ -563,10 +564,23 @@ class PlotResultScatter:
         return slice_df, delta_plot
 
     def plot_pretrain_degree(
-        self, metric: str = "test_performance_1", arch: str = "carp"
+        self,
+        metric: str = "test_performance_1",
+        arch: str = "carp",
+        ifloss: bool = True,
     ):
 
-        """A method for plotting the pretraining arch"""
+        """
+        A method for plotting the pretraining arch
+
+        Args:
+        - ifloss: bool = True, over loss or pretrain degree
+        """
+
+        if ifloss:
+            loss_append = "_loss"
+        else:
+            loss_append = ""
 
         for (bestorlast, df) in zip(
             ["best", "last"],
@@ -582,9 +596,14 @@ class PlotResultScatter:
                     metric=metric,
                     arch=arch,
                     delta_onehot=delta_onehot,
+                    ifloss=ifloss,
                     path2folder=checkNgen_folder(
                         os.path.join(
-                            self._sum_folder, bestorlast, "pretraindegree", metric, arch
+                            self._sum_folder,
+                            bestorlast,
+                            f"pretraindegree{loss_append}",
+                            metric,
+                            arch,
                         )
                     ),
                 )
@@ -1752,6 +1771,7 @@ def plot_pretrain_degree(
     metric: str = "test_performance_1",
     arch: str = "carp",
     delta_onehot: bool = True,
+    ifloss: bool = True,
     path2folder: str = "results/summar/last/pretraindegree",
 ):
 
@@ -1795,15 +1815,32 @@ def plot_pretrain_degree(
     fig.set_size_inches(6, 6)
 
     for category, group in emb_df_melt.groupby("task"):
+        print(category)
         for subc, subg in group.groupby("model"):
+            print(subc)
+            print(CARP_ALPHA[subc])
+
+            if ifloss:
+                xs = [
+                    CARP_CHECKPOINT_LOSSES[subc][float(x.replace(label_append, ""))]
+                    for x in subg[x_name]
+                ]
+            else:
+                xs = [float(x.replace(label_append, "")) for x in subg[x_name]]
+
+            c = TASK_SIMPLE_COLOR_MAP[category]
             ax.plot(
-                [float(x.replace(label_append, "")) for x in subg[x_name]],
+                xs,
                 subg[y_name],
                 marker="o",
                 markersize=12,
+                linestyle="solid",
+                # color=TASK_SIMPLE_COLOR_MAP.get(category, "gray"),
+                # mec="none",
+                color=c,
+                markerfacecolor=c,
+                markeredgecolor=c,
                 alpha=CARP_ALPHA[subc],
-                color=TASK_SIMPLE_COLOR_MAP.get(category, "gray"),
-                mec="none",
             )
     # add task legend
     task_legend_list = [None] * len(TASK_SIMPLE_COLOR_MAP)
@@ -1817,7 +1854,10 @@ def plot_pretrain_degree(
             color=c,
             label=t,
             markersize=12,
-            mec="none",
+            linestyle="solid",
+            # mec="none",
+            markerfacecolor=c,
+            markeredgecolor=c,
         )
 
     # ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
@@ -1829,7 +1869,7 @@ def plot_pretrain_degree(
             title="Task",
         )
     )
-            
+
     # add alpha legend for carp sizes
     arch_legend_list = [None] * len(CARP_ALPHA)
 
@@ -1841,11 +1881,11 @@ def plot_pretrain_degree(
             marker="o",
             color="gray",
             alpha=a,
-            # linestyle=ARCH_LINE_STYLE_DICT[a]["linestyle"],
+            linestyle="solid",
             label=c,
             markersize=12,
             markerfacecolor="gray",
-            markeredgecolor="none",
+            markeredgecolor="gray",
         )
 
     ax.add_artist(
@@ -1857,10 +1897,17 @@ def plot_pretrain_degree(
         )
     )
 
-    ax.set_xticks(CHECKPOINT_PERCENT)
-    ax.set_xticklabels([str(tick) for tick in CHECKPOINT_PERCENT])
+    if ifloss:
+        x_label = "Pretrain loss"
+        # Flip the x-axis so loss from left to right are reducing
+        ax.invert_xaxis()
 
-    ax.set_xlim(0, 1.125)
+    else:
+        x_label = x_name
+        ax.set_xticks(CHECKPOINT_PERCENT)
+        ax.set_xticklabels([str(tick) for tick in CHECKPOINT_PERCENT])
+
+        ax.set_xlim(0, 1.125)
 
     if metric != "test_loss":
         ax.set_ylim(None, y_max)
@@ -1870,7 +1917,7 @@ def plot_pretrain_degree(
             ax.autoscale(axis="y")
 
     # Set labels and title
-    ax.set_xlabel(x_name)
+    ax.set_xlabel(x_label)
     ax.set_ylabel(y_name)
     ax.set_title(plot_title, pad=10)
 
@@ -1941,7 +1988,7 @@ def plot_arch_size(
 
         else:
             print(f"{a} not in {ARCH_TYPE}")
- 
+
         for category, group in arch_df.sort_values(["model_size"]).groupby("task"):
 
             # to not duplicate label
@@ -2008,9 +2055,9 @@ def plot_arch_size(
             )
         )
     else:
-        ax.legend(bbox_to_anchor=(1, 0.49),
-                loc="upper left",
-                title="Pretrained architectures")
+        ax.legend(
+            bbox_to_anchor=(1, 0.49), loc="upper left", title="Pretrained architectures"
+        )
 
     plt.xscale("log")
 

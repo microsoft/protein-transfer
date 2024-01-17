@@ -46,7 +46,7 @@ PRESENTATION_PALETTE_SATURATE = list(PRESENTATION_PALETTE_SATURATE_DICT.keys())
 # from https://www.w3schools.com/colors/colors_picker.asp
 CHECKPOINT_COLOR = {0.5: "#dc6809", 0.25: "#934506", 0.125: "#492303"}
 
-CARP_ALPHA = {c: a for (c,a) in zip(CARP_INFO.keys(), np.linspace(0.25, 1, 4))}
+CARP_ALPHA = {c: a for (c,a) in zip(copy.deepcopy(CARP_INFO).keys(), np.linspace(0.1, 1, 4))}
 
 # note that "structure_ss3_tape_processed" is not considered
 # as only for train and val
