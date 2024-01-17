@@ -274,6 +274,7 @@ class PlotResultScatter:
                 layer_numb=0,
             )
 
+            # add in the checkpoint
             for ptp in CHECKPOINT_PERCENT:
 
                 statorrand_val = get_layer_value(
@@ -286,6 +287,14 @@ class PlotResultScatter:
 
                 emb_df.at[i, str(ptp)] = statorrand_val
                 emb_df.at[i, f"{str(ptp)} - onehot"] = statorrand_val - onehot_val
+
+        # drop the dup of carp last since all ptp info included
+        if bestoflast == "model_layer":
+            emb_df = (
+                emb_df.drop(columns=["ptp", "value", "last_value"])
+                .drop_duplicates()
+                .reset_index(drop=True)
+            )
 
         return emb_df
 
@@ -1809,6 +1818,9 @@ def plot_pretrain_degree(
         var_name=x_name,
         value_name=y_name,
     )
+    print(emb_df[melt_cols])
+    print(melt_id_cols)
+    print(emb_df_melt)
 
     # Plot dots with colors corresponding to the category
     fig, ax = plt.subplots()
@@ -1816,9 +1828,10 @@ def plot_pretrain_degree(
 
     for category, group in emb_df_melt.groupby("task"):
         print(category)
+        print(group)
         for subc, subg in group.groupby("model"):
             print(subc)
-            print(CARP_ALPHA[subc])
+            print(subg)
 
             if ifloss:
                 xs = [
@@ -1829,6 +1842,7 @@ def plot_pretrain_degree(
                 xs = [float(x.replace(label_append, "")) for x in subg[x_name]]
 
             c = TASK_SIMPLE_COLOR_MAP[category]
+
             ax.plot(
                 xs,
                 subg[y_name],
