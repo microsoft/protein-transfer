@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import copy
 
+import numpy as np
+
 import seaborn as sns
+
+from scr.params.emb import CARP_INFO
 
 # allowed dimension reduction types
 ALLOWED_DIM_RED_TYPES = ["pca", "tsne", "umap"]
@@ -41,6 +45,8 @@ PRESENTATION_PALETTE_SATURATE = list(PRESENTATION_PALETTE_SATURATE_DICT.keys())
 # lgihter organes: 45%, 30%, 15%
 # from https://www.w3schools.com/colors/colors_picker.asp
 CHECKPOINT_COLOR = {0.5: "#dc6809", 0.25: "#934506", 0.125: "#492303"}
+
+CARP_ALPHA = {c: a for (c,a) in zip(CARP_INFO.keys(), np.linspace(0.25, 1, 4))}
 
 # note that "structure_ss3_tape_processed" is not considered
 # as only for train and val

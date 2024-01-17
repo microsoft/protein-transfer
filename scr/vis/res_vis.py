@@ -40,6 +40,7 @@ from scr.params.vis import (
     TASK_COLORS,
     TASK_SIMPLE_COLOR_MAP,
     PLOT_EXTS,
+    CARP_ALPHA,
     ARCH_LINE_STYLE_DICT,
     ARCH_DOT_STYLE_DICT,
     ARCH_AB_DOT_STYLE_DICT,
@@ -113,12 +114,14 @@ class PlotResultScatter:
 
         last_metric_dict = {}
 
+        for arch in ARCH_TYPE + [""]:
+
+            last_metric_dict[arch] = {}
+
         for m in SIMPLE_METRIC_LIST:
 
-            last_metric_dict[m] = {}
-
             for arch in ARCH_TYPE + [""]:
-                last_metric_dict[m][arch] = get_bestorlast_metric_df(
+                last_metric_dict[arch][m] = get_bestorlast_metric_df(
                     df=self.prepped_df.copy(), metric=m, arch=arch, bestorlast="last"
                 )
 
@@ -241,6 +244,12 @@ class PlotResultScatter:
 
         emb_df = emb_df.reset_index(drop=True)
 
+        # figure out if last or best
+        if "best_layer" in emb_df.columns:
+            bestoflast = "best_layer"
+        else:
+            bestoflast = "model_layer"
+
         # get the corresponding stat and rand value at the layer
         for i, row in emb_df.iterrows():
 
@@ -271,7 +280,7 @@ class PlotResultScatter:
                     row_to_match=row_to_match,
                     ablation="emb",
                     ptp=ptp,
-                    layer_numb=row_dict["best_layer"],
+                    layer_numb=row_dict[bestoflast],
                 )
 
                 emb_df.at[i, str(ptp)] = statorrand_val
@@ -311,7 +320,7 @@ class PlotResultScatter:
             ),
         )
 
-        last_df = self.last_metric_df_dict[metric][""]
+        last_df = self.last_metric_df_dict[""][metric]
 
         # plot more detailed last layer emb vs onehot and save
         vs_plot_det = plot_emb_onehot_det(
@@ -341,7 +350,9 @@ class PlotResultScatter:
 
         # minue onehot
         layer_emb_delta_df = subtract_onehot(
-            df=layer_emb_df.copy(), onehot_df=layer_onehot_df.copy(), val_col=layer_val_col
+            df=layer_emb_df.copy(),
+            onehot_df=layer_onehot_df.copy(),
+            val_col=layer_val_col,
         ).copy()
 
         plot_emb_layer_bar(
@@ -398,14 +409,14 @@ class PlotResultScatter:
                         stat_df=layer_ab_delta_df_dict["stat"].copy(),
                         onehot_df=layer_onehot_df.copy(),
                         val_col=layer_val_col,
-                        ifdelta=True
+                        ifdelta=True,
                     ).copy(),
                     emb_df=merge_rand_stat(
-                        rand_df=layer_emb_delta_df.copy(), 
-                        stat_df=layer_emb_delta_df.copy(), 
-                        onehot_df=layer_onehot_df.copy(), 
-                        val_col=layer_val_col, 
-                        ifdelta=True
+                        rand_df=layer_emb_delta_df.copy(),
+                        stat_df=layer_emb_delta_df.copy(),
+                        onehot_df=layer_onehot_df.copy(),
+                        val_col=layer_val_col,
+                        ifdelta=True,
                     ).copy(),
                     val_col=randstat_col,
                 ),
@@ -414,12 +425,12 @@ class PlotResultScatter:
                     stat_df=layer_ab_delta_df_dict["stat"].copy(),
                     onehot_df=layer_onehot_df.copy(),
                     val_col=layer_val_col,
-                    ifdelta=True
+                    ifdelta=True,
                 ).copy(),
             ],
             [True, False],
         ):
-            
+
             # now do the rand stat combined simpler one
             plot_emb_layer_bar(
                 df=df,
@@ -428,13 +439,13 @@ class PlotResultScatter:
                 iflast=True,
                 ifratio=r,
                 path2folder=checkNgen_folder(
-                        os.path.join(
-                            self._sum_folder, "last", "emblayersvsonehot_bar", metric
-                        )
-                    ),
+                    os.path.join(
+                        self._sum_folder, "last", "emblayersvsonehot_bar", metric
+                    )
+                ),
             )
-        
-        #TODO add just rand and stat ve emb (no onehot)
+
+        # TODO add just rand and stat ve emb (no onehot)
         """
         plot_emb_layer_bar(
             df=merge_rand_stat(
@@ -471,7 +482,7 @@ class PlotResultScatter:
                         os.path.join(self._sum_folder, "best", "randstat", metric)
                     ),
                 )
-        
+
         return vs_plot, bar_plot, vs_plot_det, last_layer_bar
 
     def plot_layer_delta(
@@ -557,18 +568,26 @@ class PlotResultScatter:
 
         """A method for plotting the pretraining arch"""
 
-        for delta_onehot in [0, 1]:
-            plot_pretrain_degree(
-                emb_df=self._append_ptp(self.best_metric_df_dict[arch][metric]),
-                metric=metric,
-                arch=arch,
-                delta_onehot=delta_onehot,
-                path2folder=checkNgen_folder(
-                    os.path.join(
-                        self._sum_folder, "best", "pretraindegree", metric, arch
-                    )
-                ),
-            )
+        for (bestorlast, df) in zip(
+            ["best", "last"],
+            [
+                self.best_metric_df_dict[arch][metric],
+                self.last_metric_df_dict[arch][metric],
+            ],
+        ):
+
+            for delta_onehot in [0, 1]:
+                plot_pretrain_degree(
+                    emb_df=self._append_ptp(df[df["ablation"] == "emb"].copy()),
+                    metric=metric,
+                    arch=arch,
+                    delta_onehot=delta_onehot,
+                    path2folder=checkNgen_folder(
+                        os.path.join(
+                            self._sum_folder, bestorlast, "pretraindegree", metric, arch
+                        )
+                    ),
+                )
 
     def plot_arch_size(
         self,
@@ -808,6 +827,7 @@ def merge_rand_stat(
             on=["arch", "task", "model", "model_size", "model_layer"],
             how="left",
         )
+
 
 def get_layer_value(
     df: pd.DataFrame,
@@ -1127,7 +1147,7 @@ def plot_emb_layer_bar(
             path2folder = path2folder.replace(
                 "emblayersvsonehot_bar", "randstatembvsonehot_bar"
             )
-        else:     
+        else:
             ylabel = "Embedding ablation - Onehot"
             path2folder = path2folder.replace(
                 "emblayersvsonehot_bar", "randstatvsonehot_bar"
@@ -1746,13 +1766,16 @@ def plot_pretrain_degree(
         bestorlast, simplify_test_metric(metric), arch.upper()
     )
 
+    # set up the id var keys for melt
+    melt_id_cols = ["task", "model"]
+
     if delta_onehot:
-        melt_cols = ["task"] + [str(p) + " - onehot" for p in CHECKPOINT_PERCENT]
+        melt_cols = melt_id_cols + [str(p) + " - onehot" for p in CHECKPOINT_PERCENT]
         label_append = " - onehot"
         path_append = "onehot"
         y_max = None
     else:
-        melt_cols = ["task"] + [str(p) for p in CHECKPOINT_PERCENT]
+        melt_cols = melt_id_cols + [str(p) for p in CHECKPOINT_PERCENT]
         label_append = ""
         path_append = ""
         y_max = 1
@@ -1762,7 +1785,7 @@ def plot_pretrain_degree(
 
     emb_df_melt = pd.melt(
         emb_df[melt_cols],
-        id_vars="task",
+        id_vars=melt_id_cols,
         var_name=x_name,
         value_name=y_name,
     )
@@ -1772,17 +1795,67 @@ def plot_pretrain_degree(
     fig.set_size_inches(6, 6)
 
     for category, group in emb_df_melt.groupby("task"):
+        for subc, subg in group.groupby("model"):
+            ax.plot(
+                [float(x.replace(label_append, "")) for x in subg[x_name]],
+                subg[y_name],
+                marker="o",
+                markersize=12,
+                alpha=CARP_ALPHA[subc],
+                color=TASK_SIMPLE_COLOR_MAP.get(category, "gray"),
+                mec="none",
+            )
+    # add task legend
+    task_legend_list = [None] * len(TASK_SIMPLE_COLOR_MAP)
 
-        ax.plot(
-            [float(x.replace(label_append, "")) for x in group[x_name]],
-            group[y_name],
+    for i, (t, c) in enumerate(TASK_SIMPLE_COLOR_MAP.items()):
+
+        task_legend_list[i] = Line2D(
+            [0],
+            [0],
             marker="o",
+            color=c,
+            label=t,
             markersize=12,
-            alpha=0.8,
-            label=category,
-            color=TASK_SIMPLE_COLOR_MAP.get(category, "gray"),
             mec="none",
         )
+
+    # ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
+    ax.add_artist(
+        ax.legend(
+            handles=task_legend_list,
+            bbox_to_anchor=(1, 1.012),
+            loc="upper left",
+            title="Task",
+        )
+    )
+            
+    # add alpha legend for carp sizes
+    arch_legend_list = [None] * len(CARP_ALPHA)
+
+    for i, (c, a) in enumerate(CARP_ALPHA.items()):
+
+        arch_legend_list[i] = Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="gray",
+            alpha=a,
+            # linestyle=ARCH_LINE_STYLE_DICT[a]["linestyle"],
+            label=c,
+            markersize=12,
+            markerfacecolor="gray",
+            markeredgecolor="none",
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=arch_legend_list,
+            bbox_to_anchor=(1, 0.49),
+            loc="upper left",
+            title="CARP models",
+        )
+    )
 
     ax.set_xticks(CHECKPOINT_PERCENT)
     ax.set_xticklabels([str(tick) for tick in CHECKPOINT_PERCENT])
@@ -1791,13 +1864,15 @@ def plot_pretrain_degree(
 
     if metric != "test_loss":
         ax.set_ylim(None, y_max)
+    else:
+        if not delta_onehot:
+            plt.yscale("symlog")
+            ax.autoscale(axis="y")
 
     # Set labels and title
     ax.set_xlabel(x_name)
     ax.set_ylabel(y_name)
     ax.set_title(plot_title, pad=10)
-
-    ax.add_artist(ax.legend(title="Tasks", bbox_to_anchor=(1, 1.012), loc="upper left"))
 
     path2folder = checkNgen_folder(
         os.path.join(os.path.normpath(path2folder), path_append)
@@ -1851,13 +1926,13 @@ def plot_arch_size(
 
     for i, a in enumerate(arch_list):
 
-        arch_df = arch_df_dict[metric][a]
+        arch_df = arch_df_dict[a][metric]
 
         if a == "carp":
             # ignore ptp not 1 or 0
             # Select rows where 'Column2' has a value from the list
             arch_df = arch_df[
-                arch_df["ptp"].isin(arch_df_dict[metric]["esm"]["ptp"].unique())
+                arch_df["ptp"].isin(arch_df_dict["esm"][metric]["ptp"].unique())
             ]
 
         # get rid of esm1b
@@ -1866,11 +1941,11 @@ def plot_arch_size(
 
         else:
             print(f"{a} not in {ARCH_TYPE}")
-
+ 
         for category, group in arch_df.sort_values(["model_size"]).groupby("task"):
 
             # to not duplicate label
-            if a == "carp":
+            if a == "carp" or len(arch_list) == 1:
                 label = category
             else:
                 label = None
@@ -1932,11 +2007,16 @@ def plot_arch_size(
                 title="Pretrained architectures",
             )
         )
+    else:
+        ax.legend(bbox_to_anchor=(1, 0.49),
+                loc="upper left",
+                title="Pretrained architectures")
 
     plt.xscale("log")
 
     if metric == "test_loss":
-        plt.yscale("log")
+        plt.yscale("symlog")
+        ax.autoscale(axis="y")
 
     if metric != "test_loss":
         # Set y-axis limits
