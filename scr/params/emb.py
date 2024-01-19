@@ -1,5 +1,7 @@
 """Embedding constants"""
 
+from copy import deepcopy
+
 ARCH_TYPE = ["esm", "carp"]
 
 ARCH_AB_DICT = {"rand": "random init", "stat": "stat transfer"}
@@ -42,15 +44,17 @@ MODEL_SIZE = {
 }
 
 # emb model parameter number in M
-EMB_MODEL_SIZE = {k: v for k, v in MODEL_SIZE.items() if k != "onehot"}
+EMB_MODEL_SIZE = {k: v for k, v in deepcopy(MODEL_SIZE).items() if k != "onehot"}
 
 MODEL_LAYER = {
     model_name: model_dets[1]
-    for info_dict in [TRANSFORMER_INFO, CARP_INFO, {"onehot": (1, 1)}]
+    for info_dict in [deepcopy(TRANSFORMER_INFO), deepcopy(CARP_INFO), {"onehot": (1, 1)}]
     for model_name, model_dets in info_dict.items()
 }
 
-EMB_MODEL_LAYER = {k: v for k, v in MODEL_LAYER.items() if k != "onehot"}
+EMB_MODEL_LAYER = {k: v for k, v in deepcopy(MODEL_LAYER).items() if k != "onehot"}
+
+CARP_MODEL_LAYER = {k: v[-1] for k, v in deepcopy(CARP_INFO).items()}
 
 CHECKPOINT_PERCENT = [0.125, 0.25, 0.5, 1]
 

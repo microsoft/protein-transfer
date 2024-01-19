@@ -28,6 +28,8 @@ from scr.params.emb import (
     EMB_MODEL_SIZE,
     MODEL_LAYER,
     EMB_MODEL_LAYER,
+    CARP_MODEL_LAYER,
+    CARP_INFO,
     ARCH_TYPE,
     ARCH_BAR_LAYER,
     ARCH_AB,
@@ -179,6 +181,47 @@ class PlotResultScatter:
 
         return emb_df, onehot_df, sorted(get_val_col.copy())
 
+    def _get_df_for_best_layer(self, metric: str, arch: str = "") -> pd.DataFrame:
+
+        """
+        A method for getting best layer df
+
+        Args:
+        - arch: str = "", defalt for esm and carp with out ptp, if carp keep ptp
+        """
+
+        # plot the best layer achieved with
+        best_layer_append = get_bestorlast_metric_df(
+            df=self.prepped_df,
+            metric=metric,
+            arch="",
+            bestorlast="best",
+            ifgroupbestbytask=False,
+            ablation="emb",
+            layers=[],
+        )
+
+        # drop onehot
+        best_layer_append = best_layer_append[best_layer_append["ablation"] == "emb"]
+
+        # drop ptp if for esm or both
+        if arch == "carp":
+            best_layer_append = best_layer_append[best_layer_append["arch"] == arch]
+        else:
+            best_layer_append = best_layer_append[best_layer_append["ptp"].isin([0, 1])]
+
+        # Convert 'model' to categorical with custom order
+        best_layer_append["model"] = pd.Categorical(
+            best_layer_append["model"],
+            categories=list(EMB_MODEL_SIZE.keys()),
+            ordered=True,
+        )
+
+        # Sort the DataFrame based on the custom order in 'model'
+        return best_layer_append.sort_values(by=["task", "model"]).reset_index(
+            drop=True
+        )
+
     def _append_randstat(self, emb_df: pd.DataFrame) -> pd.DataFrame:
 
         """
@@ -322,13 +365,45 @@ class PlotResultScatter:
         emb_df = self.best_metric_df_dict["emb"][metric]
         emb_df["model_layer_percent"] = emb_df["best_layer"] / emb_df["model_layer"]
 
-        bar_plot = plot_best_layer_bar(
+        best_layer = plot_best_layer_bar(
             df=emb_df,
             metric=metric,
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "best", "bestemblayer", metric)
             ),
         )
+
+        # best layer for all task and model combo
+        best_layer_all = plot_emb_df_best_layer_bar(
+            emb_df=self._get_df_for_best_layer(metric=metric, arch=""),
+            metric=metric,
+            path2folder=checkNgen_folder(
+                os.path.join(self._sum_folder, "best", "bestemblayer_all", metric)
+            ),
+        )
+
+        best_layer_carp_df = self._get_df_for_best_layer(metric=metric, arch="carp")
+        # best layer for carp with differen pretrain degree
+        plot_carp_best_layer_bar(
+            df=best_layer_carp_df,
+            metric=metric,
+            path2folder=checkNgen_folder(
+                os.path.join(self._sum_folder, "best", "bestemblayer_carp", metric)
+            ),
+        )
+
+        # cross pretrain loss
+        for ifpercent in [0, 1]:
+            plot_carp_best_layer_pretrain_loss(
+                df=best_layer_carp_df,
+                metric=metric,
+                ifpercent=ifpercent,
+                path2folder=checkNgen_folder(
+                    os.path.join(
+                        self._sum_folder, "best", "bestemblayer_carp_loss", metric, "percent"
+                    )
+                ),
+            )
 
         last_df = self.last_metric_df_dict[""][metric]
 
@@ -375,16 +450,23 @@ class PlotResultScatter:
             ),
         )
 
+        # dict for rand stat df before subtract onehot
+        layer_ab_df_dict = {}
+
+        # dict for rand stat df after subtract onehot
         layer_ab_delta_df_dict = {}
 
         # now do rand and stat
         for ablation in ARCH_AB:
             # get rand stat bar with layers
+            ab_df, _, _ = self._get_last_layer_bar_df(
+                metric=metric, layers=ARCH_BAR_LAYER, ablation=ablation
+            )
+            layer_ab_df_dict[ablation] = ab_df
+
             layer_ab_delta_df_dict[ablation] = subtract_onehot(
-                *self._get_last_layer_bar_df(
-                    metric=metric, layers=ARCH_BAR_LAYER, ablation=ablation
-                )
-            ).copy()
+                ab_df, layer_onehot_df, layer_val_col
+            )
 
             for r in [False, True]:
 
@@ -455,13 +537,43 @@ class PlotResultScatter:
                 ),
             )
 
-        # TODO add just rand and stat ve emb (no onehot)
-        """
+        # TODO add just rand and stat vs emb (no onehot)
+        sel_col = [
+            "arch",
+            "task",
+            "ablation",
+            "model",
+            "model_size",
+            "model_layer",
+            "last_value",
+        ]
+
+        for ab in ARCH_AB:
+
+            plot_emb_layer_bar(
+                df=subtract_emb(
+                    layer_ab_df_dict[ab], layer_emb_df, val_col=layer_val_col
+                ),
+                val_col=layer_val_col,
+                metric=metric,
+                iflast=False,
+                ifratio=False,
+                ifemb=True,
+                path2folder=checkNgen_folder(
+                    os.path.join(self._sum_folder, "last", f"{ab}vsemb_bar", metric)
+                ),
+            )
+
+        # merge but only last
         plot_emb_layer_bar(
             df=merge_rand_stat(
-                subtract_emb(rand_df, emb_df, val_col=["last_value"]),
-                subtract_emb(stat_df, emb_df, val_col=["last_value"]),
-                emb_df[sel_col],
+                subtract_emb(
+                    layer_ab_df_dict["rand"], layer_emb_df, val_col=["last_value"]
+                ),
+                subtract_emb(
+                    layer_ab_df_dict["stat"], layer_emb_df, val_col=["last_value"]
+                ),
+                layer_emb_df[sel_col],
                 ["last_value"],
                 True,
             ),
@@ -469,9 +581,11 @@ class PlotResultScatter:
             metric=metric,
             iflast=True,
             ifratio=False,
-            path2folder="results/summary/last/emblayersvsonehot_bar",
+            ifemb=True,
+            path2folder=checkNgen_folder(
+                os.path.join(self._sum_folder, "last", "randstatvsemb_bar", metric)
+            ),
         )
-        """
 
         # add rand stat info to emb_df
         emb_df = self._append_randstat(emb_df=emb_df)
@@ -493,7 +607,7 @@ class PlotResultScatter:
                     ),
                 )
 
-        return vs_plot, bar_plot, vs_plot_det, last_layer_bar
+        return vs_plot, best_layer, best_layer_all, vs_plot_det, last_layer_bar
 
     def plot_layer_delta(
         self,
@@ -714,6 +828,7 @@ def get_bestorlast_metric_df(
     metric: str = "test_performance_1",
     arch: str = "",
     bestorlast: str = "best",
+    ifgroupbestbytask: bool = True,
     ablation: str = "emb",
     layers: list[int] = [],
 ) -> pd.DataFrame:
@@ -722,6 +837,7 @@ def get_bestorlast_metric_df(
     A function for cleaning up the df to get best layer based on chosen metric
 
     Args:
+    - ifgroupbestbytask: bool: True, if best of each task
     - layers: list[int] = [], a list of ints for what other layers to extract
     """
 
@@ -742,26 +858,33 @@ def get_bestorlast_metric_df(
             slice_df["best_value"] = slice_df["value"].apply(np.min)
             slice_df["best_layer"] = slice_df["value"].apply(np.argmin)
 
-            # Find the index of the maximum value in 'value_column' for each group
-            min_indices = (
-                slice_df.groupby(["task", "ablation"])["best_value"].idxmin().dropna()
-            )
+            if ifgroupbestbytask:
+                # Find the index of the maximum value in 'value_column' for each group
+                min_indices = (
+                    slice_df.groupby(["task", "ablation"])["best_value"]
+                    .idxmin()
+                    .dropna()
+                )
 
-            # Use loc to select the rows corresponding to the max indices
-            slice_df = slice_df.loc[min_indices]
+                # Use loc to select the rows corresponding to the max indices
+                slice_df = slice_df.loc[min_indices]
 
         else:
             # get the max perform layer
             slice_df["best_value"] = slice_df["value"].apply(np.max)
             slice_df["best_layer"] = slice_df["value"].apply(np.argmax)
 
-            # Find the index of the maximum value in 'value_column' for each group
-            max_indices = (
-                slice_df.groupby(["task", "ablation"])["best_value"].idxmax().dropna()
-            )
+            if ifgroupbestbytask:
 
-            # Use loc to select the rows corresponding to the max indices
-            slice_df = slice_df.loc[max_indices]
+                # Find the index of the maximum value in 'value_column' for each group
+                max_indices = (
+                    slice_df.groupby(["task", "ablation"])["best_value"]
+                    .idxmax()
+                    .dropna()
+                )
+
+                # Use loc to select the rows corresponding to the max indices
+                slice_df = slice_df.loc[max_indices]
 
     elif bestorlast == "last":
 
@@ -804,6 +927,22 @@ def subtract_onehot(df: pd.DataFrame, onehot_df: pd.DataFrame, val_col: list[str
 
     # Drop the onehot val columns
     return merged_df.drop(columns=["onehot_value"])
+
+
+def subtract_emb(df: pd.DataFrame, emb_df: pd.DataFrame, val_col: list[str]):
+
+    """A function for subtracting onehot from emb vals"""
+
+    # Merge dataframes on common columns
+    merged_df = df.copy()[
+        ["arch", "task", "model", "ablation", "model_size", "model_layer"] + val_col
+    ]
+
+    for c in val_col:
+        merged_df[c] = df[c] - emb_df[c]
+
+    # Drop the onehot val columns
+    return merged_df
 
 
 def take_ratio(ablation_df: pd.DataFrame, emb_df: pd.DataFrame, val_col: list[str]):
@@ -946,6 +1085,531 @@ def plot_best_layer_bar(
     plt.title(plot_title, pad=10)
 
     path2folder = os.path.normpath(path2folder)
+
+    print(f"Saving to {path2folder}...")
+
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
+
+    return fig
+
+
+# TODO clean up combine with plot_emb_df_last_layer_bar
+def plot_emb_df_best_layer_bar(
+    emb_df: pd.DataFrame,
+    metric: str,
+    path2folder: str = "results/summary/best/bestemblayer_all",
+):
+
+    if "model_layer_percent" not in emb_df.columns:
+        emb_df["model_layer_percent"] = emb_df["best_layer"] / emb_df["model_layer"]
+
+    plot_title = "Best embedding layer {} achieved cross pretrain models".format(
+        simplify_test_metric(metric)
+    )
+
+    print(f"Plotting {plot_title}...")
+
+    # Create a three-degree nested multiclass bar plot
+    fig, ax = plt.subplots()
+    fig.set_size_inches(24, 6)
+
+    # set up over lay grid
+    gs = GridSpec(2, 1, height_ratios=[0.5, 4], hspace=0)
+
+    # Scatter plot above the main bar plot
+    ax = plt.subplot(gs[1])
+    ax_scatter = plt.subplot(gs[0], sharex=ax)
+
+    # add a second y axis for percent
+    ax_percent = ax.twinx()
+
+    # Plotting the bars with different levels of customization
+    for i, (t, st, sst, ms, val) in enumerate(
+        zip(
+            emb_df["task"],
+            emb_df["arch"],
+            emb_df["model"],
+            emb_df["model_layer"],
+            emb_df["best_layer"],
+        )
+    ):
+
+        x = (
+            1.2 * i + 1 + math.ceil((i + 1) / 4) * 0.5 + math.ceil((i + 1) / 8) * 0.5
+        )  # x-position for each bar
+
+        if st == "esm":
+            bar_style = {
+                "color": "none",
+                "edgecolor": TASK_SIMPLE_COLOR_MAP[t],
+                "hatch": "\\",
+            }
+            color = "none"
+        else:
+            bar_style = {
+                "color": TASK_SIMPLE_COLOR_MAP[t] + "80",
+                "edgecolor": TASK_SIMPLE_COLOR_MAP[t],
+            }
+            color = "gray"
+
+        # Plot the bars with different shading and alpha values
+        bar = ax.bar(x, val, linewidth=1.2, **bar_style)
+
+        # add the percent
+        ax_percent.scatter(x, val / ms, color="gray", marker="X", s=80, alpha=0.8)
+
+        # Overlay scatter plot indicating model size
+        ax_scatter.scatter(
+            x, 0.95, s=np.log(ms + 1) * 15, edgecolor="gray", marker="o", color=color
+        )
+
+    # Manually create legend elements
+    legend_elements = [
+        Rectangle(
+            (0, 0),
+            1,
+            1,
+            facecolor="none",
+            hatch="/",
+            edgecolor="gray",
+            linewidth=1.2,
+            label="ESM",
+        ),
+        Rectangle(
+            (0, 0),
+            1,
+            1,
+            facecolor="gray",
+            edgecolor="gray",
+            alpha=0.8,
+            linewidth=1.2,
+            label="CARP",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="X",
+            color="w",
+            label="Percent of layer",
+            markersize=12,
+            alpha=0.8,
+            markerfacecolor="gray",
+            markeredgecolor="gray",
+        ),
+    ]
+
+    # Create legend
+    ax.add_artist(
+        ax.legend(
+            handles=legend_elements,
+            bbox_to_anchor=(1.0425, 1.012),
+            loc="upper left",
+            title="Embedding type",
+        )
+    )
+
+    # add legend for arch size
+    arch_size_scatter = [None] * (len(EMB_MODEL_LAYER))
+
+    for i, (model, tl) in enumerate(EMB_MODEL_LAYER.items()):
+
+        if "esm" in model:
+            mfc = "none"
+        else:
+            mfc = "gray"
+
+        arch_size_scatter[i] = Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=f"{model}: {tl} layer",
+            markersize=np.log(tl) * 2.5,
+            markerfacecolor="gray",
+            markeredgecolor="gray",
+            mfc=mfc,
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=arch_size_scatter,
+            bbox_to_anchor=(1.0425, 0.55),
+            loc="upper left",
+            title="Pretrained architecture total layer",
+        )
+    )
+
+    # Remove x and y axis labels for scatter plot
+    ax_scatter.xaxis.set_visible(False)
+    ax_scatter.set_yticks([])
+
+    # Set y-axis range for scatter plot
+    ax_scatter.set_ylim(0, 2)
+
+    # Remove box around the scatter plot
+    ax_scatter.spines["top"].set_visible(False)
+    ax_scatter.spines["right"].set_visible(False)
+    ax_scatter.spines["bottom"].set_visible(False)
+    ax_scatter.spines["left"].set_visible(False)
+
+    ax_scatter.set_title(plot_title, pad=0)
+
+    # Set x and y value ranges
+    ax.set_xlim(0.36, 112.6)
+    ax.set_ylim(0, 56)
+
+    ax_percent.set_ylim(0, 1)
+
+    # Set x-axis ticks and align them to the middle of the corresponding labels
+    ax.set_xticks(np.linspace(0.36 + 6, 112.6 - 6, 10))
+    ax.set_xticklabels(
+        [
+            k.replace(" - ", "\n").replace("r l", "r\nl")
+            for k in TASK_SIMPLE_COLOR_MAP.keys()
+        ],
+        ha="center",
+    )
+
+    # Set labels and title
+    ax.set_xlabel("Tasks")
+    ax.set_ylabel("Layer number")
+    ax_percent.set_ylabel("Layer percent")
+
+    # Adjust layout for better visibility of legends
+    plt.subplots_adjust(right=0.7, bottom=0.2)
+
+    path2folder = checkNgen_folder(os.path.normpath(path2folder))
+
+    print(f"Saving to {path2folder}...")
+
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
+
+    return fig
+
+
+# TODO clean up
+def plot_carp_best_layer_bar(
+    df: pd.DataFrame,
+    metric: str,
+    path2folder: str = "results/summary/best/bestemblayer_carp",
+):
+    """
+    A function for plotting best carp layer number
+
+    Args:
+    - iflast: bool = False, if take only the last layer but combine rand and stat
+    - ifratio: bool = False, if take the ratio against emb
+    """
+
+    plot_title = (
+        "Best CARP embedding {} achieved cross pretrain degrees".format(
+            simplify_test_metric(metric)
+        )
+    )
+    # Create a three-degree nested multiclass bar plot
+    fig, ax = plt.subplots()
+    fig.set_size_inches(18, 6)
+
+    # set up over lay grid
+    gs = GridSpec(2, 1, height_ratios=[0.5, 4], hspace=0)
+
+    # Scatter plot above the main bar plot
+    ax = plt.subplot(gs[1])
+    ax_scatter = plt.subplot(gs[0], sharex=ax)
+
+    # add a second y axis for percent
+    ax_percent = ax.twinx()
+
+    for i, (category, group) in enumerate(df.groupby(["task", "model"])):
+
+        # x-position for each bar
+        x = 2 * i + math.ceil((i + 1) / 4) * 3.2
+
+        # Plotting the bars with different levels of customization
+        for t, st, sst, ml, ptp, val in zip(
+                group["task"],
+                group["arch"],
+                group["model"],
+                group["model_layer"],
+                group["ptp"],
+                group["best_layer"],
+            ):
+
+            # plot the scatter for diff emb layer and percent
+            ax.scatter(
+                x,  # make x y same size
+                val,
+                s=80,
+                marker="o",
+                color=TASK_SIMPLE_COLOR_MAP[t],
+                alpha=ptp,
+            )
+            
+            # add the percent
+            ax_percent.scatter(
+                x, 
+                val/ml, 
+                color="gray", 
+                marker="X", 
+                s=80, 
+                alpha=ptp
+            )
+
+            # Overlay scatter plot indicating model size
+            ax_scatter.scatter(
+                x,
+                0.95,
+                s=ml * 1.5,
+                edgecolor="gray",
+                marker=ARCH_SCATTER_STYLE_DICT[st],
+                color="grey",
+                alpha=0.8,
+            )
+
+    # add legned for emb or percent
+    legend_elements = [
+        Line2D([0], 
+               [0], 
+               marker="o", 
+               color="w", 
+               label="CARP",
+               markersize=12,
+               alpha=0.8,
+               markerfacecolor="gray",
+               markeredgecolor="gray"),
+        Line2D([0], 
+               [0], 
+               marker="X", 
+               color="w", 
+               label="Percent of layer",
+               markersize=12,
+               alpha=0.8,
+               markerfacecolor="gray",
+               markeredgecolor="gray"),
+    ]
+
+    # Create legend
+    ax.add_artist(
+        ax.legend(
+            handles=legend_elements,
+            bbox_to_anchor=(1.05, 1.012),
+            loc="upper left",
+            title="Embedding type",
+        )
+    )
+
+    # add legned for ptp
+    alpha_legend = [None] * len(CHECKPOINT_PERCENT)
+
+    for i, a in enumerate(CHECKPOINT_PERCENT):
+        alpha_legend[i] = Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=a,
+            alpha=a,
+            markerfacecolor="k",
+            markersize=12,
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=alpha_legend,
+            bbox_to_anchor=(1.05, 0.8),
+            loc="upper left",
+            title="Pretrain degree",
+        )
+    )
+    # add legend for arch size
+    arch_size_scatter = [None] * (len(CARP_MODEL_LAYER))
+
+    for i, (model, tl) in enumerate(CARP_MODEL_LAYER.items()):
+
+        arch_size_scatter[i] = Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=f"{model}: {tl} layer",
+            markersize=np.log(tl) * 2.5,
+            markerfacecolor="gray",
+            markeredgecolor="gray",
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=arch_size_scatter,
+            bbox_to_anchor=(1.05, 0.325),
+            loc="upper left",
+            title="Pretrained architecture total layer",
+        )
+    )
+
+    # Remove x and y axis labels for scatter plot
+    ax_scatter.xaxis.set_visible(False)
+    ax_scatter.set_yticks([])
+
+    # Set y-axis range for scatter plot
+    ax_scatter.set_ylim(0, 2)
+
+    # Remove box around the scatter plot
+    ax_scatter.spines["top"].set_visible(False)
+    ax_scatter.spines["right"].set_visible(False)
+    ax_scatter.spines["bottom"].set_visible(False)
+    ax_scatter.spines["left"].set_visible(False)
+
+    ax_scatter.set_title(plot_title, pad=0)
+
+    # Set x and y value ranges
+    ax.set_xlim(0.36, 112.6)
+    ax.set_ylim(0, 56)
+    ax_percent.set_ylim(0, 1)
+
+    # Set x-axis ticks and align them to the middle of the corresponding labels
+    ax.set_xticks(np.linspace(0.36 + 6, 112.6 - 6, 10))
+    ax.set_xticklabels(
+        [
+            k.replace(" - ", "\n").replace("r l", "r\nl")
+            for k in TASK_SIMPLE_COLOR_MAP.keys()
+        ],
+        ha="center",
+    )
+
+    # Set labels and title
+    ax.set_xlabel("Tasks")
+    ax.set_ylabel("Layer number")
+    ax_percent.set_ylabel("Layer percent")
+
+    # Adjust layout for better visibility of legends
+    plt.subplots_adjust(right=0.7, bottom=0.2)
+
+    path2folder = checkNgen_folder(os.path.normpath(path2folder))
+
+    print(f"Saving to {path2folder}...")
+
+    save_plt(fig, plot_title=plot_title, path2folder=path2folder)
+
+    return fig
+
+def plot_carp_best_layer_pretrain_loss(
+    df: pd.DataFrame,
+    metric: str = "test_performance_1",
+    ifpercent: bool = True,
+    path2folder: str = "results/summar/best/bestemblayer_carp/loss",
+):
+
+    """A method for plotting the pretraining arch"""
+
+    if ifpercent:
+        append = "percent "
+    else:
+        append = ""
+
+    plot_title = (
+        "Best CARP embedding {}achieved at {} layer cross pretrain degrees".format(
+            append, simplify_test_metric(metric)
+        )
+    )
+
+    # Plot dots with colors corresponding to the category
+    fig, ax = plt.subplots()
+    fig.set_size_inches(6, 6)
+
+    for i, (category, group) in enumerate(df.groupby(["task", "model"])):
+
+        t, m = category
+
+        c = TASK_SIMPLE_COLOR_MAP[t]
+
+        xs = [CARP_CHECKPOINT_LOSSES[m][x] for x in group["ptp"]]
+
+        if ifpercent:
+            ys = group["best_layer"] / group["model_layer"]
+        else:
+            ys = group["best_layer"]
+
+        ax.plot(
+            xs,
+            ys,
+            marker="o",
+            markersize=12,
+            linestyle="dotted",
+            color=c,
+            markerfacecolor=c,
+            markeredgecolor=c,
+            alpha=CARP_ALPHA[m],
+        )
+
+    # add task legend
+    task_legend_list = [None] * len(TASK_SIMPLE_COLOR_MAP)
+
+    for i, (t, c) in enumerate(TASK_SIMPLE_COLOR_MAP.items()):
+
+        task_legend_list[i] = Line2D(
+            [0],
+            [0],
+            marker="o",
+            color=c,
+            label=t,
+            markersize=12,
+            linestyle="dotted",
+            markerfacecolor=c,
+            markeredgecolor=c,
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=task_legend_list,
+            bbox_to_anchor=(1, 1.012),
+            loc="upper left",
+            title="Task",
+        )
+    )
+
+    # add alpha legend for carp sizes
+    arch_legend_list = [None] * len(CARP_ALPHA)
+
+    for i, (c, a) in enumerate(CARP_ALPHA.items()):
+
+        arch_legend_list[i] = Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="gray",
+            alpha=a,
+            linestyle="dotted",
+            label=c,
+            markersize=12,
+            markerfacecolor="gray",
+            markeredgecolor="gray",
+        )
+
+    ax.add_artist(
+        ax.legend(
+            handles=arch_legend_list,
+            bbox_to_anchor=(1, 0.5025),
+            loc="upper left",
+            title="CARP models",
+        )
+    )
+
+    # Flip the x-axis so loss from left to right are reducing
+    ax.invert_xaxis()
+
+    if ifpercent:
+        ax.set_ylim(0, 1)
+        ax.set_ylabel("Layer percent")
+    else:
+        ax.set_ylim(0, 56)
+        ax.set_ylabel("Layer number")
+
+    # Set labels and title
+    ax.set_xlabel("Pretrain loss")
+
+    ax.set_title(plot_title, pad=10)
+
+    path2folder = checkNgen_folder(os.path.normpath(path2folder))
 
     print(f"Saving to {path2folder}...")
 
@@ -1150,6 +1814,7 @@ def plot_emb_layer_bar(
     iflast: bool = False,
     ifratio: bool = False,
     ifonehot: bool = True,
+    ifemb: bool = False,
     path2folder: str = "results/summary/last/emblayersvsonehot_bar",
 ):
     """
@@ -1158,7 +1823,15 @@ def plot_emb_layer_bar(
     Args:
     - iflast: bool = False, if take only the last layer but combine rand and stat
     - ifratio: bool = False, if take the ratio against emb
+    - ifemb: bool = False, if compared against emb
     """
+
+    if ifemb:
+        baseline = "Embedding"
+        embonehot = "emb"
+    else:
+        baseline = "Onehot"
+        embonehot = "onehot"
 
     if iflast:
 
@@ -1172,9 +1845,9 @@ def plot_emb_layer_bar(
                 "emblayersvsonehot_bar", "randstatembvsonehot_bar"
             )
         else:
-            ylabel = "Embedding ablation - Onehot"
+            ylabel = f"Embedding ablation - {baseline}"
             path2folder = path2folder.replace(
-                "emblayersvsonehot_bar", "randstatvsonehot_bar"
+                "emblayersvsonehot_bar", f"randstatvs{embonehot}_bar"
             )
 
     else:
@@ -1182,7 +1855,8 @@ def plot_emb_layer_bar(
 
         if "emb" in df["ablation"].values:
             title_ab = "embedding"
-            ylabel = "Embedding - Onehot"
+            ylabel = f"Embedding - Onehot"
+
         elif "rand" in df["ablation"].values:
             title_ab = "random init"
             if ifratio:
@@ -1192,9 +1866,10 @@ def plot_emb_layer_bar(
                 ylabel = "(Random init - Onehot) / (Embedding - Onehot)"
             else:
                 path2folder = path2folder.replace(
-                    "emblayersvsonehot_bar", "randvsonehot_bar"
+                    "emblayersvsonehot_bar", f"randvs{embonehot}_bar"
                 )
-                ylabel = "Random init - Onehot"
+                ylabel = f"Random init - {baseline}"
+
         elif "stat" in df["ablation"].values:
             title_ab = "stat transfer"
             if ifratio:
@@ -1204,12 +1879,12 @@ def plot_emb_layer_bar(
                 ylabel = "(Stat transfer - Onehot) / (Embedding - Onehot)"
             else:
                 path2folder = path2folder.replace(
-                    "emblayersvsonehot_bar", "statvsonehot_bar"
+                    "emblayersvsonehot_bar", f"statvs{embonehot}_bar"
                 )
-                ylabel = "Stat transfer - Onehot"
+                ylabel = f"Stat transfer - {baseline}"
 
-    plot_title = "Different layer {} {} compared against onehot".format(
-        title_ab, simplify_test_metric(metric)
+    plot_title = "Different layer {} {} compared against {}".format(
+        title_ab, simplify_test_metric(metric), baseline.lower()
     )
 
     # Create a three-degree nested multiclass bar plot
@@ -1264,7 +1939,7 @@ def plot_emb_layer_bar(
                 **alpha_style,
             )
 
-        # Overlay scatter plot indicating another parameter
+        # Overlay scatter plot indicating model size
         ax_scatter.scatter(
             x,
             0.95,
@@ -1299,7 +1974,7 @@ def plot_emb_layer_bar(
         ref_label = "Emb = Ablation"
     else:
         ref_y = 0
-        ref_label = "Onehot"
+        ref_label = baseline
 
     ax.axhline(
         y=ref_y,
@@ -2094,7 +2769,9 @@ def plot_arch_size(
         )
     else:
         ax.legend(
-            bbox_to_anchor=(1, 0.5025), loc="upper left", title="Pretrained architectures"
+            bbox_to_anchor=(1, 0.5025),
+            loc="upper left",
+            title="Pretrained architectures",
         )
 
     plt.xscale("log")

@@ -1,9 +1,23 @@
 """Script for running results analysis and plotting"""
 
+import matplotlib as mpl
+
+
 from scr.analysis.perlayer import LayerLoss
 from scr.analysis.result_reorg import ResultReorg
 from scr.vis.res_vis import PlotResultScatter
 from scr.params.emb import ARCH_TYPE, ARCH_CUT_DICT
+
+notitle = False
+
+if notitle == True:
+
+    # Set title color to white and font size to zero
+    mpl.rcParams['axes.titlecolor'] = 'white'
+    mpl.rcParams['axes.titleweight'] = 0
+    mpl.rcParams['axes.titlepad'] = 0
+    mpl.rcParams['axes.titlesize'] = 0
+
 
 """
 print("Running results analysis and plotting for sklearn CARP...")

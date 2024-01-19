@@ -107,4 +107,5 @@ ARCH_SCATTER_STYLE_DICT = {
     "esm": "X",
 }
 
-LAYER_ALPHAS = [0.2, 0.4, 0.6, 0.8, 1]
+LAYER_ALPHAS = [0.1, 0.25, 0.4, 0.65, 1]
+
