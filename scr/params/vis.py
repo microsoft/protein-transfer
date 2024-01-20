@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import copy
+from copy import deepcopy
 
 import numpy as np
 
@@ -46,7 +46,7 @@ PRESENTATION_PALETTE_SATURATE = list(PRESENTATION_PALETTE_SATURATE_DICT.keys())
 # from https://www.w3schools.com/colors/colors_picker.asp
 CHECKPOINT_COLOR = {0.5: "#dc6809", 0.25: "#934506", 0.125: "#492303"}
 
-CARP_ALPHA = {c: a for (c,a) in zip(copy.deepcopy(CARP_INFO).keys(), np.linspace(0.25, 1, 4))}
+CARP_ALPHA = {c: a for (c,a) in zip(deepcopy(CARP_INFO).keys(), np.linspace(0.25, 1, 4))}
 
 # note that "structure_ss3_tape_processed" is not considered
 # as only for train and val
@@ -86,20 +86,21 @@ TASK_LEGEND_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST, ORDERED_TASK_LIST_SIM
 TASK_SIMPLE_COLOR_MAP = {k: v for k, v in zip(ORDERED_TASK_LIST_SIMPLE, TASK_COLORS)}
 
 # for lines
-ARCH_LINE_STYLE_DICT = {
+ARCH_LINE_STYLE_DICT = deepcopy({
     "carp": {"linestyle": "solid", "mec": "none"},
     "esm": {"linestyle": "dotted", "mfc": "none"},
-}.copy()
+})
 
 # for dots
-ARCH_DOT_STYLE_DICT = {
-    "carp": {"facecolors": "none"},
-    "esm": {"edgecolors": "none", "alpha": 0.8},
-}.copy()
+ARCH_DOT_STYLE_DICT = deepcopy({
+    "carp": {"edgecolors": "none", "alpha": 0.8},
+    "esm": {"facecolors": "none"},
+})
 
-ARCH_AB_DOT_STYLE_DICT = {
-    ab: s for ab, s in zip(["rand", "stat"], copy.deepcopy(ARCH_DOT_STYLE_DICT).values())
-}.copy()
+ARCH_AB_DOT_STYLE_DICT = deepcopy({
+    "rand": ARCH_DOT_STYLE_DICT["esm"],
+    "stat": ARCH_DOT_STYLE_DICT["carp"]
+})
 
 # for scatter
 ARCH_SCATTER_STYLE_DICT = {

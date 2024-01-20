@@ -69,7 +69,7 @@ for metric in ["test_loss", "test_performance_1", "test_performance_2"]:
                     layer_cut=cut,
                     metric=metric,
                     arch=arch,
-                    ifsimple=s
+                    ifsimple=s,
                 );
     
     # get pretrain degree for carp only

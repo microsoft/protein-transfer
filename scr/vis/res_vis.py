@@ -400,7 +400,7 @@ class PlotResultScatter:
                 ifpercent=ifpercent,
                 path2folder=checkNgen_folder(
                     os.path.join(
-                        self._sum_folder, "best", "bestemblayer_carp_loss", metric, "percent"
+                        self._sum_folder, "best", "bestemblayer_carp_loss", metric
                     )
                 ),
             )
@@ -497,8 +497,8 @@ class PlotResultScatter:
             [
                 take_ratio(
                     ablation_df=merge_rand_stat(
-                        rand_df=layer_ab_delta_df_dict["rand"].copy(),
-                        stat_df=layer_ab_delta_df_dict["stat"].copy(),
+                        rand_df=layer_ab_delta_df_dict[ARCH_AB[0]].copy(),
+                        stat_df=layer_ab_delta_df_dict[ARCH_AB[1]].copy(),
                         onehot_df=layer_onehot_df.copy(),
                         val_col=layer_val_col,
                         ifdelta=True,
@@ -513,8 +513,8 @@ class PlotResultScatter:
                     val_col=randstat_col,
                 ),
                 merge_rand_stat(
-                    rand_df=layer_ab_delta_df_dict["rand"].copy(),
-                    stat_df=layer_ab_delta_df_dict["stat"].copy(),
+                    rand_df=layer_ab_delta_df_dict[ARCH_AB[0]].copy(),
+                    stat_df=layer_ab_delta_df_dict[ARCH_AB[1]].copy(),
                     onehot_df=layer_onehot_df.copy(),
                     val_col=layer_val_col,
                     ifdelta=True,
@@ -537,7 +537,7 @@ class PlotResultScatter:
                 ),
             )
 
-        # TODO add just rand and stat vs emb (no onehot)
+        # just rand and stat vs emb (no onehot)
         sel_col = [
             "arch",
             "task",
@@ -1609,7 +1609,7 @@ def plot_carp_best_layer_pretrain_loss(
 
     ax.set_title(plot_title, pad=10)
 
-    path2folder = checkNgen_folder(os.path.normpath(path2folder))
+    path2folder = checkNgen_folder(os.path.join(os.path.normpath(path2folder), append))
 
     print(f"Saving to {path2folder}...")
 
@@ -1835,6 +1835,8 @@ def plot_emb_layer_bar(
 
     if iflast:
 
+        difflast = "Different"
+
         alpha_style = ARCH_AB_DOT_STYLE_DICT.copy()
 
         title_ab = "embedding ablation"
@@ -1851,6 +1853,9 @@ def plot_emb_layer_bar(
             )
 
     else:
+
+        difflast = "Last"
+
         alpha_style = {"alpha": LAYER_ALPHAS, "edgecolor": "none"}
 
         if "emb" in df["ablation"].values:
@@ -1883,8 +1888,8 @@ def plot_emb_layer_bar(
                 )
                 ylabel = f"Stat transfer - {baseline}"
 
-    plot_title = "Different layer {} {} compared against {}".format(
-        title_ab, simplify_test_metric(metric), baseline.lower()
+    plot_title = "{} layer {} {} compared against {}".format(
+        difflast, title_ab, simplify_test_metric(metric), baseline.lower()
     )
 
     # Create a three-degree nested multiclass bar plot
@@ -2035,7 +2040,7 @@ def plot_emb_layer_bar(
 
             ab = c.replace("_value", "")
 
-            if ab == "stat":
+            if ab == "rand":
                 mfc = "none"
             else:
                 mfc = "gray"
@@ -2252,10 +2257,10 @@ def plot_emb_onehot_det(
 
             arch_dict = ARCH_DOT_STYLE_DICT[arch]
 
-            if arch == "esm":
+            if arch == "carp":
                 arch_dict["c"] = c
                 arch_dict["label"] = task
-            elif arch == "carp":
+            elif arch == "esm":
                 arch_dict["edgecolor"] = c
 
             scatter = ax.scatter(x, y, s=s, **arch_dict)
@@ -2280,9 +2285,9 @@ def plot_emb_onehot_det(
     for i, (model, size) in enumerate(EMB_MODEL_SIZE.items()):
 
         if "carp" in model:
-            mfc = "none"
-        else:
             mfc = "gray"
+        else:
+            mfc = "none"
 
         arch_size_scatter[i] = Line2D(
             [0],
