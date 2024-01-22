@@ -2,7 +2,7 @@
 1. [Reinit (`self._reset_param = True`) ESM1b](#reset_esm1b)
 2. [Resample (`self._resample_param = True`) ESM1b](#resamp_esm1b)
 3. [Reinit (`self._reset_param = True`) ESM1](#reset_esm1)
-4. [Resample (`self._resample_param = True`) ESM1](#resamp_esm1)]
+4. [Resample (`self._resample_param = True`) ESM1](#resamp_esm1)
 5. [Reinit (`self._reset_param = True`) CARP](#reset_carp)
 6. [Resample (`self._resample_param = True`) CARP](#resamp_carp) 
 

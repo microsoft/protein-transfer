@@ -373,14 +373,23 @@ class PlotResultScatter:
             ),
         )
 
+        best_layer_all_df = self._get_df_for_best_layer(metric=metric, arch="")
+
         # best layer for all task and model combo
         best_layer_all = plot_emb_df_best_layer_bar(
-            emb_df=self._get_df_for_best_layer(metric=metric, arch=""),
+            emb_df=best_layer_all_df,
             metric=metric,
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "best", "bestemblayer_all", metric)
             ),
         )
+
+        # prep to merge for summary df
+        merge_df = best_layer_all_df[["task", "model", "model_layer", "best_layer"]].copy()
+        merge_df["best_layer_percent"] = (
+            merge_df["best_layer"] / merge_df["model_layer"]
+        )
+        merge_df = merge_df.drop(columns=["model_layer"])
 
         best_layer_carp_df = self._get_df_for_best_layer(metric=metric, arch="carp")
         # best layer for carp with differen pretrain degree
@@ -440,6 +449,16 @@ class PlotResultScatter:
             val_col=layer_val_col,
         ).copy()
 
+        # append to merge for summary df
+        merge_df = pd.merge(
+            merge_df.copy(),
+            layer_emb_delta_df[["task", "model", "last_value"]].rename(
+                columns={"last_value": "Emb > OH"}
+            ).copy(),
+            on=["task", "model"],
+            how="outer",
+        )
+
         plot_emb_layer_bar(
             df=layer_emb_delta_df,
             val_col=layer_val_col,
@@ -493,16 +512,19 @@ class PlotResultScatter:
 
         randstat_col = [f"{a}_value" for a in ARCH_AB]
 
+        # do randstat vs onehot with or without emb ratio
+        ablation_onehot_df = merge_rand_stat(
+            rand_df=layer_ab_delta_df_dict[ARCH_AB[0]].copy(),
+            stat_df=layer_ab_delta_df_dict[ARCH_AB[1]].copy(),
+            onehot_df=layer_onehot_df.copy(),
+            val_col=layer_val_col,
+            ifdelta=True,
+        ).copy()
+
         for (df, r) in zip(
             [
                 take_ratio(
-                    ablation_df=merge_rand_stat(
-                        rand_df=layer_ab_delta_df_dict[ARCH_AB[0]].copy(),
-                        stat_df=layer_ab_delta_df_dict[ARCH_AB[1]].copy(),
-                        onehot_df=layer_onehot_df.copy(),
-                        val_col=layer_val_col,
-                        ifdelta=True,
-                    ).copy(),
+                    ablation_df=ablation_onehot_df,
                     emb_df=merge_rand_stat(
                         rand_df=layer_emb_delta_df.copy(),
                         stat_df=layer_emb_delta_df.copy(),
@@ -512,13 +534,7 @@ class PlotResultScatter:
                     ).copy(),
                     val_col=randstat_col,
                 ),
-                merge_rand_stat(
-                    rand_df=layer_ab_delta_df_dict[ARCH_AB[0]].copy(),
-                    stat_df=layer_ab_delta_df_dict[ARCH_AB[1]].copy(),
-                    onehot_df=layer_onehot_df.copy(),
-                    val_col=layer_val_col,
-                    ifdelta=True,
-                ).copy(),
+                ablation_onehot_df,
             ],
             [True, False],
         ):
@@ -536,6 +552,16 @@ class PlotResultScatter:
                     )
                 ),
             )
+
+        # append simplified df for summary df
+        merge_df = pd.merge(
+            merge_df.copy(),
+            ablation_onehot_df[["task", "model", "rand_value", "stat_value"]].rename(
+                columns={"rand_value": "RI > OH", "stat_value": "ST > OH"}
+            ).copy(),
+            on=["task", "model"],
+            how="outer",
+        )
 
         # just rand and stat vs emb (no onehot)
         sel_col = [
@@ -564,19 +590,21 @@ class PlotResultScatter:
                 ),
             )
 
+        ablation_emb_df = merge_rand_stat(
+            rand_df=subtract_emb(
+                layer_ab_df_dict["rand"], layer_emb_df, val_col=["last_value"]
+            ),
+            stat_df=subtract_emb(
+                layer_ab_df_dict["stat"], layer_emb_df, val_col=["last_value"]
+            ),
+            onehot_df=layer_emb_df[sel_col],
+            val_col=["last_value"],
+            ifdelta=True,
+        ).copy()
+
         # merge but only last
         plot_emb_layer_bar(
-            df=merge_rand_stat(
-                subtract_emb(
-                    layer_ab_df_dict["rand"], layer_emb_df, val_col=["last_value"]
-                ),
-                subtract_emb(
-                    layer_ab_df_dict["stat"], layer_emb_df, val_col=["last_value"]
-                ),
-                layer_emb_df[sel_col],
-                ["last_value"],
-                True,
-            ),
+            df=ablation_emb_df,
             val_col=["rand_value", "stat_value"],
             metric=metric,
             iflast=True,
@@ -585,6 +613,30 @@ class PlotResultScatter:
             path2folder=checkNgen_folder(
                 os.path.join(self._sum_folder, "last", "randstatvsemb_bar", metric)
             ),
+        )
+
+        # append simplified df for summary df
+        merge_df = pd.merge(
+            merge_df.copy(),
+            ablation_emb_df[["task", "model", "rand_value", "stat_value"]].rename(
+                columns={"rand_value": "RI > Emb", "stat_value": "ST > Emb"}
+            ).copy(),
+            on=["task", "model"],
+            how="outer",
+        )
+
+        # get rand - stat
+        rand_stat = subtract_emb(
+                layer_ab_df_dict["rand"], layer_ab_df_dict["stat"], val_col=["last_value"]
+            ).copy()
+
+        merge_df = pd.merge(
+            merge_df.copy(),
+            rand_stat[["task", "model", "last_value"]].rename(
+                columns={"last_value": "RI > ST"}
+            ).copy(),
+            on=["task", "model"],
+            how="outer",
         )
 
         # add rand stat info to emb_df
@@ -607,7 +659,25 @@ class PlotResultScatter:
                     ),
                 )
 
-        return vs_plot, best_layer, best_layer_all, vs_plot_det, last_layer_bar
+        # process df to be simpler and save
+        simpler_df = simplify_summeray_df(df=merge_df)
+        simpler_df.to_csv(
+            os.path.join(
+                checkNgen_folder(
+                    os.path.join(self._sum_folder, "all_results_last_layer", metric)
+                ),
+                "last_layer_summary.csv",
+            )
+        )
+
+        return (
+            vs_plot,
+            best_layer,
+            best_layer_all,
+            vs_plot_det,
+            last_layer_bar,
+            merge_df,
+        )
 
     def plot_layer_delta(
         self,
@@ -809,6 +879,24 @@ class PlotResultScatter:
     def last_metric_df_dict(self) -> dict:
         """Return a dict splicin the df with the last layer value given metric"""
         return self._get_last_metric_df_dict()
+
+
+def simplify_summeray_df(df: pd.DataFrame) -> pd.DataFrame:
+
+    """
+    A function to simply the last layer df
+    """
+
+    # Applying the rules to the respective columns
+    for col in ["Emb > OH", "RI > OH", "ST > OH", "RI > ST"]:
+        df[col] = df[col].apply(lambda value: True if value > 0 else False)
+
+    # flip order
+    for (col, ncol) in zip(["RI > Emb", "ST > Emb"], ["Emb > RI", "Emb > ST"]):
+        df[ncol] = df[col].apply(lambda value: False if value > 0 else True)
+        df = df.drop(columns=col)
+
+    return df
 
 
 def simplify_test_metric(metric: str) -> str:
@@ -1301,10 +1389,8 @@ def plot_carp_best_layer_bar(
     - ifratio: bool = False, if take the ratio against emb
     """
 
-    plot_title = (
-        "Best CARP embedding {} achieved cross pretrain degrees".format(
-            simplify_test_metric(metric)
-        )
+    plot_title = "Best CARP embedding {} achieved cross pretrain degrees".format(
+        simplify_test_metric(metric)
     )
     # Create a three-degree nested multiclass bar plot
     fig, ax = plt.subplots()
@@ -1327,13 +1413,13 @@ def plot_carp_best_layer_bar(
 
         # Plotting the bars with different levels of customization
         for t, st, sst, ml, ptp, val in zip(
-                group["task"],
-                group["arch"],
-                group["model"],
-                group["model_layer"],
-                group["ptp"],
-                group["best_layer"],
-            ):
+            group["task"],
+            group["arch"],
+            group["model"],
+            group["model_layer"],
+            group["ptp"],
+            group["best_layer"],
+        ):
 
             # plot the scatter for diff emb layer and percent
             ax.scatter(
@@ -1344,16 +1430,9 @@ def plot_carp_best_layer_bar(
                 color=TASK_SIMPLE_COLOR_MAP[t],
                 alpha=ptp,
             )
-            
+
             # add the percent
-            ax_percent.scatter(
-                x, 
-                val/ml, 
-                color="gray", 
-                marker="X", 
-                s=80, 
-                alpha=ptp
-            )
+            ax_percent.scatter(x, val / ml, color="gray", marker="X", s=80, alpha=ptp)
 
             # Overlay scatter plot indicating model size
             ax_scatter.scatter(
@@ -1368,24 +1447,28 @@ def plot_carp_best_layer_bar(
 
     # add legned for emb or percent
     legend_elements = [
-        Line2D([0], 
-               [0], 
-               marker="o", 
-               color="w", 
-               label="CARP",
-               markersize=12,
-               alpha=0.8,
-               markerfacecolor="gray",
-               markeredgecolor="gray"),
-        Line2D([0], 
-               [0], 
-               marker="X", 
-               color="w", 
-               label="Percent of layer",
-               markersize=12,
-               alpha=0.8,
-               markerfacecolor="gray",
-               markeredgecolor="gray"),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label="CARP",
+            markersize=12,
+            alpha=0.8,
+            markerfacecolor="gray",
+            markeredgecolor="gray",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="X",
+            color="w",
+            label="Percent of layer",
+            markersize=12,
+            alpha=0.8,
+            markerfacecolor="gray",
+            markeredgecolor="gray",
+        ),
     ]
 
     # Create legend
@@ -1491,6 +1574,7 @@ def plot_carp_best_layer_bar(
     save_plt(fig, plot_title=plot_title, path2folder=path2folder)
 
     return fig
+
 
 def plot_carp_best_layer_pretrain_loss(
     df: pd.DataFrame,
@@ -1835,7 +1919,7 @@ def plot_emb_layer_bar(
 
     if iflast:
 
-        difflast = "Different"
+        difflast = "Last"
 
         alpha_style = ARCH_AB_DOT_STYLE_DICT.copy()
 
@@ -1854,7 +1938,7 @@ def plot_emb_layer_bar(
 
     else:
 
-        difflast = "Last"
+        difflast = "Different"
 
         alpha_style = {"alpha": LAYER_ALPHAS, "edgecolor": "none"}
 
