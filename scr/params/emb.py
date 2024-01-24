@@ -43,6 +43,35 @@ MODEL_SIZE = {
     "onehot": 0.02,
 }
 
+EMB_SIMPLE_MAP = {
+    "esm1_t6_43M_UR50S": "ESM1 43M",
+    "esm1_t12_85M_UR50S": "ESM1 85M",
+    "esm1_t34_670M_UR50S": "ESM1 670M",
+    "esm1b_t33_650M_UR50S": "ESM1b 650M",
+    "carp_600k": "CARP 0.6M",
+    "carp_38M": "CARP 38M",
+    "carp_76M": "CARP 76M",
+    "carp_640M": "CARP 640M",
+    "onehot": "Onehot"
+}
+
+EMB_SIZE_SIMPLE = {
+    "esm1_t6_43M_UR50S": "Small",
+    "esm1_t12_85M_UR50S": "Medium",
+    "esm1_t34_670M_UR50S": "Large",
+    "esm1b_t33_650M_UR50S": "Large*",
+    "carp_600k": "Mini",
+    "carp_38M": "Small",
+    "carp_76M": "Medium",
+    "carp_640M": "Large",
+}
+
+# the embeddings to use for task oriented plots
+EMB4TASK = ["onehot", 
+            "esm1_t6_43M_UR50S", "esm1_t12_85M_UR50S", "esm1b_t33_650M_UR50S",
+            "carp_38M", "carp_76M", "carp_640M"
+            ]
+
 # emb model parameter number in M
 EMB_MODEL_SIZE = {k: v for k, v in deepcopy(MODEL_SIZE).items() if k != "onehot"}
 
