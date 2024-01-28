@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-ARCH_TYPE = ["esm", "carp"]
+ARCH_TYPE = ["carp", "esm"]
 
 ARCH_AB_DICT = {"rand": "random init", "stat": "stat transfer"}
 ARCH_AB = sorted(deepcopy(list(ARCH_AB_DICT.keys())))
