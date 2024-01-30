@@ -66,6 +66,9 @@ EMB_SIZE_SIMPLE = {
     "carp_640M": "Large",
 }
 
+BASELINE_NAME_DICT = {"onehot": "One-hot", "rand": "Random init", "stat": "Stat transfer"}
+EMB_SIZE_NAME_SIMPLE = ["Small", "Medium", "Large"]
+
 # the embeddings to use for task oriented plots
 EMB4TASK = ["onehot", 
             "esm1_t6_43M_UR50S", "esm1_t12_85M_UR50S", "esm1b_t33_650M_UR50S",
