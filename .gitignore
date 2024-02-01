@@ -31,6 +31,9 @@ embeddings-stat
 embeddings-stat/
 pretrain_checkpoints
 pretrain_checkpoints/
+sandbox
+sandbox/
+
 
 # exceptions to the rule
 !README.md
