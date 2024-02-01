@@ -6,6 +6,7 @@ import matplotlib as mpl
 from scr.analysis.perlayer import LayerLoss
 from scr.analysis.result_reorg import ResultReorg
 from scr.vis.res_vis import PlotResultScatter
+from scr.vis.res_vis_task import PlotResultByTask
 from scr.params.emb import ARCH_TYPE, ARCH_CUT_DICT
 
 notitle = False
@@ -52,7 +53,7 @@ LayerLoss(
 """
 
 # ResultReorg()
-
+"""
 plot_class = PlotResultScatter()
 
 for metric in ["test_loss", "test_performance_1", "test_performance_2"]:
@@ -81,3 +82,12 @@ for metric in ["test_loss", "test_performance_1", "test_performance_2"]:
     plot_class.plot_arch_size(
         metric=metric
     )
+"""
+
+task_class = PlotResultByTask()
+
+for metric in ["test_loss", "test_performance_1", "test_performance_2"]:
+    
+    task_class._plot_by_cluster(
+            metric = metric,
+        );

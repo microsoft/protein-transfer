@@ -660,13 +660,13 @@ class PlotResultScatter:
                 )
 
         # process df to be simpler and save
-        simpler_df = simplify_summeray_df(df=merge_df)
+        simpler_df = simplify_sum_delta_df(df=merge_df)
         simpler_df.to_csv(
             os.path.join(
                 checkNgen_folder(
                     os.path.join(self._sum_folder, "all_results_last_layer", metric)
                 ),
-                "last_layer_summary.csv",
+                "last_layer_delta_summary.csv",
             )
         )
 
@@ -881,7 +881,7 @@ class PlotResultScatter:
         return self._get_last_metric_df_dict()
 
 
-def simplify_summeray_df(df: pd.DataFrame) -> pd.DataFrame:
+def simplify_sum_delta_df(df: pd.DataFrame) -> pd.DataFrame:
 
     """
     A function to simply the last layer df
