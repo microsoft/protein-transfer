@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Collection
-from collections import Iterable, Sequence
+from collections import Iterable, Sequence, OrderedDict
 
+import os
 import math
 import random
 import numpy as np
@@ -27,7 +28,7 @@ from torch.nn.init import (
 from sequence_models.pretrained import load_model_and_alphabet
 
 from scr.params.aa import AA_NUMB, AA_TO_IND
-from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
+from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, CARP_CHECKPOINTS
 from scr.params.sys import DEVICE, RAND_SEED
 
 
@@ -88,6 +89,12 @@ class AbstractEncoder(ABC):
         Returns:
         - torch.nn.Module, the model with all params set with xavier_uniform
         """
+
+        s = 0
+        for p in model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum inside reset_resampel_param for input model: {s}")
+
         if self._reset_param:
             print(f"Reinit params for {self._encoder_name} ...")
 
@@ -125,7 +132,8 @@ class AbstractEncoder(ABC):
             
             embed_positions.weight: dim 2                   [nn.init.normal_(self.weight)]
             """
-            if self.encoder_name in TRANSFORMER_INFO.keys(): 
+            if self._encoder_name in TRANSFORMER_INFO.keys():
+                print(f"Updating esm {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
                     # what esm1b and esm1 have in common
                     if "_proj" in layer_name:
@@ -148,7 +156,9 @@ class AbstractEncoder(ABC):
                         elif "bias" in layer_name:
                             Parameter(torch.zeros_like(p))
 
-                    if ("layers" and "fc" in layer_name) or ("contact_head" in layer_name):
+                    if ("layers" and "fc" in layer_name) or (
+                        "contact_head" in layer_name
+                    ):
                         if "weight" in layer_name:
                             kaiming_uniform_(p, a=math.sqrt(5))
                         elif "bias" in layer_name:
@@ -175,30 +185,37 @@ class AbstractEncoder(ABC):
 
                     elif "esm1_" and "bias_" in self._encoder_name:
                         xavier_normal_(p)
-            
-            elif self.encoder_name in CARP_INFO.keys():
+
+            elif self._encoder_name in CARP_INFO.keys():
+                print(f"Updating carp {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
                     if "layers" in layer_name:
                         if "conv" in layer_name:
                             if "weight" in layer_name:
                                 kaiming_uniform_(p, a=math.sqrt(5))
                             elif "bias" in layer_name:
-                                fan_in, _ = _calculate_fan_in_and_fan_out(model.state_dict()[layer_name.replace("bias", "weight")])
+                                fan_in, _ = _calculate_fan_in_and_fan_out(
+                                    model.state_dict()[
+                                        layer_name.replace("bias", "weight")
+                                    ]
+                                )
                                 if fan_in != 0:
                                     bound = 1 / math.sqrt(fan_in)
                                     uniform_(p, -bound, bound)
-                                            
+
                         else:
                             if "weight" in layer_name:
                                 ones_(p)
                             elif "bias" in layer_name:
                                 zeros_(p)
+        
         elif self._resample_param:
             print(f"Resample params for {self._encoder_name} ...")
 
             resample_state = model.state_dict()
-            
+
             if self._encoder_name in TRANSFORMER_INFO.keys():
+                print(f"Updating esm {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
                     if (
                         ("embed_tokens" not in layer_name)
@@ -206,8 +223,10 @@ class AbstractEncoder(ABC):
                         and ("_float_tensor" not in layer_name)
                     ):
                         # shuffle all dim
-                        resample_state[layer_name] = p.view(-1)[torch.randperm(p.view(-1).shape[0])].view(p.shape)
-                        
+                        resample_state[layer_name] = p.view(-1)[
+                            torch.randperm(p.view(-1).shape[0])
+                        ].view(p.shape)
+
                         # if len(p.shape) == 1:
                         #     resample_state[layer_name] = p[torch.randperm(p.shape[0])]
 
@@ -311,14 +330,25 @@ class AbstractEncoder(ABC):
                         #     """
 
                         #     resample_state[layer_name] = p[:, torch.randperm(p.shape[1])]
-            
+
             elif self._encoder_name in CARP_INFO.keys():
+                print(f"Updating carp {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
-                    # completely shuffle all weight matrix entries 
+                    # completely shuffle all weight matrix entries
                     if "layers" in layer_name:
-                        resample_state[layer_name] = p.view(-1)[torch.randperm(p.view(-1).shape[0])].view(p.shape)
+                        resample_state[layer_name] = p.view(-1)[
+                            torch.randperm(p.view(-1).shape[0])
+                        ].view(p.shape)
 
             model.load_state_dict(resample_state)
+
+        else:
+            print("Not changing the model")
+
+        s = 0
+        for p in model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum after reset_resampel_param before return model: {s}")
 
         return model
 
@@ -401,10 +431,22 @@ class AbstractEncoder(ABC):
             # init out put seq_reps should be in dim [batch_size, embed_dim]
             seq_reps = np.empty((encoded_mut_seqs.shape[0], self._embed_dim))
             for i, encoded_mut_seq in enumerate(encoded_mut_seqs):
+                
+                # if the emb has label from esm
+                if len(mut_seqs[i]) == 2:
+                    seq_len = len(mut_seqs[i][1])
+                # if the emb is carp
+                elif len(mut_seqs[i]) == 1:
+                    seq_len = len(mut_seqs[i][0])
+                else:
+                    seq_len = len(mut_seqs[i])
+
+                assert seq_len not in [1, 2], "Check emb pooling len!"
+
                 if flatten_emb == "mean":
-                    seq_reps[i] = encoded_mut_seq[: len(mut_seqs[i])].mean(0)
+                    seq_reps[i] = encoded_mut_seq[: seq_len].mean(0)
                 elif flatten_emb == "max":
-                    seq_reps[i] = encoded_mut_seq[: len(mut_seqs[i])].max(0)
+                    seq_reps[i] = encoded_mut_seq[: seq_len].max(0)
 
             return seq_reps
 
@@ -551,12 +593,22 @@ class ESMEncoder(AbstractEncoder):
         )
         self.batch_converter = self.alphabet.get_batch_converter()
 
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum for loading init esm from hub in ESMEncoder: {s}")
+
         # if reset or resample weights
         self.model = self.reset_resample_param(model=self.model)
 
         # set model to eval mode
         self.model.eval()
         self.model.to(DEVICE)
+
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum for after reset_resample_param in ESMEncoder: {s}")
 
         expected_num_layers = int(self._encoder_name.split("_")[-3][1:])
         assert (
@@ -651,12 +703,16 @@ class CARPEncoder(AbstractEncoder):
     def __init__(
         self,
         encoder_name: str,
+        checkpoint: float = 1,
+        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
     ):
         """
         Args
         - encoder_name: str, the name of the encoder, one of the keys of CARP_INFO
+        - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+        - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
         """
@@ -665,13 +721,58 @@ class CARPEncoder(AbstractEncoder):
 
         self.model, self.collater = load_model_and_alphabet(self._encoder_name)
 
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum for loading init carp from hub in CARPEncoder: {s}")
+
+        # load checkpoint unless default to full
+        if checkpoint != 1:
+
+            # get the checkpoint number from the CARP_CHECKPOINTS dict
+            # ie {"carp_600k": {"1/2": 239263, ...}, ...}
+            # to get 'pretrain_checkpoints/carp/carp_600k/checkpoint239263.tar'
+
+            checkpoint_path = (
+                f"{os.path.normpath(checkpoint_folder)}/{encoder_name}/"
+                f"checkpoint{str(CARP_CHECKPOINTS[encoder_name][checkpoint])}.tar"
+            )
+            
+            print(
+                f"Loading {encoder_name} {checkpoint} checkpoint from {checkpoint_path}..."
+            )
+
+            # get the dict with dict_keys(['model_state_dict', ...])
+            checkpoint_dict = torch.load(checkpoint_path, map_location=DEVICE)
+
+            self.model.load_state_dict(
+                OrderedDict(
+                    [
+                        (k.replace("module", "model"), v) if "module" in k else (k, v)
+                        for k, v in checkpoint_dict["model_state_dict"].items()
+                    ]
+                )
+            )
+        else:
+            print("Running on fully trained model...")
+        
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+
+        print(f"all param sum for after carp checkpoint loading before reset_resample_param in CARPEncoder: {s}")
+
         # if reset or resample weights
         self.model = self.reset_resample_param(model=self.model)
+
+        s = 0
+        for p in self.model.parameters():
+            s += np.sum(p.cpu().data.numpy())
+        print(f"all param sum for after carp checkpoint loading after reset_resample_param in CARPEncoder: {s}")
 
         # set model to eval mode
         self.model.eval()
         self.model.to(DEVICE)
-        print(DEVICE)
 
         self._embed_dim, self._max_emb_layer = CARP_INFO[self._encoder_name]
 
@@ -719,38 +820,6 @@ class CARPEncoder(AbstractEncoder):
                 mut_seqs=mut_seqs,
             )
         return dict_encoded_mut_seqs
-
-        """
-        # alternatively check out the article called:
-        # The One PyTorch Trick Which You Should Know
-        # How hooks can improve your workflow significantly
-
-        activation = {}
-
-        def get_activation(name):
-            def hook(model, input, output):
-                activation[name] = output.detach()
-
-            return hook
-
-        # convert raw mutant sequences to tokens
-        for layer_numb in list(range(self._max_emb_layer)):
-            self.model.model.embedder.layers[layer_numb].register_forward_hook(
-                get_activation(layer_numb)
-            )
-
-        rep = self.model(x)
-
-        for layer_numb, encoded_mut_seqs in activation.items():
-            activation[layer_numb] = self.flatten_encode(
-                encoded_mut_seqs=encoded_mut_seqs.cpu().numpy(),
-                flatten_emb=flatten_emb,
-                mut_seqs=mut_seqs,
-            )
-
-        return activation
-        """
-
 
 def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
 

@@ -15,3 +15,5 @@ ALPHA_MAG_HIGH = 1
 SKLEARN_ALPHAS = np.logspace(
     ALPHA_MAG_LOW, ALPHA_MAG_HIGH, ALPHA_MAG_HIGH - ALPHA_MAG_LOW + 1
 )
+
+DEFAULT_SPLIT = ["train", "val", "test"]

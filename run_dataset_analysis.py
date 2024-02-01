@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from scr.preprocess.data_process import TaskProcess
-from scr.vis.dataset_vis import DatasetStripHistogram
+from scr.vis.dataset_vis import DatasetSeqLenHist, DatasetStripHistogram
 
-TaskProcess(forceregen=True, showplot=False)
+result_subfolder = "results/dataset_vis/len_hist"
+
+summary_df = TaskProcess(forceregen=True, showplot=False).sum_file_df
+
+for _, row in summary_df.iterrows():
+    print(f"Plotting sequence length histogram for {row.csv_path}...")
+    DatasetSeqLenHist(df_path=row.csv_path, result_subfolder=result_subfolder)
+    
 
 # DatasetStripHistogram(
 #     dataset_folder="data/proeng/gb1",

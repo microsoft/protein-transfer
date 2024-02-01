@@ -21,6 +21,23 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--checkpoint",
+    type=float,
+    metavar="CP",
+    default=1,
+    help="the fraction of the pretrain model, ie: 0.5",
+)
+
+parser.add_argument(
+    "--checkpoint_folder",
+    type=str,
+    metavar="CPF",
+    default="pretrain_checkpoints/carp",
+    help="the folder for the pretrain model, ie: pretrain_checkpoints/carp",
+)
+
+
+parser.add_argument(
     "--reset_param",
     type=bool,
     metavar="RIP",
@@ -72,6 +89,19 @@ parser.add_argument(
     help="the index for the end of the sequence (default: False)",
 )
 
+parser.add_argument(
+    "--manual_layer_min",
+    metavar="LMIN",
+    default=False,
+    help="the number of layer for manual start range (default: False)",
+)
+
+parser.add_argument(
+    "--manual_layer_max",
+    metavar="LMAX",
+    default=False,
+    help="the number of layer for manual end range (default: False)",
+)
 parser.add_argument(
     "--loader_batch_size",
     type=int,
@@ -181,7 +211,9 @@ args = parser.parse_args()
     
 Run_Pytorch(
     dataset_path=args.dataset_path,
-    encoder_name=args.encoder_name,
+    encoder_name=args.encoder_name,    
+    checkpoint=args.checkpoint,
+    checkpoint_folder=args.checkpoint_folder,
     reset_param=args.reset_param,
     resample_param=args.resample_param,
     embed_batch_size=args.embed_batch_size,
@@ -189,6 +221,8 @@ Run_Pytorch(
     embed_folder=args.embed_folder,
     seq_start_idx=args.seq_start_idx,
     seq_end_idx=args.seq_end_idx,
+    manual_layer_min=args.manual_layer_min,
+    manual_layer_max=args.manual_layer_max,
     loader_batch_size=args.loader_batch_size,
     worker_seed=args.worker_seed,
     if_encode_all=args.if_encode_all,

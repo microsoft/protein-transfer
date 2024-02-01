@@ -27,6 +27,22 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--checkpoint",
+    type=float,
+    metavar="CP",
+    default=1,
+    help="the fraction of the pretrain model, ie: 0.5",
+)
+
+parser.add_argument(
+    "--checkpoint_folder",
+    type=str,
+    metavar="CPF",
+    default="pretrain_checkpoints/carp",
+    help="the folder for the pretrain model, ie: pretrain_checkpoints/carp",
+)
+
+parser.add_argument(
     "--reset_param",
     type=bool,
     metavar="RIP",
@@ -94,6 +110,8 @@ args = parser.parse_args()
 GenerateEmbeddings(
     dataset_path=args.dataset_path,
     encoder_name=args.encoder_name,
+    checkpoint=args.checkpoint,
+    checkpoint_folder=args.checkpoint_folder,
     reset_param=args.reset_param,
     resample_param=args.resample_param,
     embed_batch_size=args.embed_batch_size,
@@ -104,65 +122,3 @@ GenerateEmbeddings(
     embed_folder=get_default_output_path(args.embed_folder),
     # **encoder_params,
 )
-
-# for emb in ["carp_640M", "carp_76M"]:
-#     for dp in ["data/proeng/thermo/mixed_split.csv", "data/proeng/aav/one_vs_many.csv", "data/proeng/aav/two_vs_many.csv", "data/annotation/scl/balanced.csv"]:
-
-#         GenerateEmbeddings(
-#             dataset_path=dp,
-#             encoder_name=emb,
-#             reset_param=args.reset_param,
-#             resample_param=args.resample_param,
-#             embed_batch_size=args.embed_batch_size,
-#             flatten_emb="mean",
-#             seq_start_idx=args.seq_start_idx,
-#             seq_end_idx=args.seq_end_idx,
-#             subset_list=args.subset_list,
-#             embed_folder=get_default_output_path(args.embed_folder),
-#             # **encoder_params,
-#         )
-
-# for emb in ["carp_38M"]:
-#     for dp in ["data/proeng/thermo/mixed_split.csv", "data/proeng/aav/one_vs_many.csv", "data/proeng/aav/two_vs_many.csv"]:
-
-#         GenerateEmbeddings(
-#             dataset_path=dp,
-#             encoder_name=emb,
-#             reset_param=args.reset_param,
-#             resample_param=args.resample_param,
-#             embed_batch_size=args.embed_batch_size,
-#             flatten_emb="mean",
-#             seq_start_idx=args.seq_start_idx,
-#             seq_end_idx=args.seq_end_idx,
-#             subset_list=args.subset_list,
-#             embed_folder=get_default_output_path(args.embed_folder),
-#             # **encoder_params,
-#         )
-
-"""
-# for emb in ["onehot"] + list(TRANSFORMER_INFO.keys()):
-
-for emb in ["onehot"] + list(CARP_INFO.keys()):
-
-# for emb in list(TRANSFORMER_INFO.keys()):
-# for emb in ["onehot"]:
-    print(f"Generating {emb} embeddings for {args.subset_list}...")
-    
-    if emb == "onehot" and "structure" not in args.dataset_path:
-        flatten_emb = "flatten"
-    else:
-        flatten_emb = args.flatten_emb
-
-    GenerateEmbeddings(
-        dataset_path=args.dataset_path,
-        encoder_name=emb,
-        reset_param=args.reset_param,
-        resample_param=args.resample_param,
-        embed_batch_size=args.embed_batch_size,
-        flatten_emb=flatten_emb,
-        seq_start_idx=args.seq_start_idx,
-        seq_end_idx=args.seq_end_idx,
-        subset_list=args.subset_list,
-        embed_folder=get_default_output_path(args.embed_folder),
-        # **encoder_params,
-    )"""

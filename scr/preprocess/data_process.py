@@ -15,7 +15,13 @@ from sklearn.preprocessing import LabelEncoder
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from scr.utils import pickle_save, pickle_load, replace_ext, read_std_csv
+from scr.utils import (
+    pickle_save,
+    pickle_load,
+    replace_ext,
+    read_std_csv,
+    get_folder_file_names,
+)
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, MAX_SEQ_LEN
 from scr.vis.dataset_vis import DatasetECDF, DatasetStripHistogram
@@ -128,7 +134,7 @@ class AddMutInfo:
 
 
 def std_split_ssdf(
-    ssdf_path: str = "data/structure/secondary_structure/tape_ss3.csv",
+    ssdf_path: str = "data/structure/ss3/tape.csv",
     split_test: bool = True,
 ) -> None:
     """
@@ -213,20 +219,21 @@ class DatasetInfo:
         else:
             # ss3
             if "[" in self._df.target[0]:
-                return "MultiLabelMultiClass"
+                return "LinearClassifier-Structure"
             # annotation
             else:
-                return "LinearClassifier"
+                return "LinearClassifier-Annotation"
 
     def get_numb_class(self) -> int:
         """
         A function to get number of class
         """
         # annotation class number
-        if self.model_type == "LinearClassifier":
+        if self.model_type == "LinearClassifier-Annotation":
             return self._df.target.nunique()
         # ss3 or ss8 secondary structure states plus padding
-        elif self.model_type == "MultiLabelMultiClass":
+        elif self.model_type == "LinearClassifier-Structure":
+            # ss3 secondary structure states WITHOUT padding
             return len(np.unique(np.array(self._df["target"][0][1:-1].split(", "))))
         else:
             return np.nan
@@ -276,7 +283,7 @@ class TaskProcess:
         self,
         data_folder: str = "data/",
         forceregen: bool = False,
-        showplot: bool = False
+        showplot: bool = False,
     ):
         """
         Args:
@@ -298,11 +305,11 @@ class TaskProcess:
         self._forceregen = forceregen
         self._showplot = showplot
 
-        # sumamarize all files in the data folder
-        self._sum_file_df = self.sum_files()
-        self._sum_file_df.to_csv(f"{data_folder}summary.csv")
+        # save the sumamarize for all files in the data folder
+        self.sum_file_df.to_csv(self.sum_file_df_path)
 
-    def sum_files(self) -> pd.DataFrame:
+
+    def _sum_files(self) -> pd.DataFrame:
         """
         Summarize all files in the data folder
 
@@ -324,7 +331,7 @@ class TaskProcess:
 
             if task == "structure":
                 csv_paths = set(csv_paths) - set(
-                    glob(f"{dataset_folder}/tape_ss3*.csv")
+                    glob(f"{dataset_folder}/tape*.csv")
                 )
 
             fasta_paths = glob(f"{dataset_folder}/*.fasta")
@@ -406,8 +413,13 @@ class TaskProcess:
     @property
     def sum_file_df(self) -> pd.DataFrame:
         """A summary table for all files in the data folder"""
-        return self._sum_file_df
-
+        return self._sum_files()
+    
+    @property
+    def sum_file_df_path(self) -> pd.DataFrame:
+        """A summary table for all files in the data folder"""
+        return f"{self._data_folder}summary.csv"
+    
 
 class ProtranDataset(Dataset):
 
@@ -449,7 +461,7 @@ class ProtranDataset(Dataset):
         - seq_start_idx: bool | int = False, the index for the start of the sequence
         - seq_end_idx: bool | int = False, the index for the end of the sequence
         - if_encode_all: bool = True, if encode full dataset all layers on the fly
-        - encoder_params: kwarg, additional parameters for encoding
+        - encoder_params: kwarg, additional parameters for encoding, including checkpoint info
         """
 
         # with additional info mut_name, mut_numb
@@ -493,15 +505,36 @@ class ProtranDataset(Dataset):
 
         self.if_encode_all = if_encode_all
         self._embed_folder = embed_folder
+        
+        if self._embed_folder is not None:
+            # append init info
+            if reset_param and "-rand" not in self._embed_folder:
+                self._embed_folder = f"{self._embed_folder}-rand"
+
+            if resample_param and "-stat" not in self._embed_folder:
+                self._embed_folder = f"{self._embed_folder}-stat"
 
         self._encoder_name = encoder_name
         self._flatten_emb = flatten_emb
 
+        # convert binary self._flatten_emb to string
+        if self._flatten_emb == False:
+            self._flatten_emb_name = "noflatten"
+        else:
+            self._flatten_emb_name = self._flatten_emb
+
+        if "checkpoint" in encoder_params.keys():
+            self._checkpoint = encoder_params["checkpoint"]
+        else:
+            self._checkpoint = 1
+
         # get the encoder class
         if self._encoder_name in TRANSFORMER_INFO.keys():
             encoder_class = ESMEncoder
+
         elif self._encoder_name in CARP_INFO.keys():
             encoder_class = CARPEncoder
+
         else:
             self._encoder_name == "onehot"
             encoder_class = OnehotEncoder
@@ -516,6 +549,14 @@ class ProtranDataset(Dataset):
         )
         self._total_emb_layer = self._encoder.max_emb_layer + 1
         self._embed_layer = embed_layer
+
+        # init 
+        self._emb_dataset_folder = ""
+        self._emb_table_path = ""
+
+        print(f"self.if_encode_all: {self.if_encode_all}")
+        print(f"self._embed_folder: {self._embed_folder}")
+        print(f"self._embed_layer: {self._embed_layer}")
 
         # encode all and load in memory
         if self.if_encode_all or (
@@ -541,29 +582,81 @@ class ProtranDataset(Dataset):
             for layer, emb in encoded_dict.items():
                 setattr(self, "layer" + str(layer), np.vstack(emb))
 
-        # load full one layer embedding
-        if self._embed_folder is not None and self._embed_layer is not None:
-            print(f"Load {self._embed_layer} from {self._embed_folder}...")
+        # pre gen all emb in batches
+        if not (os.path.exists(self._emb_table_path)):
+            print(
+                f"{self._emb_table_path} not exist. Need to pre-encoding all in batches..."
+            )
 
-            emb_table = tables.open_file(
-                os.path.join(
-                    self._embed_folder,
-                    self._encoder_name,
-                    self._flatten_emb,
-                    self._subset,
-                    "embedding.h5",
+        # load from pre saved emb
+        if self._embed_folder is not None:
+
+            # get emb folder and path for specific dataset
+            self._emb_dataset_folder, _ = get_folder_file_names(
+                parent_folder=self._embed_folder,
+                dataset_path=dataset_path,
+                encoder_name=self._encoder_name,
+                embed_layer=0,
+                flatten_emb=self._flatten_emb_name,
+            )
+
+            self._emb_table_path = os.path.join(
+                os.path.join(self._emb_dataset_folder, subset),
+                "embedding.h5",
+            )
+            print(f"self._emb_table_path: {self._emb_table_path}")
+
+            # append emb info
+            if self._checkpoint != 1 and "_0." not in self._embed_folder:
+                self._embed_folder += f"-{str(self._checkpoint)}"
+
+            """
+            dataset_folder, _ = get_folder_file_names(
+                parent_folder=self._embed_folder,
+                dataset_path=dataset_path,
+                encoder_name=self._encoder_name,
+                embed_layer=0,
+                flatten_emb=self._flatten_emb_name,
+            )
+
+            self._emb_table_path = os.path.join(
+                        os.path.join(dataset_folder, subset),
+                        "embedding.h5",
+                    )
+            """
+
+            # return all
+            if self._embed_layer is None:
+
+                print(f"Load all layers from {self._emb_table_path}...")
+
+                emb_table = tables.open_file(self._emb_table_path)
+                emb_table.flush()
+
+                for layer in range(self._total_emb_layer):
+                    setattr(
+                        self,
+                        "layer" + str(layer),
+                        getattr(emb_table.root, "layer" + str(layer))[:],
+                    )
+
+                emb_table.close()
+
+            # load full one layer embedding
+            else:
+
+                print(f"Load {self._embed_layer} from {self._emb_table_path}...")
+
+                emb_table = tables.open_file(self._emb_table_path)
+                emb_table.flush()
+
+                setattr(
+                    self,
+                    "layer" + str(self._embed_layer),
+                    getattr(emb_table.root, "layer" + str(self._embed_layer))[:],
                 )
-            )
 
-            emb_table.flush()
-
-            setattr(
-                self,
-                "layer" + str(self._embed_layer),
-                getattr(emb_table.root, "layer" + str(self._embed_layer))[:],
-            )
-
-            emb_table.close()
+                emb_table.close()
         # get and format the fitness or secondary structure values
         # can be numbers or string
         # will need to convert data type
@@ -593,7 +686,6 @@ class ProtranDataset(Dataset):
         - idx: int
         """
         if self.if_encode_all and self._embed_folder is None:
-            print("encoded all and shall have attr")
             return (
                 self.y[idx],
                 self.sequence[idx],
@@ -611,18 +703,14 @@ class ProtranDataset(Dataset):
             gb1_emb.flush()
             gb1_emb.root.layer0[0:5]
             """
+            # append emb info
+            if self._checkpoint != 1 and "_0." not in self._embed_folder:
+                self._embed_folder += f"-{str(self._checkpoint)}"
+
             # return all
             if self._embed_layer is None:
 
-                emb_table = tables.open_file(
-                    os.path.join(
-                        self._embed_folder,
-                        self._encoder_name,
-                        self._flatten_emb,
-                        self._subset,
-                        "embedding.h5",
-                    )
-                )
+                emb_table = tables.open_file(self._emb_table_path)
 
                 emb_table.flush()
 
@@ -682,11 +770,11 @@ class ProtranDataset(Dataset):
                     )
                     .values
                 )
-            elif column_name == "target" and self._model_type == "LinearClassifier":
+            elif self._model_type == "LinearClassifier-Annotation":
                 print("Converting classes into int...")
                 le = LabelEncoder()
                 return le.fit_transform(y.values.flatten())
-            elif column_name == "target" and self._model_type == "MultiLabelMultiClass":
+            elif self._model_type == "LinearClassifier-Structure":
                 print("Converting ss3/ss8 into np.array and pad -1...")
                 np_y = y.apply(lambda x: np.array(x[1:-1].split(", ")).astype("int"))
                 return np.stack(
@@ -727,6 +815,16 @@ class ProtranDataset(Dataset):
         """Longest sequence length"""
         return self._max_seq_len
 
+    @property
+    def emb_table_path(self) -> str:
+        """The full path for the emb table for dataset subset"""
+        return self._emb_table_path
+
+    @property
+    def emb_dataset_folder(self) -> str:
+        """The emb folder path for specific dataset"""
+        return self._emb_dataset_folder
+
 
 def split_protrain_loader(
     dataset_path: str,
@@ -766,7 +864,7 @@ def split_protrain_loader(
     - loader_batch_size: int, the batch size for train, val, and test dataloader
     - worker_seed: int, the seed for dataloader
     - if_encode_all: bool = True, if encode full dataset all layers on the fly
-    - encoder_params: kwarg, additional parameters for encoding
+    - encoder_params: kwarg, additional parameters for encoding, including checkpoint info
     """
 
     assert set(subset_list) <= set(

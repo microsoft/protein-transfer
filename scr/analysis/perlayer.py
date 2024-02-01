@@ -13,6 +13,8 @@ from matplotlib.ticker import FormatStrFormatter
 
 from scr.encoding.encoding_classes import get_emb_info
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
+from scr.params.vis import CHECKPOINT_COLOR
+from scr.analysis.utils import METRIC_DICT
 from scr.utils import pickle_load, get_filename, checkNgen_folder
 
 
@@ -21,32 +23,22 @@ class LayerLoss:
 
     def __init__(
         self,
+        add_checkpoint: bool = True,
+        checkpoint_list: list = [0.5, 0.25, 0.125],
         input_path: str = "results/sklearn",
         output_path: str = "results/sklearn_layer",
-        metric_dict: dict[list[str]] = {
-            "proeng": ["train_mse", "val_mse", "test_mse", "test_ndcg", "test_rho"],
-            "annotation": [
-                "train_cross-entropy",
-                "val_cross-entropy",
-                "test_cross-entropy",
-                "test_acc",
-                "test_rocauc",
-            ],
-            "structure": [
-                "train_cross-entropy",
-                "val_cross-entropy",
-                "casp12_acc",
-                "cb513_acc",
-                "ts115_acc",
-            ],
-        },
+        metric_dict: dict[list[str]] = METRIC_DICT,
     ):
         """
         Args:
+        - add_checkpoint: bool = True, if add checkpoint for carp
+        - checkpoint_list: list = [0.5, 0.25, 0.125],
         - input_path: str = "results/sklearn",
         - output_path: str = "results/sklearn_layer"
         - metric_dict: list[str] = ["train_mse", "test_ndcg", "test_rho"]
         """
+        self._add_checkpoint = add_checkpoint
+        self._checkpoint_list = checkpoint_list
         # get rid of the last "/" if any
         self._input_path = os.path.normpath(input_path)
         # get the list of subfolders for each dataset
@@ -63,22 +55,51 @@ class LayerLoss:
         self._rand_layer_analysis_dict = defaultdict(dict)
         self._stat_layer_analysis_dict = defaultdict(dict)
 
+        # init a dict for metric params
+        self._metric_numb = defaultdict(dict)
+
+        # init
+        self._checkpoint_analysis_dict = defaultdict(dict)
+        if self._add_checkpoint:
+            for checkpoint in self._checkpoint_list:
+                self._checkpoint_analysis_dict[checkpoint] = defaultdict(dict)
+
         for dataset_folder in self._dataset_folders:
             # dataset_folder = "results/train_val_test/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
             # get the details for the dataset such as proeng/gb1/two_vs_rest
             task_subfolder = dataset_folder.split(self._input_path + "/")[-1]
             # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
             task, dataset, split, encoder_name, flatten_emb = task_subfolder.split("/")
+            # get collage_name
+            collage_name = f"{task}_{dataset}_{split}_{flatten_emb}"
 
             # get number of metircs
-            metric_numb = len(self._metric_dict[task])
+            self._metric_numb[collage_name] = len(self._metric_dict[task])
 
             # parse results for plotting the collage and onehot
-            self._layer_analysis_dict[f"{task}_{dataset}_{split}_{flatten_emb}"][
+            self._layer_analysis_dict[collage_name][
                 encoder_name
             ] = self.parse_result_dicts(
                 dataset_folder, task, dataset, split, encoder_name, flatten_emb
             )
+
+            # init
+            # check if check points exists
+            if self._add_checkpoint:
+                for checkpoint in self._checkpoint_list:
+                    checkpoint_path = f"{self._input_path}-{str(checkpoint)}"
+
+                    if os.path.exists(checkpoint_path):
+                        self._checkpoint_analysis_dict[checkpoint][
+                            f"{task}_{dataset}_{split}_{flatten_emb}"
+                        ][encoder_name] = self.parse_result_dicts(
+                            dataset_folder.replace(self._input_path, checkpoint_path),
+                            task,
+                            dataset,
+                            split,
+                            encoder_name,
+                            flatten_emb,
+                        )
 
             # check if reset param experimental results exist
             reset_param_path = f"{self._input_path}-rand"
@@ -116,21 +137,25 @@ class LayerLoss:
             else:
                 add_stat = False
 
-            # check if resample param experimental results exist
+            # check if onehot experimental results exist
             onehot_path = f"{self._input_path}-onehot"
 
             if os.path.exists(onehot_path):
+                if task == "structure":
+                    onehot_flatten_emb_name = "noflatten"
+                else:
+                    onehot_flatten_emb_name = "flatten"
                 self._onehot_baseline_dict[
                     f"{task}_{dataset}_{split}"
-                ] = self.parse_result_dicts(
+                ]["onehot"] = self.parse_result_dicts(
                     dataset_folder.replace(self._input_path, onehot_path)
                     .replace(encoder_name, "onehot")
-                    .replace(flatten_emb, "flatten"),
+                    .replace(flatten_emb, onehot_flatten_emb_name),
                     task,
                     dataset,
                     split,
                     "onehot",
-                    "flatten",
+                    onehot_flatten_emb_name,
                 )
                 add_onehot = True
             else:
@@ -141,6 +166,8 @@ class LayerLoss:
         checkNgen_folder(collage_folder)
 
         for collage_name, encoder_dict in self._layer_analysis_dict.items():
+
+            print(f"Plotting collage_name {collage_name}...")
 
             onehot_name = "_".join(collage_name.split("_")[:-1])
 
@@ -157,29 +184,40 @@ class LayerLoss:
                 encoder_label = "pretrained"
 
             fig, axs = plt.subplots(
-                metric_numb,
+                self._metric_numb[collage_name],
                 len(encoder_names),
                 sharey="row",
                 sharex="col",
-                figsize=(20, 10),
+                figsize=(20, 2 * self._metric_numb[collage_name]),
+                squeeze=False # not get rid off the extra dim if 1D
             )
+
             for m, metric in enumerate(self._metric_dict[collage_name.split("_")[0]]):
 
                 for n, encoder_name in enumerate(encoder_names):
                     axs[m, n].plot(
-                        encoder_dict[encoder_name][metric], 
+                        encoder_dict[encoder_name][metric],
                         label=encoder_label,
-                        color="#f79646ff" # orange
+                        color="#f79646ff",  # orange
                     )
 
-                    # overlay onehot baseline
-                    if add_onehot:
-                        axs[m, n].axhline(
-                            self._onehot_baseline_dict[onehot_name][metric],
-                            label="onehot",
-                            color="#000000",  # black or #D3D3D3 light grey
-                            linestyle="dotted",
-                        )
+                    # add checkpoints
+                    if self._add_checkpoint:
+                        for checkpoint in self._checkpoint_list:
+
+                            checkpoint_vals = self._checkpoint_analysis_dict[
+                                checkpoint
+                            ][collage_name][encoder_name][metric]
+
+                            if not np.all(checkpoint_vals == 0):
+                                axs[m, n].plot(
+                                    checkpoint_vals,
+                                    label=f"{encoder_label}-{checkpoint}",
+                                    color=CHECKPOINT_COLOR[
+                                        checkpoint
+                                    ],  # darker oranges
+                                    linestyle="dashed",
+                                )
 
                     # overlay random init
                     if add_rand:
@@ -188,7 +226,7 @@ class LayerLoss:
                                 metric
                             ],
                             label="random init",
-                            color="#4bacc6", # blue
+                            color="#4bacc6",  # blue
                             linestyle="dashed"
                             # color="#D3D3D3",  # light grey
                         )
@@ -200,14 +238,23 @@ class LayerLoss:
                                 metric
                             ],
                             label="stat transfer",
-                            color="#9bbb59", # green
+                            color="#9bbb59",  # green
                             linestyle="dashed"
                             # color="#A9A9A9",  # dark grey
                             # linestyle="dotted",
                         )
 
+                    # overlay onehot baseline
+                    if add_onehot:
+                        axs[m, n].axhline(
+                            self._onehot_baseline_dict[onehot_name]["onehot"][metric],
+                            label="onehot",
+                            color="#000000",  # black or #D3D3D3 light grey
+                            linestyle="dotted",
+                        )
+
             # add xlabels
-            for ax in axs[metric_numb - 1]:
+            for ax in axs[self._metric_numb[collage_name] - 1]:
                 ax.set_xlabel("layers", fontsize=16)
                 ax.tick_params(axis="x", labelsize=16)
 
@@ -219,28 +266,90 @@ class LayerLoss:
             for ax, row in zip(
                 axs[:, 0], self._metric_dict[collage_name.split("_")[0]]
             ):
-                ax.set_ylabel(row.replace("_", " "), fontsize=16)
-                ax.tick_params(axis="y", labelsize=16)
+                ax.set_ylabel(
+                    row.replace("_", " ").replace("cross-entropy", "ce"), fontsize=16
+                )
+                ax.tick_params(
+                    axis="y",
+                    which="major",
+                    reset=True,
+                    labelsize=16,
+                    left=True,
+                    right=False,  # no right side tick on the plot
+                    labelleft=True,
+                    labelright=False,
+                )
+                ax.relim()  # make sure all the data fits
+                ax.autoscale()
 
             # set the plot yticks
             plt.gca().yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
+            plt.gca().yaxis.tick_left()
+            plt.gca().autoscale()
 
             # add legend
             handles, labels = axs[0, 0].get_legend_handles_labels()
+
+            if len(labels) == 7:
+
+                # Add two empty dummy legend items
+                # using the first label info
+
+                axs[0, 0].axhline(
+                    self._onehot_baseline_dict[onehot_name]["onehot"][
+                        self._metric_dict[collage_name.split("_")[0]][0]
+                    ],
+                    label=" ",
+                    color="w",
+                    alpha=0,
+                )
+
+                axs[0, 0].axhline(
+                    self._onehot_baseline_dict[onehot_name]["onehot"][
+                        self._metric_dict[collage_name.split("_")[0]][0]
+                    ],
+                    label=" ",
+                    color="w",
+                    alpha=0,
+                )
+
+                adjusted_handles, adjusted_labels = axs[
+                    0, 0
+                ].get_legend_handles_labels()
+                adjusted_y = 1.045
+                ncol = 3
+                legend_params = {
+                    "labelspacing": 0.1,  # vertical space between the legend entries, default 0.5
+                    "handletextpad": 0.2,  # space between the legend the text, default 0.8
+                    "handlelength": 0.95,  # length of the legend handles, default 2.0
+                    "columnspacing": 1,  # spacing between columns, default 2.0
+                }
+
+            else:
+                adjusted_handles, adjusted_labels = handles, labels
+                adjusted_y = 1.025
+                ncol = 2
+                legend_params = {}
+
             fig.legend(
-                handles,
-                labels,
+                adjusted_handles,
+                adjusted_labels,
                 loc="upper left",
-                bbox_to_anchor=[0.05, 1.025],
+                bbox_to_anchor=[0.05, adjusted_y],
                 fontsize=16,
                 frameon=False,
-                ncol=2,
+                ncol=ncol,
+                **legend_params,
             )
 
             # add whole plot level title
             fig.suptitle(
-                collage_name.replace("_", " ").replace("cross-entropy", "ce"), y=1.0025, fontsize=24, fontweight="bold"
+                collage_name.replace("_", " ").replace("cross-entropy", "ce"),
+                y=1.0025,
+                fontsize=24,
+                fontweight="bold",
             )
+            fig.align_labels()
             fig.tight_layout()
 
             for plot_ext in [".svg", ".png"]:
@@ -329,3 +438,23 @@ class LayerLoss:
     def layer_analysis_dict(self) -> dict:
         """Return a dict with dataset name as the key"""
         return self._layer_analysis_dict
+
+    @property
+    def rand_layer_analysis_dict(self) -> dict:
+        """Return a dict with dataset name as the key for rand"""
+        return self._rand_layer_analysis_dict
+
+    @property
+    def stat_layer_analysis_dict(self) -> dict:
+        """Return a dict with dataset name as the key for stat"""
+        return self._stat_layer_analysis_dict
+
+    @property
+    def onehot_baseline_dict(self) -> dict:
+        """Return a dict with dataset name as the key for onehot"""
+        return self._onehot_baseline_dict
+
+    @property
+    def checkpoint_analysis_dict(self) -> dict:
+        """Return a dict with dataset name as the key for checkpoints"""
+        return self._checkpoint_analysis_dict

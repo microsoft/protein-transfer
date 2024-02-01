@@ -7,7 +7,7 @@ import numpy as np
 
 from scr.utils import get_folder_file_names, checkNgen_folder
 from scr.params.emb import MAX_SEQ_LEN
-from scr.encoding.encoding_classes import get_emb_info, OnehotEncoder
+from scr.encoding.encoding_classes import get_emb_info, OnehotEncoder, CARPEncoder
 from scr.preprocess.data_process import ProtranDataset
 
 
@@ -18,6 +18,8 @@ class GenerateEmbeddings:
         self,
         dataset_path: str,
         encoder_name: str,
+        checkpoint: float = 1,
+        checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
         embed_batch_size: int = 128,
@@ -35,6 +37,8 @@ class GenerateEmbeddings:
             columns include: sequence, target, set, validation,
             mut_name (optional), mut_numb (optional)
         - encoder_name: str, the name of the encoder
+        - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
+        - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
         - embed_batch_size: int, set to 0 to encode all in a single batch
@@ -54,6 +58,11 @@ class GenerateEmbeddings:
 
         self.embed_folder = embed_folder
 
+        # append emb info
+        if checkpoint != 1:
+            self.embed_folder = f"{self.embed_folder}-{str(checkpoint)}"
+
+        # append init info
         if self.reset_param and "-rand" not in self.embed_folder:
             self.embed_folder = f"{self.embed_folder}-rand"
 
@@ -71,6 +80,10 @@ class GenerateEmbeddings:
             embed_rescale = MAX_SEQ_LEN
         else:
             embed_rescale = 1
+
+        if encoder_class == CARPEncoder:
+            encoder_params["checkpoint"] = checkpoint
+            encoder_params["checkpoint_folder"] = checkpoint_folder
 
         # get the encoder
         self._encoder = encoder_class(
