@@ -353,15 +353,17 @@ class PlotResultByTask:
                     )
                     ax[2, i].set_xlabel("Pretrain loss")
 
-                    # Determine the y-axis limits
-                    ymin, ymax = ax[2, i].get_ylim()
+                    # make y with closest .1
+                    if "loss" not in metric:
+                        # Determine the y-axis limits
+                        ymin, ymax = ax[2, i].get_ylim()
 
-                    # Generate ticks at one decimal place within the current y-axis limits
-                    ticks = np.arange(np.floor(ymin*10)/10, np.ceil(ymax*10)/10 + 0.1, 0.1)
+                        # Generate ticks at one decimal place within the current y-axis limits
+                        ticks = np.arange(np.floor(ymin*10)/10, np.ceil(ymax*10)/10 + 0.1, 0.1)
 
-                    # Set custom ticks
-                    ax[2, i].yaxis.set_major_locator(ticker.FixedLocator(ticks))
-                    ax[2, i].yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
+                        # Set custom ticks
+                        ax[2, i].yaxis.set_major_locator(ticker.FixedLocator(ticks))
+                        ax[2, i].yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
 
             # add alpha legend for carp sizes
             model_size_descript = [
