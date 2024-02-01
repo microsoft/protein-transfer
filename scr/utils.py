@@ -12,15 +12,15 @@ import pandas as pd
 from sklearn.metrics import ndcg_score
 
 
-def get_default_output_path(default_output_path: str = "results/sklearn"):
+def get_default_output_path(envpath : str = "", default_output_path: str = "results/sklearn"):
     """Set default output folder path"""
-    if os.getenv("AMLT_OUTPUT_DIR") is None:
+    if os.getenv(envpath) is None:
         return default_output_path
     else:
-        return os.path.join(os.getenv("AMLT_OUTPUT_DIR"), default_output_path)
+        return os.path.join(os.getenv(envpath), default_output_path)
 
 
-def checkNgen_folder(folder_path: str) -> str:
+def checkNgen_folder(folder_path: str, envpath: str = "") -> str:
     """
     Check if the folder or the subfolder exists
     to create a new directory if not
@@ -28,7 +28,7 @@ def checkNgen_folder(folder_path: str) -> str:
     Args:
     - folder_path: str, the folder path
     """
-    if os.getenv("AMLT_OUTPUT_DIR") is None:
+    if os.getenv(envpath) is None:
         split_list = folder_path.split("/")
         for p, _ in enumerate(split_list):
             subfolder_path = "/".join(split_list[: p + 1])
@@ -38,11 +38,11 @@ def checkNgen_folder(folder_path: str) -> str:
         return folder_path
 
     else:
-        _, local_path = folder_path.split(os.getenv("AMLT_OUTPUT_DIR") + "/")
+        _, local_path = folder_path.split(os.getenv(envpath) + "/")
         split_local_list = local_path.split("/")
         for p, _ in enumerate(split_local_list):
             subfolder_path = os.path.join(
-                os.getenv("AMLT_OUTPUT_DIR"), "/".join(split_local_list[: p + 1])
+                os.getenv(envpath), "/".join(split_local_list[: p + 1])
             )
             if not os.path.exists(subfolder_path):
                 print(f"Making {subfolder_path}...")

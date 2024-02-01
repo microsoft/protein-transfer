@@ -159,7 +159,7 @@ class PlotResultByTask:
                     l,
                     ha="left",
                     va="bottom",
-                    fontsize="medium",
+                    fontsize="large",
                 )
                 ax[i, 0].set_ylabel("Test performance")
 
@@ -535,7 +535,7 @@ class PlotResultByTask:
                 "Scale with PLM sizes",
                 "Scale with layer depths",
                 "Scale with pretrain losses",
-            ]].copy()
+            ]].copy().T
 
             # Generate custom annotations based on the conditions
             annotations = np.where(
@@ -545,7 +545,7 @@ class PlotResultByTask:
             )
 
             # Plotting the heatmap
-            fig, ax = plt.subplots(figsize=(2, 4))
+            fig, ax = plt.subplots(figsize=(5, 2))
 
             sns.heatmap(
                 selected_col_df.astype(float),
@@ -571,11 +571,14 @@ class PlotResultByTask:
                     text.set_color(dark_3[-1])
 
             # Hide the middle tick
-            ax.tick_params(axis='x', length=0)
-            ax.tick_params(axis='y', length=0)
+            ax.tick_params(axis="x", length=0)
+            ax.tick_params(axis="y", length=0)
+            ax.xaxis.tick_top()
+            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="left")
 
-            # remove y axis titel
-            ax.set_ylabel('')
+            # remove x axis task titel
+            ax.set_xlabel("")
+            ax.set_ylabel("")
 
             save_plt(
                 fig, plot_title=f"Summary checkbox for tasks", 
