@@ -1,5 +1,5 @@
 # Install or update using
-# conda env update --file env-protein-transfer.yml --prune
+# conda env update --file requirements.yml --prune
 
 name: protran
 
