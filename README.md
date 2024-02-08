@@ -1,10 +1,10 @@
 # Code for Feature Reuse and Scaling: Understanding Transfer Learning with Protein Language Models 
 
 Code for reproducing the analyses in our preprint "Feature Reuse and Scaling: Understanding Transfer Learning with Protein Language Models":
-[PREPRINT LINK HERE]
+[PREPRINT LINK HERE](https://www.biorxiv.org/content/10.1101/2024.02.05.578959v1)
 
 For datasets and model checkpoints weights, see our Zenodo repository:
-[ZENODO LINK HERE]
+[ZENODO LINK HERE](https://zenodo.org/records/10631963)
 
 ### Requirements
 To install a conda env named protran, run requirements.yml
@@ -14,7 +14,7 @@ To install a conda env named protran, run requirements.yml
 - execute_gen_emb_carp.sh - batch script to extract representations over all datasets and pretrained models for CARP
 - execute_gen_emb_esm.sh - batch script to extract representations over all datasets and pretrained models for ESM
 
-As these representations are time-consuming to extract, we provide them in our Zenodo repository ([ZENODO LINK HERE]). 
+As these representations are time-consuming to extract, we provide them in our Zenodo repository ([ZENODO LINK HERE](https://zenodo.org/records/10631963)). 
 
 ### Scripts to train linear models for each of the downstream tasks:
 For the classification tasks (secondary structure and subcellular localization), we implement models in PyTorch:
