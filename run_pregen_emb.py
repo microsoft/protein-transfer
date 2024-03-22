@@ -1,12 +1,19 @@
 """Script for pre generating all embeddings"""
 from __future__ import annotations
 
+import os
+import sys
 import json
 import argparse
 
+from datetime import datetime
+
 from scr.encoding.gen_encoding import GenerateEmbeddings
+from scr.encoding.encoding_classes import seed_all
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
-from scr.utils import get_default_output_path
+from scr.params.sys import RAND_SEED, RAND_SEEDS
+from scr.utils import get_default_output_path, checkNgen_folder, get_filename
+
 
 parser = argparse.ArgumentParser(description="Embedding Generation")
 
@@ -59,6 +66,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--embed_torch_seed",
+    type=int,
+    metavar="ETS",
+    default=RAND_SEED,
+    help="the torch seed for random init and stat transfer (default: 42)",
+)
+
+parser.add_argument(
     "--embed_batch_size",
     type=int,
     metavar="EBS",
@@ -91,7 +106,7 @@ parser.add_argument(
     "--subset_list",
     metavar="SL",
     type=json.loads,
-    default=['train', 'val', 'test'],
+    default=["train", "val", "test"],
     help="the index for the end of the sequence (default: False)",
 )
 
@@ -103,9 +118,43 @@ parser.add_argument(
     help="the parent folder for embeddings (default: 'embeddings')",
 )
 
+
 # TODO add encoder_params
 
 args = parser.parse_args()
+
+log_folder = checkNgen_folder("logs/run_pregen_emb")
+
+if args.reset_param:
+    randorinit = "rand"
+elif args.resample_param:
+    randorinit = "stat"
+else:
+    randorinit = "none"
+
+log_dets = "{}-{}|{}|{}|{}-{}".format(
+    get_filename(os.path.dirname(args.dataset_path)),
+    get_filename(args.dataset_path),
+    args.encoder_name,
+    args.flatten_emb,
+    randorinit,
+    args.embed_torch_seed,
+)
+
+
+# log outputs
+f = open(
+    os.path.join(
+        log_folder,
+        "{}||{}.out".format(log_dets, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+    ),
+    "w",
+)
+sys.stdout = f
+
+seed_all(args.embed_torch_seed)
+
+print(f"Arguments: {args}")
 
 GenerateEmbeddings(
     dataset_path=args.dataset_path,
@@ -114,11 +163,14 @@ GenerateEmbeddings(
     checkpoint_folder=args.checkpoint_folder,
     reset_param=args.reset_param,
     resample_param=args.resample_param,
+    embed_torch_seed=args.embed_torch_seed,
     embed_batch_size=args.embed_batch_size,
     flatten_emb=args.flatten_emb,
     seq_start_idx=args.seq_start_idx,
     seq_end_idx=args.seq_end_idx,
     subset_list=args.subset_list,
-    embed_folder=get_default_output_path(args.embed_folder),
+    embed_folder=checkNgen_folder(args.embed_folder),
     # **encoder_params,
 )
+
+f.close()

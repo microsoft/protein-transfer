@@ -21,6 +21,7 @@ from scr.utils import (
     replace_ext,
     read_std_csv,
     get_folder_file_names,
+    checkNgen_folder
 )
 from scr.params.sys import RAND_SEED
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, MAX_SEQ_LEN
@@ -432,6 +433,7 @@ class ProtranDataset(Dataset):
         encoder_name: str,
         reset_param: bool = False,
         resample_param: bool = False,
+        embed_torch_seed: int = RAND_SEED,
         embed_batch_size: int = 0,
         flatten_emb: bool | str = False,
         embed_folder: str = None,
@@ -452,6 +454,7 @@ class ProtranDataset(Dataset):
         - encoder_name: str, the name of the encoder
         - reset_param: bool = False, if update the full model to xavier_uniform_
         - resample_param: bool = False, if update the full model to xavier_normal_
+        - embed_torch_seed: int = RAND_SEED, the torch seed for random init and stat transfer
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_folder: str = None, path to presaved embedding folder, ie
@@ -514,6 +517,11 @@ class ProtranDataset(Dataset):
             if resample_param and "-stat" not in self._embed_folder:
                 self._embed_folder = f"{self._embed_folder}-stat"
 
+            # append seed info
+            self._embed_folder = checkNgen_folder(os.path.join(
+                self._embed_folder, f"seed-{str(embed_torch_seed)}"
+            ))
+
         self._encoder_name = encoder_name
         self._flatten_emb = flatten_emb
 
@@ -545,6 +553,7 @@ class ProtranDataset(Dataset):
             encoder_name=self._encoder_name,
             reset_param=reset_param,
             resample_param=resample_param,
+            embed_torch_seed=embed_torch_seed,
             **encoder_params,
         )
         self._total_emb_layer = self._encoder.max_emb_layer + 1
@@ -831,6 +840,7 @@ def split_protrain_loader(
     encoder_name: str,
     reset_param: bool = False,
     resample_param: bool = False,
+    embed_torch_seed: int = RAND_SEED,
     embed_batch_size: int = 128,
     flatten_emb: bool | str = False,
     embed_folder: str | None = None,
@@ -855,6 +865,7 @@ def split_protrain_loader(
     - encoder_name: str, the name of the encoder
     - reset_param: bool = False, if update the full model to xavier_uniform_
     - resample_param: bool = False, if update the full model to xavier_normal_
+    - embed_torch_seed: int = RAND_SEED, the torch seed for random init and stat transfer
     - embed_batch_size: int, set to 0 to encode all in a single batch
     - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
     - embed_folder: str = None, path to presaved embedding
@@ -882,6 +893,7 @@ def split_protrain_loader(
                 encoder_name=encoder_name,
                 reset_param=reset_param,
                 resample_param=resample_param,
+                embed_torch_seed=embed_torch_seed,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_folder=embed_folder,

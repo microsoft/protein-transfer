@@ -7,6 +7,7 @@ import numpy as np
 
 from scr.utils import get_folder_file_names, checkNgen_folder
 from scr.params.emb import MAX_SEQ_LEN
+from scr.params.sys import RAND_SEED
 from scr.encoding.encoding_classes import get_emb_info, OnehotEncoder, CARPEncoder
 from scr.preprocess.data_process import ProtranDataset
 
@@ -22,6 +23,7 @@ class GenerateEmbeddings:
         checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
+        embed_torch_seed: int = RAND_SEED,
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
         seq_start_idx: bool | int = False,
@@ -69,6 +71,11 @@ class GenerateEmbeddings:
         if self.resample_param and "-stat" not in self.embed_folder:
             self.embed_folder = f"{self.embed_folder}-stat"
 
+        # append seed info
+        self.embed_folder = checkNgen_folder(
+            os.path.join(self.embed_folder, f"seed-{str(embed_torch_seed)}")
+        )
+
         self.encoder_name, encoder_class, total_emb_layer = get_emb_info(
             self.encoder_name
         )
@@ -90,6 +97,7 @@ class GenerateEmbeddings:
             encoder_name=encoder_name,
             reset_param=reset_param,
             resample_param=resample_param,
+            embed_torch_seed=embed_torch_seed,
             **encoder_params,
         )
 
@@ -121,6 +129,7 @@ class GenerateEmbeddings:
                 encoder_name=encoder_name,
                 reset_param=reset_param,
                 resample_param=resample_param,
+                embed_torch_seed=embed_torch_seed,
                 embed_batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
                 embed_folder=None,
@@ -168,19 +177,19 @@ class GenerateEmbeddings:
                 batch_size=embed_batch_size,
                 flatten_emb=flatten_emb,
             ):
-                
+
                 for emb_layer, emb in encoded_batch_dict.items():
                     # f = tables.open_file(file_path, mode="a")
                     # if no flattening, pad all embedding to the max_seq_len
                     if flatten_emb == False:
                         padded_emb = np.pad(
-                                emb,
-                                pad_width=(
-                                    (0, 0),
-                                    (0, self._max_seq_len - emb.shape[1]),
-                                    (0, 0),
-                                ),
-                            )
+                            emb,
+                            pad_width=(
+                                (0, 0),
+                                (0, self._max_seq_len - emb.shape[1]),
+                                (0, 0),
+                            ),
+                        )
                     else:
                         padded_emb = emb
                     getattr(f.root, "layer" + str(emb_layer)).append(padded_emb)

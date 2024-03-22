@@ -11,7 +11,7 @@ from sklearn.metrics import mean_squared_error, log_loss, accuracy_score, roc_au
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from scipy.stats import spearmanr
 
-from scr.utils import get_folder_file_names, pickle_save, ndcg_scale
+from scr.utils import get_folder_file_names, pickle_save, ndcg_scale, checkNgen_folder
 from scr.params.emb import TRANSFORMER_INFO, CARP_INFO
 from scr.params.sys import RAND_SEED, SKLEARN_ALPHAS
 from scr.encoding.encoding_classes import get_emb_info
@@ -37,6 +37,7 @@ class RunRidge:
         checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
+        embed_torch_seed: int = RAND_SEED,
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
         embed_folder: str | None = None,
@@ -79,6 +80,7 @@ class RunRidge:
         self.encoder_name = encoder_name
         self.reset_param = reset_param
         self.resample_param = resample_param
+        self.embed_torch_seed = embed_torch_seed
         self.embed_batch_size = embed_batch_size
         self.flatten_emb = flatten_emb
         self.embed_folder = embed_folder
@@ -115,6 +117,14 @@ class RunRidge:
             self.all_result_folder += f"-{str(self.checkpoint)}"
             self.embed_folder += f"-{str(self.checkpoint)}"
 
+        # append seed
+        self.all_result_folder = checkNgen_folder(
+            os.path.join(self.all_result_folder, f"seed-{str(self.embed_torch_seed)}")
+        )
+        self.embed_folder = checkNgen_folder(
+            os.path.join(self.embed_folder, f"seed-{str(self.embed_torch_seed)}")
+        )
+
         all_ridge_results = {}
 
         self.encoder_name, _, total_emb_layer = get_emb_info(self.encoder_name)
@@ -129,6 +139,7 @@ class RunRidge:
                     encoder_name=self.encoder_name,
                     reset_param=self.reset_param,
                     resample_param=self.resample_param,
+                    embed_torch_seed=self.embed_torch_seed,
                     embed_batch_size=self.embed_batch_size,
                     flatten_emb=self.flatten_emb,
                     embed_folder=self.embed_folder,
@@ -275,6 +286,7 @@ class RunRidge:
                     checkpoint_folder=self.checkpoint_folder,
                     reset_param=self.reset_param,
                     resample_param=self.resample_param,
+                    embed_torch_seed=self.embed_torch_seed,
                     embed_batch_size=self.embed_batch_size,
                     flatten_emb=self.flatten_emb,
                     embed_folder=self.embed_folder,
@@ -678,6 +690,7 @@ class RunSK:
                     encoder_name=self.encoder_name,
                     reset_param=self.reset_param,
                     resample_param=self.resample_param,
+                    embed_torch_seed=self.embed_torch_seed,
                     embed_batch_size=self.embed_batch_size,
                     flatten_emb=self.flatten_emb,
                     embed_folder=self.embed_folder,

@@ -32,13 +32,15 @@ from scr.params.emb import TRANSFORMER_INFO, CARP_INFO, CARP_CHECKPOINTS
 from scr.params.sys import DEVICE, RAND_SEED
 
 
-# seed everything
-random.seed(RAND_SEED)
-np.random.seed(RAND_SEED)
-torch.manual_seed(RAND_SEED)
-torch.cuda.manual_seed(RAND_SEED)
-torch.cuda.manual_seed_all(RAND_SEED)
-torch.backends.cudnn.deterministic = True
+def seed_all(seed: int):
+    """Seed everything"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 def cal_bound(model: torch.nn.Module, layer_name: str):
@@ -62,6 +64,7 @@ class AbstractEncoder(ABC):
         encoder_name: str = "",
         reset_param: bool = False,
         resample_param: bool = False,
+        embed_torch_seed: int = RAND_SEED,
     ):
 
         """
@@ -77,6 +80,7 @@ class AbstractEncoder(ABC):
 
         self._reset_param = reset_param
         self._resample_param = resample_param
+        self._embed_torch_seed = embed_torch_seed
 
     def reset_resample_param(self, model: torch.nn.Module):
         """
@@ -89,6 +93,14 @@ class AbstractEncoder(ABC):
         Returns:
         - torch.nn.Module, the model with all params set with xavier_uniform
         """
+
+        seed_all(self._embed_torch_seed)
+
+        print(
+            "Running {} ablation for {} with {} inside reset_resample_param...".format(
+                self.emb_ablation, self._encoder_name, self._embed_torch_seed
+            )
+        )
 
         s = 0
         for p in model.parameters():
@@ -208,7 +220,7 @@ class AbstractEncoder(ABC):
                                 ones_(p)
                             elif "bias" in layer_name:
                                 zeros_(p)
-        
+
         elif self._resample_param:
             print(f"Resample params for {self._encoder_name} ...")
 
@@ -227,110 +239,6 @@ class AbstractEncoder(ABC):
                             torch.randperm(p.view(-1).shape[0])
                         ].view(p.shape)
 
-                        # if len(p.shape) == 1:
-                        #     resample_state[layer_name] = p[torch.randperm(p.shape[0])]
-
-                        #     """
-                        #     esm1:
-                        #     layers.n.self_attn.k_proj.bias: torch.Size([embed_dim])
-                        #     layers.n.self_attn.v_proj.bias: torch.Size([embed_dim])
-                        #     layers.n.self_attn.q_proj.bias: torch.Size([embed_dim])
-                        #     layers.n.self_attn.out_proj.bias: torch.Size([embed_dim])
-                        #     layers.n.self_attn_layer_norm.weight: torch.Size([embed_dim])
-                        #     layers.n.self_attn_layer_norm.bias: torch.Size([embed_dim])
-                        #     layers.n.fc1.bias: torch.Size([fc_dim])
-                        #     layers.n.fc2.bias: torch.Size([embed_dim])
-                        #     layers.n.final_layer_norm.weight: torch.Size([embed_dim])
-                        #     layers.n.final_layer_norm.bias: torch.Size([embed_dim])
-
-                        #     esm1b:
-                        #     layers.n.self_attn.k_proj.bias: torch.Size([1280])
-                        #     layers.n.self_attn.v_proj.bias: torch.Size([1280])
-                        #     layers.n.self_attn.q_proj.bias: torch.Size([1280])
-                        #     layers.n.self_attn.out_proj.bias: torch.Size([1280])
-                        #     layers.n.self_attn_layer_norm.weight: torch.Size([1280])
-                        #     layers.n.self_attn_layer_norm.bias: torch.Size([1280])
-                        #     layers.n.fc1.bias: torch.Size([5120])
-                        #     layers.n.fc2.bias: torch.Size([1280])
-                        #     layers.n.final_layer_norm.weight: torch.Size([1280])
-                        #     layers.n.final_layer_norm.bias: torch.Size([1280])
-                        #     contact_head.regression.weight: torch.Size([1, 660])
-                        #     contact_head.regression.bias: torch.Size([1])
-                        #     emb_layer_norm_before.weight: torch.Size([1280])
-                        #     emb_layer_norm_before.bias: torch.Size([1280])
-                        #     emb_layer_norm_after.weight: torch.Size([1280])
-                        #     emb_layer_norm_after.bias: torch.Size([1280])
-                        #     lm_head.bias: torch.Size([33])
-                        #     lm_head.dense.bias: torch.Size([1280])
-                        #     lm_head.layer_norm.weight: torch.Size([1280])
-                        #     lm_head.layer_norm.bias: torch.Size([1280])
-                        #     """
-
-                        # elif 1 in p.shape:
-
-                        #     """
-                        #     esm1
-                        #     layers.n.self_attn.bias_k: torch.Size([1, 1, embed_dim])
-                        #     layers.n.self_attn.bias_v: torch.Size([1, 1, embed_dim])
-                        #     contact_head.regression.weight: torch.Size([1, reg_dim])
-
-                        #     esm1b:
-                        #     contact_head.regression.weight: torch.Size([1, 660])
-                        #     contact_head.regression.bias: torch.Size([1])
-                        #     """
-                        #     if "bias_" in layer_name:
-                        #         resample_state[layer_name] = p[
-                        #             :, :, torch.randperm(self._embed_dim)
-                        #         ]
-                        #     elif "regression.weight" in layer_name:
-                        #         resample_state[layer_name] = p[
-                        #             :, torch.randperm(p.shape[-1])
-                        #         ]
-
-                        # elif (
-                        #     "k_proj.weight"
-                        #     or "q_proj.weight"
-                        #     or "fc1.weight"
-                        #     or "embed_positions.weight"
-                        #     or "lm_head.weight" in layer_name
-                        # ):
-                        #     resample_state[layer_name] = p[torch.randperm(p.shape[0]), :]
-
-                        #     """
-                        #     esm1:
-                        #     layers.n.self_attn.k_proj.weight: torch.Size([embed_dim, embed_dim])
-                        #     layers.n.self_attn.q_proj.weight: torch.Size([embed_dim, embed_dim])
-                        #     layers.n.fc1.weight: torch.Size([fc_dim, embed_dim])
-
-                        #     esm1b:
-                        #     layers.n.self_attn.k_proj.weight: torch.Size([1280, 1280])
-                        #     layers.n.self_attn.q_proj.weight: torch.Size([1280, 1280])
-                        #     layers.n.fc1.weight: torch.Size([5120, 1280])
-                        #     embed_positions.weight: torch.Size([1026, 1280])
-                        #     lm_head.weight: torch.Size([33, 1280])
-                        #     """
-
-                        # elif (
-                        #     "v_proj.weight"
-                        #     or "out_proj.weight"
-                        #     or "fc2.weight"
-                        #     or "lm_head.dense.weight" in layer_name
-                        # ):
-
-                        #     """
-                        #     layers.n.self_attn.v_proj.weight: torch.Size([embed_dim, embed_dim])
-                        #     layers.n.self_attn.out_proj.weight: torch.Size([embed_dim, embed_dim])
-                        #     layers.n.fc2.weight: torch.Size([embed_dim, fc_dim])
-
-                        #     esm1b:
-                        #     layers.n.self_attn.v_proj.weight: torch.Size([1280, 1280])
-                        #     layers.n.self_attn.out_proj.weight: torch.Size([1280, 1280])
-                        #     layers.n.fc2.weight: torch.Size([1280, 5120])
-                        #     lm_head.dense.weight: torch.Size([1280, 1280])
-                        #     """
-
-                        #     resample_state[layer_name] = p[:, torch.randperm(p.shape[1])]
-
             elif self._encoder_name in CARP_INFO.keys():
                 print(f"Updating carp {self._encoder_name} weights...")
                 for layer_name, p in model.state_dict().items():
@@ -348,7 +256,11 @@ class AbstractEncoder(ABC):
         s = 0
         for p in model.parameters():
             s += np.sum(p.cpu().data.numpy())
-        print(f"all param sum after reset_resampel_param before return model: {s}")
+        print(
+            "all param sum after reset_resampel_param {} ablation before return model: {}".format(
+                self.emb_ablation, s
+            )
+        )
 
         return model
 
@@ -431,7 +343,7 @@ class AbstractEncoder(ABC):
             # init out put seq_reps should be in dim [batch_size, embed_dim]
             seq_reps = np.empty((encoded_mut_seqs.shape[0], self._embed_dim))
             for i, encoded_mut_seq in enumerate(encoded_mut_seqs):
-                
+
                 # if the emb has label from esm
                 if len(mut_seqs[i]) == 2:
                     seq_len = len(mut_seqs[i][1])
@@ -444,9 +356,9 @@ class AbstractEncoder(ABC):
                 assert seq_len not in [1, 2], "Check emb pooling len!"
 
                 if flatten_emb == "mean":
-                    seq_reps[i] = encoded_mut_seq[: seq_len].mean(0)
+                    seq_reps[i] = encoded_mut_seq[:seq_len].mean(0)
                 elif flatten_emb == "max":
-                    seq_reps[i] = encoded_mut_seq[: seq_len].max(0)
+                    seq_reps[i] = encoded_mut_seq[:seq_len].max(0)
 
             return seq_reps
 
@@ -480,6 +392,16 @@ class AbstractEncoder(ABC):
     def encoder_name(self) -> str:
         """The name of the encoding method"""
         return self._encoder_name
+
+    @property
+    def emb_ablation(self) -> str:
+        """The ablation of the encoding method"""
+        if self._reset_param:
+            return "rand"
+        elif self._resample_param:
+            return "stat"
+        else:
+            return "none"
 
 
 class OnehotEncoder(AbstractEncoder):
@@ -560,6 +482,7 @@ class ESMEncoder(AbstractEncoder):
         encoder_name: str,
         reset_param: bool = False,
         resample_param: bool = False,
+        embed_torch_seed: int = RAND_SEED,
         iftrimCLS: bool = True,
         iftrimEOS: bool = True,
     ):
@@ -572,7 +495,9 @@ class ESMEncoder(AbstractEncoder):
         - iftrimEOS: bool, whether to trim the end of sequence token, if exists
         """
 
-        super().__init__(encoder_name, reset_param, resample_param)
+        super().__init__(encoder_name, reset_param, resample_param, embed_torch_seed)
+
+        print(f"Seed for ESMEncoder: {self._embed_torch_seed}")
 
         self._iftrimCLS = iftrimCLS
         self._iftrimEOS = iftrimEOS
@@ -596,7 +521,9 @@ class ESMEncoder(AbstractEncoder):
         s = 0
         for p in self.model.parameters():
             s += np.sum(p.cpu().data.numpy())
-        print(f"all param sum for loading init esm from hub in ESMEncoder: {s}")
+        print(
+            f"all param sum for loading init esm from hub in ESMEncoder before ablation: {s}"
+        )
 
         # if reset or resample weights
         self.model = self.reset_resample_param(model=self.model)
@@ -608,7 +535,11 @@ class ESMEncoder(AbstractEncoder):
         s = 0
         for p in self.model.parameters():
             s += np.sum(p.cpu().data.numpy())
-        print(f"all param sum for after reset_resample_param in ESMEncoder: {s}")
+        print(
+            "all param sum for after reset_resample_param with {} ablation in ESMEncoder: {}".format(
+                self.emb_ablation, s
+            )
+        )
 
         expected_num_layers = int(self._encoder_name.split("_")[-3][1:])
         assert (
@@ -707,6 +638,7 @@ class CARPEncoder(AbstractEncoder):
         checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
+        embed_torch_seed: int = RAND_SEED,
     ):
         """
         Args
@@ -717,14 +649,18 @@ class CARPEncoder(AbstractEncoder):
         - resample_param: bool = False, if update the full model to xavier_normal_
         """
 
-        super().__init__(encoder_name, reset_param, resample_param)
+        super().__init__(encoder_name, reset_param, resample_param, embed_torch_seed)
+
+        print(f"Seed for ESMEncoder: {self._embed_torch_seed}")
 
         self.model, self.collater = load_model_and_alphabet(self._encoder_name)
 
         s = 0
         for p in self.model.parameters():
             s += np.sum(p.cpu().data.numpy())
-        print(f"all param sum for loading init carp from hub in CARPEncoder: {s}")
+        print(
+            f"all param sum for loading init carp from hub in CARPEncoder before ablation: {s}"
+        )
 
         # load checkpoint unless default to full
         if checkpoint != 1:
@@ -737,7 +673,7 @@ class CARPEncoder(AbstractEncoder):
                 f"{os.path.normpath(checkpoint_folder)}/{encoder_name}/"
                 f"checkpoint{str(CARP_CHECKPOINTS[encoder_name][checkpoint])}.tar"
             )
-            
+
             print(
                 f"Loading {encoder_name} {checkpoint} checkpoint from {checkpoint_path}..."
             )
@@ -755,12 +691,16 @@ class CARPEncoder(AbstractEncoder):
             )
         else:
             print("Running on fully trained model...")
-        
+
         s = 0
         for p in self.model.parameters():
             s += np.sum(p.cpu().data.numpy())
 
-        print(f"all param sum for after carp checkpoint loading before reset_resample_param in CARPEncoder: {s}")
+        print(
+            "all param sum for after carp checkpoint loading before reset_resample_param {} ablation in CARPEncoder: {}".format(
+                self.emb_ablation, s
+            )
+        )
 
         # if reset or resample weights
         self.model = self.reset_resample_param(model=self.model)
@@ -768,7 +708,11 @@ class CARPEncoder(AbstractEncoder):
         s = 0
         for p in self.model.parameters():
             s += np.sum(p.cpu().data.numpy())
-        print(f"all param sum for after carp checkpoint loading after reset_resample_param in CARPEncoder: {s}")
+        print(
+            "all param sum for after carp checkpoint loading after reset_resample_param with {} ablation in CARPEncoder: {}".format(
+                self.emb_ablation, s
+            )
+        )
 
         # set model to eval mode
         self.model.eval()
@@ -820,6 +764,7 @@ class CARPEncoder(AbstractEncoder):
                 mut_seqs=mut_seqs,
             )
         return dict_encoded_mut_seqs
+
 
 def get_emb_info(encoder_name: str) -> Collection(str, AbstractEncoder, int):
 

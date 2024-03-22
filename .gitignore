@@ -29,6 +29,8 @@ embeddings-rand
 embeddings-rand/
 embeddings-stat
 embeddings-stat/
+logs
+logs/
 pretrain_checkpoints
 pretrain_checkpoints/
 sandbox
