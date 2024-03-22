@@ -12,7 +12,7 @@ import pandas as pd
 from sklearn.metrics import ndcg_score
 
 
-def get_default_output_path(envpath : str = "", default_output_path: str = "results/sklearn"):
+def get_default_output_path(default_output_path: str = "results/sklearn", envpath : str = ""):
     """Set default output folder path"""
     if os.getenv(envpath) is None:
         return default_output_path

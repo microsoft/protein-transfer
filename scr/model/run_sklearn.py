@@ -121,9 +121,9 @@ class RunRidge:
         self.all_result_folder = checkNgen_folder(
             os.path.join(self.all_result_folder, f"seed-{str(self.embed_torch_seed)}")
         )
-        self.embed_folder = checkNgen_folder(
-            os.path.join(self.embed_folder, f"seed-{str(self.embed_torch_seed)}")
-        )
+        # self.embed_folder = checkNgen_folder(
+        #     os.path.join(self.embed_folder, f"seed-{str(self.embed_torch_seed)}")
+        # )
 
         all_ridge_results = {}
 
@@ -374,6 +374,7 @@ class RunSK:
         checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
+        embed_torch_seed: int = RAND_SEED,
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
         embed_folder: str | None = None,
@@ -414,6 +415,7 @@ class RunSK:
         self.encoder_name = encoder_name
         self.reset_param = reset_param
         self.resample_param = resample_param
+        self.embed_torch_seed = embed_torch_seed
         self.embed_batch_size = embed_batch_size
         self.flatten_emb = flatten_emb
         self.embed_folder = embed_folder
@@ -450,6 +452,14 @@ class RunSK:
             self.all_result_folder += f"-{str(self.checkpoint)}"
             self.embed_folder += f"-{str(self.checkpoint)}"
 
+        # append seed
+        self.all_result_folder = checkNgen_folder(
+            os.path.join(self.all_result_folder, f"seed-{str(self.embed_torch_seed)}")
+        )
+        # self.embed_folder = checkNgen_folder(
+        #     os.path.join(self.embed_folder, f"seed-{str(self.embed_torch_seed)}")
+        # )
+
         # update encoder name and total embedding layers
         if self.encoder_name in TRANSFORMER_INFO.keys():
             total_emb_layer = TRANSFORMER_INFO[encoder_name][1] + 1
@@ -477,6 +487,7 @@ class RunSK:
                 encoder_name=self.encoder_name,
                 reset_param=self.reset_param,
                 resample_param=self.resample_param,
+                embed_torch_seed=self.embed_torch_seed,
                 embed_batch_size=self.embed_batch_size,
                 flatten_emb=self.flatten_emb,
                 embed_folder=self.embed_folder,
