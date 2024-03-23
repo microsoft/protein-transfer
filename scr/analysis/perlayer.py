@@ -43,7 +43,8 @@ class LayerLoss:
         self._input_path = os.path.normpath(input_path)
         # get the list of subfolders for each dataset
         self._dataset_folders = glob(f"{self._input_path}/*/*/*/*/*")
-        # glob("results/train_val_test/*/*/*/*/*")
+        # glob("results/sklearn-esm/*/*/*/*/*")
+        # results/sklearn-esm/proeng/aav/one_vs_many/esm1_t6_43M_UR50S/mean
 
         # get rid of the last "/" if any
         self._output_path = os.path.normpath(output_path)
@@ -65,7 +66,7 @@ class LayerLoss:
                 self._checkpoint_analysis_dict[checkpoint] = defaultdict(dict)
 
         for dataset_folder in self._dataset_folders:
-            # dataset_folder = "results/train_val_test/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
+            # dataset_folder = "results/sklearn-esm/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
             # get the details for the dataset such as proeng/gb1/two_vs_rest
             task_subfolder = dataset_folder.split(self._input_path + "/")[-1]
             # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
@@ -104,17 +105,39 @@ class LayerLoss:
             # check if reset param experimental results exist
             reset_param_path = f"{self._input_path}-rand"
 
+            self._rand_layer_analysis_dict[
+                            f"{task}_{dataset}_{split}_{flatten_emb}"
+                        ][encoder_name] = defaultdict(dict)
+
             if os.path.exists(reset_param_path):
-                self._rand_layer_analysis_dict[
-                    f"{task}_{dataset}_{split}_{flatten_emb}"
-                ][encoder_name] = self.parse_result_dicts(
-                    dataset_folder.replace(self._input_path, reset_param_path),
-                    task,
-                    dataset,
-                    split,
-                    encoder_name,
-                    flatten_emb,
-                )
+                # check if there are different seeds / replicates
+                emb_seed_list = glob(f"{reset_param_path}/*")
+
+                if len(emb_seed_list) > 1 and "seed" in emb_seed_list[0]:
+                    for emb_seed_folder in emb_seed_list:
+                        emb_seed_str = emb_seed_folder.split("/")[-1]
+                        
+                        self._rand_layer_analysis_dict[
+                            f"{task}_{dataset}_{split}_{flatten_emb}"
+                        ][encoder_name][emb_seed_str] = self.parse_result_dicts(
+                            dataset_folder.replace(self._input_path, emb_seed_folder),
+                            task,
+                            dataset,
+                            split,
+                            encoder_name,
+                            flatten_emb,)
+                else:
+  
+                    self._rand_layer_analysis_dict[
+                        f"{task}_{dataset}_{split}_{flatten_emb}"
+                    ][encoder_name]["none"] = self.parse_result_dicts(
+                        dataset_folder.replace(self._input_path, reset_param_path),
+                        task,
+                        dataset,
+                        split,
+                        encoder_name,
+                        flatten_emb,
+                    )
                 add_rand = True
             else:
                 add_rand = False
@@ -123,16 +146,37 @@ class LayerLoss:
             resample_param_path = f"{self._input_path}-stat"
 
             if os.path.exists(resample_param_path):
+                # check if there are different seeds / replicates
+                emb_seed_list = glob(f"{resample_param_path}/*")
+
                 self._stat_layer_analysis_dict[
-                    f"{task}_{dataset}_{split}_{flatten_emb}"
-                ][encoder_name] = self.parse_result_dicts(
-                    dataset_folder.replace(self._input_path, resample_param_path),
-                    task,
-                    dataset,
-                    split,
-                    encoder_name,
-                    flatten_emb,
-                )
+                            f"{task}_{dataset}_{split}_{flatten_emb}"
+                        ][encoder_name] = defaultdict(dict)
+
+                if len(emb_seed_list) > 1 and "seed" in emb_seed_list[0]:
+                    for emb_seed_folder in emb_seed_list:
+                        emb_seed_str = emb_seed_folder.split("/")[-1]
+                        self._stat_layer_analysis_dict[
+                            f"{task}_{dataset}_{split}_{flatten_emb}"
+                        ][encoder_name][emb_seed_str] = self.parse_result_dicts(
+                            dataset_folder.replace(self._input_path, emb_seed_folder),
+                            task,
+                            dataset,
+                            split,
+                            encoder_name,
+                            flatten_emb,
+                        )
+                else:
+                    self._stat_layer_analysis_dict[
+                        f"{task}_{dataset}_{split}_{flatten_emb}"
+                    ][encoder_name]["none"] = self.parse_result_dicts(
+                        dataset_folder.replace(self._input_path, resample_param_path),
+                        task,
+                        dataset,
+                        split,
+                        encoder_name,
+                        flatten_emb,
+                    )
                 add_stat = True
             else:
                 add_stat = False
@@ -145,9 +189,9 @@ class LayerLoss:
                     onehot_flatten_emb_name = "noflatten"
                 else:
                     onehot_flatten_emb_name = "flatten"
-                self._onehot_baseline_dict[
-                    f"{task}_{dataset}_{split}"
-                ]["onehot"] = self.parse_result_dicts(
+                self._onehot_baseline_dict[f"{task}_{dataset}_{split}"][
+                    "onehot"
+                ] = self.parse_result_dicts(
                     dataset_folder.replace(self._input_path, onehot_path)
                     .replace(encoder_name, "onehot")
                     .replace(flatten_emb, onehot_flatten_emb_name),
@@ -189,7 +233,7 @@ class LayerLoss:
                 sharey="row",
                 sharex="col",
                 figsize=(20, 2 * self._metric_numb[collage_name]),
-                squeeze=False # not get rid off the extra dim if 1D
+                squeeze=False,  # not get rid off the extra dim if 1D
             )
 
             for m, metric in enumerate(self._metric_dict[collage_name.split("_")[0]]):
@@ -221,27 +265,64 @@ class LayerLoss:
 
                     # overlay random init
                     if add_rand:
+
+                        all_rand_vals = []
+
+                        for seed, rand_vals in self._rand_layer_analysis_dict[
+                            collage_name
+                        ][encoder_name].items():
+                            all_rand_vals.append(rand_vals[metric])
+
+                        all_rand_val_array = np.array(all_rand_vals)
+                        rand_mean = np.mean(all_rand_val_array, axis=0)
+                        rand_std = np.std(all_rand_val_array, axis=0)
+
                         axs[m, n].plot(
-                            self._rand_layer_analysis_dict[collage_name][encoder_name][
-                                metric
-                            ],
+                            rand_mean,
                             label="random init",
                             color="#4bacc6",  # blue
-                            linestyle="dashed"
-                            # color="#D3D3D3",  # light grey
+                            linestyle="dashed",
+                        )
+
+                        # Shade standard deviation
+                        axs[m, n].fill_between(
+                            np.arange(len(rand_mean)),
+                            rand_mean - rand_std,
+                            rand_mean + rand_std,
+                            color="#4bacc6",
+                            alpha=0.2,
                         )
 
                     # overlay stat init
                     if add_stat:
+
+                        all_stat_vals = []
+
+                        for seed, stat_vals in self._stat_layer_analysis_dict[
+                            collage_name
+                        ][encoder_name].items():
+                            all_stat_vals.append(stat_vals[metric])
+
+                        all_stat_val_array = np.array(all_stat_vals)
+                        stat_mean = np.mean(all_stat_val_array, axis=0)
+                        stat_std = np.std(all_stat_val_array, axis=0)
+
                         axs[m, n].plot(
-                            self._stat_layer_analysis_dict[collage_name][encoder_name][
-                                metric
-                            ],
+                            stat_mean,
                             label="stat transfer",
                             color="#9bbb59",  # green
                             linestyle="dashed"
                             # color="#A9A9A9",  # dark grey
                             # linestyle="dotted",
+                        )
+
+                        # Shade standard deviation
+                        axs[m, n].fill_between(
+                            np.arange(len(stat_mean)),
+                            stat_mean - stat_std,
+                            stat_mean + stat_std,
+                            color="#9bbb59",
+                            alpha=0.2,
                         )
 
                     # overlay onehot baseline
@@ -374,6 +455,11 @@ class LayerLoss:
 
         Args:
         - folder_path: str, the folder path for the datasets
+        - task: str, the task name
+        - dataset: str, the dataset name
+        - split: str, the split name
+        - encoder_name: str, the encoder name
+        - flatten_emb: bool | str, if the embedding is flatten
 
         Returns:
         - dict, encode name as key with a dict as its value
