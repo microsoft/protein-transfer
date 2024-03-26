@@ -35,7 +35,7 @@ from scr.model.pytorch_model import (
 
 from scr.model.train_test import train, test
 from scr.vis.learning_vis import plot_lc
-from scr.utils import get_folder_file_names, pickle_save, get_default_output_path
+from scr.utils import checkNgen_folder, get_folder_file_names, pickle_save
 
 # seed everything
 random.seed(RAND_SEED)
@@ -55,6 +55,7 @@ class Run_Pytorch:
         checkpoint_folder: str = "pretrain_checkpoints/carp",
         reset_param: bool = False,
         resample_param: bool = False,
+        embed_torch_seed: int = RAND_SEED,
         embed_batch_size: int = 128,
         flatten_emb: bool | str = False,
         embed_folder: str | None = None,
@@ -75,7 +76,7 @@ class Run_Pytorch:
         min_epoch: int = 5,
         device: torch.device | str = DEVICE,
         all_plot_folder: str = "results/learning_curves",
-        all_result_folder: str = "results/train_val_test",
+        all_result_folder: str = "results/pytorch",
         **encoder_params,
     ) -> None:
 
@@ -88,6 +89,9 @@ class Run_Pytorch:
         - encoder_name: str, the name of the encoder
         - checkpoint: float = 1, the 0.5, 0.25, 0.125 checkpoint of the CARP encoder or full
         - checkpoint_folder: str = "pretrain_checkpoints/carp", folder for carp encoders
+        - reset_param: bool, if reset the embedding
+        - resample_param: bool, if resample the embedding
+        - embed_torch_seed: int, the seed for torch
         - embed_batch_size: int, set to 0 to encode all in a single batch
         - flatten_emb: bool or str, if and how (one of ["max", "mean"]) to flatten the embedding
         - embed_folder: str = None, path to presaved embedding
@@ -140,6 +144,7 @@ class Run_Pytorch:
 
         self._reset_param = reset_param
         self._resample_param = resample_param
+        self._embed_torch_seed = embed_torch_seed
         self._embed_batch_size = embed_batch_size
         self._flatten_emb = flatten_emb
         self._embed_folder = embed_folder
@@ -172,6 +177,14 @@ class Run_Pytorch:
         if self._resample_param and "-stat" not in self._all_result_folder:
             self._all_result_folder = f"{self._all_result_folder}-stat"
             self._all_plot_folder = f"{self._all_plot_folder}-stat"
+
+        # append seed
+        self._all_result_folder = checkNgen_folder(
+            os.path.join(self._all_result_folder, f"seed-{str(self._embed_torch_seed)}")
+        )
+        self._all_plot_folder = checkNgen_folder(
+            os.path.join(self._all_plot_folder, f"seed-{str(self._embed_torch_seed)}")
+        )
 
         self._encoder_params = encoder_params
 
@@ -240,7 +253,7 @@ class Run_Pytorch:
         Get info on pytorch layers
         """
         dataset_subfolder, file_name = get_folder_file_names(
-            parent_folder=get_default_output_path(self._all_result_folder),
+            parent_folder=self._all_result_folder,
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,
@@ -282,6 +295,7 @@ class Run_Pytorch:
             encoder_name=self._encoder_name,
             reset_param=self._reset_param,
             resample_param=self._resample_param,
+            embed_torch_seed=self._embed_torch_seed,
             embed_batch_size=self._embed_batch_size,
             flatten_emb=self._flatten_emb,
             embed_folder=self._embed_folder,
@@ -328,7 +342,7 @@ class Run_Pytorch:
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,
             flatten_emb=self._flatten_emb_name,
-            all_plot_folder=get_default_output_path(self._all_plot_folder),
+            all_plot_folder=self._all_plot_folder
         )
 
         # now test the model with the test data
@@ -392,7 +406,7 @@ class Run_Pytorch:
 
         # TODO del
         dataset_subfolder, file_name = get_folder_file_names(
-            parent_folder=get_default_output_path(self._all_result_folder),
+            parent_folder=self._all_result_folder,
             dataset_path=self._dataset_path,
             encoder_name=self._encoder_name,
             embed_layer=embed_layer,

@@ -1,7 +1,14 @@
+from __future__ import annotations
+
+import os
+import sys
+import json
 import argparse
+from datetime import datetime
 
 from scr.params.sys import DEVICE, RAND_SEED
 from scr.model.run_pytorch import Run_Pytorch
+from scr.utils import checkNgen_folder, get_filename
 
 parser = argparse.ArgumentParser(description="Protein transfer with pytorch models")
 
@@ -51,6 +58,14 @@ parser.add_argument(
     metavar="STP",
     default=False,
     help="if update the full model to xavier_normal_ (default: False)",
+)
+
+parser.add_argument(
+    "--embed_torch_seed",
+    type=int,
+    metavar="ETS",
+    default=RAND_SEED,
+    help="the torch seed for random init and stat transfer (default: 42)",
 )
 
 parser.add_argument(
@@ -208,6 +223,38 @@ parser.add_argument(
 # TODO add encoder_params
 
 args = parser.parse_args()
+
+
+log_folder = checkNgen_folder("logs/run_protran_pytorch")
+
+if args.reset_param:
+    randorinit = "rand"
+elif args.resample_param:
+    randorinit = "stat"
+else:
+    randorinit = "none"
+
+log_dets = "{}-{}|{}|{}|{}-{}".format(
+    get_filename(os.path.dirname(args.dataset_path)),
+    get_filename(args.dataset_path),
+    args.encoder_name,
+    args.flatten_emb,
+    randorinit,
+    args.embed_torch_seed,
+)
+
+# log outputs
+f = open(
+    os.path.join(
+        log_folder,
+        "{}||{}.out".format(log_dets, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+    ),
+    "w",
+)
+
+sys.stdout = f
+
+print(f"Arguments: {args}")
     
 Run_Pytorch(
     dataset_path=args.dataset_path,
@@ -216,6 +263,7 @@ Run_Pytorch(
     checkpoint_folder=args.checkpoint_folder,
     reset_param=args.reset_param,
     resample_param=args.resample_param,
+    embed_torch_seed=args.embed_torch_seed,
     embed_batch_size=args.embed_batch_size,
     flatten_emb=args.flatten_emb,
     embed_folder=args.embed_folder,
@@ -238,3 +286,5 @@ Run_Pytorch(
     all_result_folder=args.all_result_folder,
     # **encoder_params,
     )
+
+f.close()
