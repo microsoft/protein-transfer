@@ -127,7 +127,6 @@ class LayerLoss:
                             encoder_name,
                             flatten_emb,)
                 else:
-  
                     self._rand_layer_analysis_dict[
                         f"{task}_{dataset}_{split}_{flatten_emb}"
                     ][encoder_name]["none"] = self.parse_result_dicts(
@@ -274,6 +273,12 @@ class LayerLoss:
                             all_rand_vals.append(rand_vals[metric])
 
                         all_rand_val_array = np.array(all_rand_vals)
+
+                        # filter out the zero rows if that rep does not exist yet
+                        all_rand_val_array = all_rand_val_array[
+                            ~np.all(all_rand_val_array == 0, axis=1)
+                        ]
+
                         rand_mean = np.mean(all_rand_val_array, axis=0)
                         rand_std = np.std(all_rand_val_array, axis=0)
 
@@ -304,6 +309,12 @@ class LayerLoss:
                             all_stat_vals.append(stat_vals[metric])
 
                         all_stat_val_array = np.array(all_stat_vals)
+
+                        # filter out the zero rows if that rep does not exist yet
+                        all_stat_val_array = all_stat_val_array[
+                            ~np.all(all_stat_val_array == 0, axis=1)
+                        ]
+
                         stat_mean = np.mean(all_stat_val_array, axis=0)
                         stat_std = np.std(all_stat_val_array, axis=0)
 
