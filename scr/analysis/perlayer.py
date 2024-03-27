@@ -67,6 +67,7 @@ class LayerLoss:
 
         for dataset_folder in self._dataset_folders:
             # dataset_folder = "results/sklearn-esm/proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
+            # results/sklearn-carp/proeng/gb1/low_vs_high/carp_640M/mean
             # get the details for the dataset such as proeng/gb1/two_vs_rest
             task_subfolder = dataset_folder.split(self._input_path + "/")[-1]
             # task_subfolder = "proeng/gb1/two_vs_rest/esm1b_t33_650M_UR50S/max"
@@ -76,6 +77,8 @@ class LayerLoss:
 
             # get number of metircs
             self._metric_numb[collage_name] = len(self._metric_dict[task])
+
+            print(f"dataset_folder: {dataset_folder}, task: {task}, dataset: {dataset}, split: {split}, encoder_name: {encoder_name}, flatten_emb: {flatten_emb}")
 
             # parse results for plotting the collage and onehot
             self._layer_analysis_dict[collage_name][
@@ -115,17 +118,30 @@ class LayerLoss:
 
                 if len(emb_seed_list) > 1 and "seed" in emb_seed_list[0]:
                     for emb_seed_folder in emb_seed_list:
+                        # ie results/sklearn-carp-rand/seed-
                         emb_seed_str = emb_seed_folder.split("/")[-1]
+
+                        # results/sklearn-carp-rand/seed-/proeng/gb1/sampled/carp_38M/mean/carp_38M-mean-layer_1.pkl
+
+                        # results/sklearn-carp/proeng/gb1/low_vs_high/carp_640M/mean
+                        # replace results/sklearn-carp with results/sklearn-carp-rand/seed-
+                        # get results/sklearn-carp-rand/seed-/proeng/gb1/low_vs_high/carp_640M/mean
+                        pkl_folder = dataset_folder.replace(self._input_path, emb_seed_folder)
+                        print(f"pkl_folder: {pkl_folder}")
+
+                        if os.path.exists(pkl_folder):
                         
-                        self._rand_layer_analysis_dict[
-                            f"{task}_{dataset}_{split}_{flatten_emb}"
-                        ][encoder_name][emb_seed_str] = self.parse_result_dicts(
-                            dataset_folder.replace(self._input_path, emb_seed_folder),
-                            task,
-                            dataset,
-                            split,
-                            encoder_name,
-                            flatten_emb,)
+                            self._rand_layer_analysis_dict[
+                                f"{task}_{dataset}_{split}_{flatten_emb}"
+                            ][encoder_name][emb_seed_str] = self.parse_result_dicts(
+                                pkl_folder,
+                                task,
+                                dataset,
+                                split,
+                                encoder_name,
+                                flatten_emb,)
+                        else:
+                            print(f"pkl_folder: {pkl_folder} does not exist")
                 else:
                     self._rand_layer_analysis_dict[
                         f"{task}_{dataset}_{split}_{flatten_emb}"
@@ -480,6 +496,8 @@ class LayerLoss:
 
         # get the list of output pickle files
         pkl_list = glob(f"{folder_path}/*.pkl")
+
+        # should be results/sklearn-carp-stat/seed-/proeng/thermo/mixed_split/carp_600k/mean/carp_600k-mean-layer_9.pkl
 
         _, _, max_layer_numb = get_emb_info(encoder_name)
 

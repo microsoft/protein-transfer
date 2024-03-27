@@ -271,7 +271,6 @@ class Run_Pytorch:
             criterion = nn.MSELoss()
 
         else:
-
             if self._model_type == "LinearClassifier-Structure":
                 classifier_type = "structure"
                 criterion = nn.CrossEntropyLoss(ignore_index=-1)

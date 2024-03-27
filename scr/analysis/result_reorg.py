@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import numpy as np
 import pandas as pd
 
 from scr.utils import checkNgen_folder
@@ -54,7 +55,7 @@ class ResultReorg:
 
         # init dataframe
         master_results = pd.DataFrame(
-            columns=["arch", "task", "model", "ablation", "ptp", "metric", "value"]
+            columns=["arch", "task", "model", "ablation", "ptp", "embseed", "metric", "value"]
         )
 
         # make value np array compatible
@@ -101,6 +102,9 @@ class ResultReorg:
                     
                     rename_ablation = ablation
 
+                    # init embseed
+                    embseed = np.nan
+
                     if ablation == "emb":
                         ptp = 1
                     # for carp checkpoints
@@ -112,54 +116,109 @@ class ResultReorg:
 
                     for task in ablation_dict.keys():
                         for model in ablation_dict[task].keys():
-                            for metric in ablation_dict[task][model].keys():
 
-                                # update metric and task if ss3
-                                rename_metric = metric_simplifier(metric)
-                                test_name = metric.split("_")[0]
+                            if ablation in ["rand", "stat"]:
+                                for embseed in ablation_dict[task][model].keys():
+                                    for metric in ablation_dict[task][model][embseed].keys():
+                                        # update metric and task if ss3
+                                        rename_metric = metric_simplifier(metric)
+                                        test_name = metric.split("_")[0]
 
-                                if test_name in STRUCT_TESTS:
-                                    rename_metric = rename_metric.replace(test_name, "test")
+                                        if test_name in STRUCT_TESTS:
+                                            rename_metric = rename_metric.replace(test_name, "test")
 
-                                    # before update task: structure_ss3_tape_processed_noflatten
-                                    if "tape_processed" in task:
-                                        rename_task = task.replace(
-                                            "tape_processed", test_name
+                                            # before update task: structure_ss3_tape_processed_noflatten
+                                            if "tape_processed" in task:
+                                                rename_task = task.replace(
+                                                    "tape_processed", test_name
+                                                )
+                                            else:
+                                                split_list = task.split("_")
+                                                rename_task = "_".join(
+                                                    split_list[:-1]
+                                                    + [test_name]
+                                                    + split_list[-1:]
+                                                )
+                                        else:
+                                            rename_task = task
+
+                                        print(f"task: {task}, model: {model}, embseed: {embseed}, metric: {metric}")
+
+                                        master_results = pd.concat(
+                                            [
+                                                master_results,
+                                                pd.DataFrame(
+                                                    {
+                                                        "arch": arch,
+                                                        "task": rename_task,
+                                                        "model": model,
+                                                        "ablation": rename_ablation,
+                                                        "ptp": ptp,
+                                                        "embseed": embseed,
+                                                        "metric": rename_metric,
+                                                        "value": [
+                                                            list(
+                                                                ablation_dict[task][model][embseed][
+                                                                    metric
+                                                                ]
+                                                            )
+                                                        ],
+                                                    }
+                                                ),
+                                            ],
+                                            ignore_index=True,
                                         )
+                            else:
+
+                                for metric in ablation_dict[task][model].keys():
+
+                                    # update metric and task if ss3
+                                    rename_metric = metric_simplifier(metric)
+                                    test_name = metric.split("_")[0]
+
+                                    if test_name in STRUCT_TESTS:
+                                        rename_metric = rename_metric.replace(test_name, "test")
+
+                                        # before update task: structure_ss3_tape_processed_noflatten
+                                        if "tape_processed" in task:
+                                            rename_task = task.replace(
+                                                "tape_processed", test_name
+                                            )
+                                        else:
+                                            split_list = task.split("_")
+                                            rename_task = "_".join(
+                                                split_list[:-1]
+                                                + [test_name]
+                                                + split_list[-1:]
+                                            )
                                     else:
-                                        split_list = task.split("_")
-                                        rename_task = "_".join(
-                                            split_list[:-1]
-                                            + [test_name]
-                                            + split_list[-1:]
-                                        )
-                                else:
-                                    rename_task = task
+                                        rename_task = task
 
-                                master_results = pd.concat(
-                                    [
-                                        master_results,
-                                        pd.DataFrame(
-                                            {
-                                                "arch": arch,
-                                                "task": rename_task,
-                                                "model": model,
-                                                "ablation": rename_ablation,
-                                                "ptp": ptp,
-                                                "metric": rename_metric,
-                                                "value": [
-                                                    list(
-                                                        ablation_dict[task][model][
-                                                            metric
-                                                        ]
-                                                    )
-                                                ],
-                                            }
-                                        ),
-                                    ],
-                                    ignore_index=True,
-                                )
-
+                                    master_results = pd.concat(
+                                        [
+                                            master_results,
+                                            pd.DataFrame(
+                                                {
+                                                    "arch": arch,
+                                                    "task": rename_task,
+                                                    "model": model,
+                                                    "ablation": rename_ablation,
+                                                    "ptp": ptp,
+                                                    "embseed": embseed,
+                                                    "metric": rename_metric,
+                                                    "value": [
+                                                        list(
+                                                            ablation_dict[task][model][
+                                                                metric
+                                                            ]
+                                                        )
+                                                    ],
+                                                }
+                                            ),
+                                        ],
+                                        ignore_index=True,
+                                    )
+                            
         return master_results
 
     @property
