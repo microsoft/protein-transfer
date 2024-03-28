@@ -78,8 +78,6 @@ class LayerLoss:
             # get number of metircs
             self._metric_numb[collage_name] = len(self._metric_dict[task])
 
-            print(f"dataset_folder: {dataset_folder}, task: {task}, dataset: {dataset}, split: {split}, encoder_name: {encoder_name}, flatten_emb: {flatten_emb}")
-
             # parse results for plotting the collage and onehot
             self._layer_analysis_dict[collage_name][
                 encoder_name
@@ -127,9 +125,10 @@ class LayerLoss:
                         # replace results/sklearn-carp with results/sklearn-carp-rand/seed-
                         # get results/sklearn-carp-rand/seed-/proeng/gb1/low_vs_high/carp_640M/mean
                         pkl_folder = dataset_folder.replace(self._input_path, emb_seed_folder)
-                        print(f"pkl_folder: {pkl_folder}")
 
-                        if os.path.exists(pkl_folder):
+                        if os.path.exists(pkl_folder) and len(glob(f"{pkl_folder}/*.pkl")) > 0:
+
+                            print(f"pkl_folder: {pkl_folder} exists. Processing...")
                         
                             self._rand_layer_analysis_dict[
                                 f"{task}_{dataset}_{split}_{flatten_emb}"
@@ -140,8 +139,20 @@ class LayerLoss:
                                 split,
                                 encoder_name,
                                 flatten_emb,)
+
+                            # print(f"{task}_{dataset}_{split}_{flatten_emb}")
+                            # print(f"encoder_name: {encoder_name}")
+                            # print(f"emb_seed_str: {emb_seed_str}")
+                            # print(self.parse_result_dicts(
+                            #     pkl_folder,
+                            #     task,
+                            #     dataset,
+                            #     split,
+                            #     encoder_name,
+                            #     flatten_emb,))
+
                         else:
-                            print(f"pkl_folder: {pkl_folder} does not exist")
+                            print(f"pkl_folder: {pkl_folder} does not exist. SKipping...")
                 else:
                     self._rand_layer_analysis_dict[
                         f"{task}_{dataset}_{split}_{flatten_emb}"
@@ -171,16 +182,28 @@ class LayerLoss:
                 if len(emb_seed_list) > 1 and "seed" in emb_seed_list[0]:
                     for emb_seed_folder in emb_seed_list:
                         emb_seed_str = emb_seed_folder.split("/")[-1]
-                        self._stat_layer_analysis_dict[
-                            f"{task}_{dataset}_{split}_{flatten_emb}"
-                        ][encoder_name][emb_seed_str] = self.parse_result_dicts(
-                            dataset_folder.replace(self._input_path, emb_seed_folder),
-                            task,
-                            dataset,
-                            split,
-                            encoder_name,
-                            flatten_emb,
-                        )
+
+                        # results/sklearn-carp-rand/seed-/proeng/gb1/sampled/carp_38M/mean/carp_38M-mean-layer_1.pkl
+
+                        # results/sklearn-carp/proeng/gb1/low_vs_high/carp_640M/mean
+                        # replace results/sklearn-carp with results/sklearn-carp-rand/seed-
+                        # get results/sklearn-carp-rand/seed-/proeng/gb1/low_vs_high/carp_640M/mean
+                        pkl_folder = dataset_folder.replace(self._input_path, emb_seed_folder)
+
+                        if os.path.exists(pkl_folder) and len(glob(f"{pkl_folder}/*.pkl")) > 0:
+
+                            print(f"pkl_folder: {pkl_folder} exists. Processing...")
+                        
+                            self._stat_layer_analysis_dict[
+                                f"{task}_{dataset}_{split}_{flatten_emb}"
+                            ][encoder_name][emb_seed_str] = self.parse_result_dicts(
+                                pkl_folder,
+                                task,
+                                dataset,
+                                split,
+                                encoder_name,
+                                flatten_emb,
+                            )
                 else:
                     self._stat_layer_analysis_dict[
                         f"{task}_{dataset}_{split}_{flatten_emb}"

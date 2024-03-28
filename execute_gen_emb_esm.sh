@@ -247,22 +247,22 @@ export CUDA_VISIBLE_DEVICES=1
 ### ss3 ###
 
 # python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]'
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --reset_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --resample_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --reset_param=True --embed_torch_seed=12345
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --resample_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --reset_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --resample_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --reset_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t6_43M_UR50S" --subset_list='["train","val", "cb513", "ts115", "casp12"]' --resample_param=True --embed_torch_seed=12345
 
 # python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]'
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --resample_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=12345
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --resample_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --resample_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t12_85M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --resample_param=True --embed_torch_seed=12345
 
 # python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]'
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --resample_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=12345
-python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --resample_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --resample_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1_t34_670M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --resample_param=True --embed_torch_seed=12345
 
 # python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1b_t33_650M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]'
 python run_pregen_emb.py --dataset_path="data/structure/ss3/tape_processed.csv" --encoder_name="esm1b_t33_650M_UR50S" --subset_list='["train","val","cb513","ts115","casp12"]' --reset_param=True --embed_torch_seed=0

@@ -142,8 +142,6 @@ class ResultReorg:
                                         else:
                                             rename_task = task
 
-                                        print(f"task: {task}, model: {model}, embseed: {embseed}, metric: {metric}")
-
                                         master_results = pd.concat(
                                             [
                                                 master_results,

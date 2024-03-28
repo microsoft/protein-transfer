@@ -53,7 +53,11 @@ LayerLoss(
 )
 """
 
-# ResultReorg()
+ResultReorg(
+    layer_folder = "results",
+    summary_folder = "results/summary",
+    summary_name = "all_results",
+)
 """
 plot_class = PlotResultScatter()
 
@@ -93,4 +97,6 @@ for metric in ["test_loss", "test_performance_1", "test_performance_2"]:
 #             metric = metric,
 #         );
 
-RepStat()
+RepStat(
+    # summary_csv="results/summary/all_results.csv"
+)

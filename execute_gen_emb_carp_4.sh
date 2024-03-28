@@ -212,10 +212,10 @@ export CUDA_VISIBLE_DEVICES=1
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_38M" --checkpoint=0.25 --flatten_emb="mean"
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_38M" --checkpoint=0.125 --flatten_emb="mean"
 
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
-# python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
+python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
+python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
+python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
+python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/aav/one_vs_many.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean"
@@ -237,10 +237,10 @@ export CUDA_VISIBLE_DEVICES=1
 
 ### thermo ###
 
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=1 --flatten_emb="mean"
@@ -248,10 +248,10 @@ python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --e
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=0.25 --flatten_emb="mean"
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_600k" --checkpoint=0.125 --flatten_emb="mean"
 
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=1 --flatten_emb="mean"
@@ -259,10 +259,10 @@ python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --e
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=0.25 --flatten_emb="mean"
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_38M" --checkpoint=0.125 --flatten_emb="mean"
 
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=1 --flatten_emb="mean"
@@ -270,10 +270,10 @@ python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --e
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=0.25 --flatten_emb="mean"
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_76M" --checkpoint=0.125 --flatten_emb="mean"
 
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
-python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=0
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=12345
+# python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=12345
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --reset_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean" --resample_param=True --embed_torch_seed=42
 # python run_pregen_emb.py --dataset_path="data/proeng/thermo/mixed_split.csv" --encoder_name="carp_640M" --checkpoint=1 --flatten_emb="mean"
