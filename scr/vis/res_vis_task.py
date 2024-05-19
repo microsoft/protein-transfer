@@ -9,10 +9,10 @@ import os
 import itertools
 
 import math
+from copy import deepcopy
 
 import numpy as np
 import pandas as pd
-
 
 from scipy.stats import spearmanr
 
@@ -24,12 +24,9 @@ from matplotlib.patches import Rectangle
 from matplotlib.gridspec import GridSpec
 from matplotlib.colors import ListedColormap
 
-
 import seaborn as sns
 import holoviews as hv
 from holoviews import dim
-
-hv.extension("bokeh")
 
 from scr.vis.vis_utils import BokehSave, save_plt
 from scr.params.emb import (
@@ -49,7 +46,7 @@ from scr.params.emb import (
     EMB_SIMPLE_MAP,
     EMB_SIZE_SIMPLE,
     BASELINE_NAME_DICT,
-    EMB_SIZE_NAME_SIMPLE
+    EMB_SIZE_NAME_SIMPLE,
 )
 from scr.params.vis import (
     ORDERED_TASK_LIST,
@@ -67,11 +64,18 @@ from scr.params.vis import (
 from scr.analysis.utils import INIT_DICT, INIT_SIMPLE_LIST, SIMPLE_METRIC_LIST
 from scr.utils import checkNgen_folder
 
+hv.extension("bokeh")
 
-task_cluster = {
+TASK_CLUSTER = {
     "well-aligned": ["SS3 - CB513", "SS3 - TS115", "SS3 - CASP12"],
-    "benefit": ["Thermostability", "GB1 - low vs high", "AAV - two vs many", "AAV - one vs many"],
-    "nobenefit": ["Subcellular localization", "GB1 - sampled", "GB1 - two vs rest"],
+    "benefit": [
+        "Subcellular localization",
+        "Thermostability",
+        "AAV - two vs many",
+        "GB1 - low vs high",
+        "GB1 - sampled",
+    ],
+    "nobenefit": ["AAV - one vs many", "GB1 - two vs rest"],
 }
 
 # if include small and medium
@@ -88,8 +92,7 @@ large_esm = "esm1b_t33_650M_UR50S"
 mild_3 = ["#f1d384", "#9dae88", "#a3bfd6"]  # lighter yellow green blue s m l
 bright_3 = ["#F9BE00", "#73A950", "#00A1DF"]  # yellow green blue s m l
 dark_3 = ["#cabc8c", "#4c5835", "#376977"]  # yellow green blue
-deep_3 = ["#cabc8c", "#005851", "#003B4C"] # may need new dark yellow
-
+deep_3 = ["#cabc8c", "#005851", "#003B4C"]  # may need new dark yellow
 
 
 class PlotResultByTask:
@@ -101,10 +104,12 @@ class PlotResultByTask:
         self,
         sum_folder: str = "results/summary",
         sum_df_name: str = "all_results",
+        stat_df_name: str = "repstat",
     ) -> None:
 
         self._sum_folder = checkNgen_folder(os.path.normpath(sum_folder))
         self._sum_df_name = sum_df_name
+        self._stat_df_name = stat_df_name
 
     def _plot_by_cluster(self, metric: str = "test_performance_2"):
         """
@@ -113,16 +118,24 @@ class PlotResultByTask:
         - layer by layer for S, M, L CARP and ESM with onehot
         - CARP scale with pretrain loss
         """
-        
+
         all_task_summary = {}
 
-        for cluster, selected_tasks in task_cluster.items():
+        for cluster, selected_tasks in TASK_CLUSTER.items():
 
             numb_task = len(selected_tasks)
 
+            if numb_task < 3:
+                plot_numb_task = 3
+            else:
+                plot_numb_task = numb_task
+
             # Create a three-degree nested multiclass bar plot
             fig, ax = plt.subplots(
-                nrows=3, ncols=numb_task, figsize=(numb_task * 2.75 + 0.25, 9), sharey="row"
+                nrows=3,
+                ncols=plot_numb_task,
+                figsize=(plot_numb_task * 2.75 + 0.25, 9),
+                sharey="row",
             )
 
             # Adjust layout with space between rows
@@ -133,7 +146,7 @@ class PlotResultByTask:
 
             # Share x-axis within each column
             for row in range(3):
-                for col in range(1, numb_task):
+                for col in range(1, plot_numb_task):
                     ax[row, col].sharex(ax[row, 0])
 
             # set up task / row wise
@@ -151,11 +164,11 @@ class PlotResultByTask:
                     added_space = -0.02
 
                 title_y = ax[i, 0].get_position().y0 + 0.205 + added_space
-                
+
                 # add subfig label
                 fig.text(
                     0.05,
-                    title_y+0.005,
+                    title_y + 0.005,
                     l,
                     ha="left",
                     va="bottom",
@@ -166,29 +179,39 @@ class PlotResultByTask:
             for i, task in enumerate(selected_tasks):
 
                 df1, df2 = get_taskdf2plot(
-                    df=self.prepped_df, metric=metric, task=task, large_esm=large_esm, concise=concise
+                    df=self.prepped_df,
+                    metric=metric,
+                    task=task,
+                    large_esm=large_esm,
+                    concise=concise,
                 )
 
                 c = TASK_SIMPLE_COLOR_MAP[task]
 
-                bar_x_labels = list(BASELINE_NAME_DICT.values()) + [""] + EMB_SIZE_NAME_SIMPLE
+                bar_x_labels = (
+                    list(BASELINE_NAME_DICT.values()) + [""] + EMB_SIZE_NAME_SIMPLE
+                )
                 # there are two ones
                 onehot_val = df1[(df1["task"] == task) & (df1["model"] == "onehot")][
                     "last_value"
                 ].values[0]
 
-                if task == "AAV - two vs many":
-                    onehot_val = round(onehot_val) + 0.005
+                # if task == "AAV - two vs many":
+                #     onehot_val = round(onehot_val) + 0.005
 
                 # do summary dict before plotting
                 all_task_summary[task] = task_summary(
                     task=task,
+                    metric=metric,
                     df1=df1,
                     df2=df2,
+                    repstat_df=self.repstat_df,
                     large_esm=large_esm,
                     error_margin=0.1,
+                    rho_cutoff=0.9,
                     tolerance=0.2,
-                    window_size=6
+                    window_size=6,
+                    pval=0.05
                 )
 
                 ax[0, i].scatter(
@@ -208,9 +231,11 @@ class PlotResultByTask:
                     arch_df = df1[df1["arch"] == arch].copy()
 
                     # rand
+                    rand_x = bar_x_labels[1]
+                    rand_y = pair_taskwy(df=arch_df, val_col="last_value")[1]
                     ax[0, i].scatter(
-                        bar_x_labels[1],
-                        pair_taskwy(df=arch_df, val_col="last_value")[1],
+                        x=rand_x,
+                        y=rand_y,
                         s=150,
                         linewidth=1.2,
                         marker=ARCH_SCATTER_STYLE_DICT[arch],
@@ -218,11 +243,18 @@ class PlotResultByTask:
                         edgecolor=bright_3[-1],
                         alpha=0.4,
                     )
+                    
+                    # add error bar for rand
+                    ax[0, i].errorbar(
+                        rand_x, rand_y, yerr=pair_taskwy(df=arch_df, val_col="last_value_std")[1], fmt="", ecolor="#666666", capsize=2
+                    )
 
                     # stat
+                    stat_x = bar_x_labels[2]
+                    stat_y = pair_taskwy(df=arch_df, val_col="last_value")[2]
                     ax[0, i].scatter(
-                        bar_x_labels[2],
-                        pair_taskwy(df=arch_df, val_col="last_value")[2],
+                        x=stat_x,
+                        y=stat_y,
                         s=150,
                         linewidth=1.2,
                         marker=ARCH_SCATTER_STYLE_DICT[arch],
@@ -230,6 +262,11 @@ class PlotResultByTask:
                         facecolor=dark_3[-1],
                         alpha=0.8,
                     )
+                    # add error bar for stat
+                    ax[0, i].errorbar(
+                        stat_x, stat_y, yerr=pair_taskwy(df=arch_df, val_col="last_value_std")[2], fmt="", ecolor="#666666", capsize=2
+                    )
+
                     # add some space in the middle
                     ax[0, i].scatter(
                         bar_x_labels[3],
@@ -252,13 +289,21 @@ class PlotResultByTask:
 
                 # Add onehot cross board
                 ax[0, i].axhline(
-                    y=onehot_val, color="#666666", alpha=0.8, linestyle="dotted", linewidth=1.2
+                    y=onehot_val,
+                    color="#666666",
+                    alpha=0.8,
+                    linestyle="dotted",
+                    linewidth=1.2,
                 )
 
                 # Add a vertical dotted line in the middle of the plot
                 middle_x = (ax[0, i].get_xlim()[1] - ax[0, i].get_xlim()[0]) / 2 - 0.28
                 ax[0, i].axvline(
-                    x=middle_x, color="gray", linestyle="dotted", linewidth=0.5, alpha=0.5
+                    x=middle_x,
+                    color="gray",
+                    linestyle="dotted",
+                    linewidth=0.5,
+                    alpha=0.5,
                 )
 
                 # ax[0, i].set_ylim([0, 1])
@@ -268,49 +313,60 @@ class PlotResultByTask:
                 # Hide the middle tick
                 ticks = ax[0, i].xaxis.get_major_ticks()
                 ticks[3].tick1line.set_visible(False)  # Hide the bottom tick line
-                
+
                 # do lbl
                 for arch in ARCH_TYPE:
 
                     if add_sm:
 
-                        for emb_size, emb_dict in enumerate([selected_emb_s, selected_emb_m, selected_emb]):
+                        for emb_size, emb_dict in enumerate(
+                            [selected_emb_s, selected_emb_m, selected_emb]
+                        ):
 
-                            arch_marker = {"carp": {"linestyle": "solid"}, 
-                                            "esm": {"linestyle": "dashed"}}
+                            arch_marker = {
+                                "carp": {"linestyle": "solid"},
+                                "esm": {"linestyle": "dashed"},
+                            }
 
                             # emb
                             ax[1, i].plot(
-                                df1[(df1["model"] == emb_dict[arch]) & (df1["ablation"] == "emb")][
-                                    "value"
-                                ].to_numpy()[0],
+                                df1[
+                                    (df1["model"] == emb_dict[arch])
+                                    & (df1["ablation"] == "emb")
+                                ]["value"].to_numpy()[0],
                                 linewidth=1.2,
                                 alpha=0.8,
                                 color=bright_3[emb_size],
-                                **arch_marker[arch]
+                                **arch_marker[arch],
                             )
                     else:
 
-                        arch_marker = {"carp": {"color": bright_3[-1]}, 
-                                            "esm": {"color": deep_3[-1]}}
-                        
+                        arch_marker = {
+                            "carp": {"color": bright_3[-1]},
+                            "esm": {"color": deep_3[-1]},
+                        }
+
                         # emb
                         ax[1, i].plot(
-                            df1[(df1["model"] == selected_emb[arch]) & (df1["ablation"] == "emb")][
-                                "value"
-                            ].to_numpy()[0],
+                            df1[
+                                (df1["model"] == selected_emb[arch])
+                                & (df1["ablation"] == "emb")
+                            ]["value"].to_numpy()[0],
                             linewidth=1.2,
                             alpha=0.8,
-                            **arch_marker[arch]
+                            **arch_marker[arch],
                         )
-
 
                 ax[1, i].set_xlabel("Layer number")
                 # ax[1, i].set_ylim([0, 1])
 
                 # overlay onehot
                 ax[1, i].axhline(
-                    y=onehot_val, color="gray", alpha=0.8, linestyle="dotted", linewidth=1.2
+                    y=onehot_val,
+                    color="gray",
+                    alpha=0.8,
+                    linestyle="dotted",
+                    linewidth=1.2,
                 )
 
                 carp_df = (
@@ -321,14 +377,18 @@ class PlotResultByTask:
 
                 # adjust to match bar alpha
                 carp_color2match = {
-                    n: c for n, c in zip(["carp_38M", "carp_76M", "carp_640M"], bright_3)
+                    n: c
+                    for n, c in zip(["carp_38M", "carp_76M", "carp_640M"], bright_3)
                 }
                 # carp_alaphs = np.linspace(1, 0.4, 4)
 
                 for model in carp_df["model"].unique():
                     carp_model_df = carp_df[carp_df["model"] == model].copy()
 
-                    xs = [CARP_CHECKPOINT_LOSSES[model][float(x)] for x in carp_model_df["ptp"]]
+                    xs = [
+                        CARP_CHECKPOINT_LOSSES[model][float(x)]
+                        for x in carp_model_df["ptp"]
+                    ]
                     c = carp_color2match[model]
 
                     # for the line
@@ -349,7 +409,7 @@ class PlotResultByTask:
                         color=c,
                         edgecolor=c,
                         # alpha=carp_alaphs,
-                        alpha=0.8
+                        alpha=0.8,
                     )
                     ax[2, i].set_xlabel("Pretrain loss")
 
@@ -359,17 +419,21 @@ class PlotResultByTask:
                         ymin, ymax = ax[2, i].get_ylim()
 
                         # Generate ticks at one decimal place within the current y-axis limits
-                        ticks = np.arange(np.floor(ymin*10)/10, np.ceil(ymax*10)/10 + 0.1, 0.1)
+                        ticks = np.arange(
+                            np.floor(ymin * 10) / 10, np.ceil(ymax * 10) / 10 + 0.1, 0.1
+                        )
 
                         # Set custom ticks
                         ax[2, i].yaxis.set_major_locator(ticker.FixedLocator(ticks))
-                        ax[2, i].yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
+                        ax[2, i].yaxis.set_major_formatter(
+                            ticker.FormatStrFormatter("%.1f")
+                        )
 
             # add alpha legend for carp sizes
             model_size_descript = [
-                "Small", # : CARP-38M, ESM-43M
-                "Medium", # : CARP-76M, ESM-85M
-                "Large", # : CARP-640M, ESM-650M
+                "Small",  # : CARP-38M, ESM-43M
+                "Medium",  # : CARP-76M, ESM-85M
+                "Large",  # : CARP-640M, ESM-650M
             ]
 
             arch_legend_list = [None] * len(model_size_descript)
@@ -392,9 +456,13 @@ class PlotResultByTask:
             ax[2, 0].add_artist(
                 ax[2, 0].legend(
                     handles=arch_legend_list,
-                    ncol=3, loc='upper center', bbox_to_anchor=(0.5, -0.2),
+                    ncol=3,
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, -0.2),
                     markerscale=0.6,
-                    columnspacing=0.08, handletextpad=0.02, handlelength=1,
+                    columnspacing=0.08,
+                    handletextpad=0.02,
+                    handlelength=1,
                     title="Size",
                 )
             )
@@ -403,28 +471,32 @@ class PlotResultByTask:
             arch_legend_list = []
 
             for a in ARCH_TYPE:
-                # dot 
-                arch_legend_list.append(Line2D(
-                    [0],
-                    [0],
-                    marker=ARCH_SCATTER_STYLE_DICT[a],
-                    label=a.upper(),
-                    alpha=0.8,
-                    markersize=12,
-                    markerfacecolor="gray",
-                    markeredgecolor="none",
-                    linestyle="none",
-                ))
+                # dot
+                arch_legend_list.append(
+                    Line2D(
+                        [0],
+                        [0],
+                        marker=ARCH_SCATTER_STYLE_DICT[a],
+                        label=a.upper(),
+                        alpha=0.8,
+                        markersize=12,
+                        markerfacecolor="gray",
+                        markeredgecolor="none",
+                        linestyle="none",
+                    )
+                )
                 # line
-                arch_legend_list.append(Line2D(
-                    [0],
-                    [0],
-                    alpha=0.8,
-                    markersize=12,
-                    color=bright_3[-1],
-                    **arch_marker[a]
-                ))
-            
+                arch_legend_list.append(
+                    Line2D(
+                        [0],
+                        [0],
+                        alpha=0.8,
+                        markersize=12,
+                        color=bright_3[-1],
+                        **arch_marker[a],
+                    )
+                )
+
             arch_legend_list.append(
                 Line2D(
                     [0],
@@ -451,9 +523,13 @@ class PlotResultByTask:
             ax[2, 1].add_artist(
                 ax[2, 1].legend(
                     handles=arch_legend_list,
-                    ncol=3, loc='upper center', bbox_to_anchor=(0.5, -0.2),
+                    ncol=3,
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, -0.2),
                     markerscale=0.6,
-                    columnspacing=0.08, handletextpad=0.02, handlelength=1,
+                    columnspacing=0.08,
+                    handletextpad=0.02,
+                    handlelength=1,
                     title="Model",
                 )
             )
@@ -491,12 +567,22 @@ class PlotResultByTask:
             ax[2, 2].add_artist(
                 ax[2, 2].legend(
                     handles=ab_legend_list,
-                    ncol=3, loc='upper center', bbox_to_anchor=(0.5, -0.2),
+                    ncol=3,
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, -0.2),
                     markerscale=0.6,
-                    columnspacing=0.08, handletextpad=0.02, handlelength=1,
+                    columnspacing=0.08,
+                    handletextpad=0.02,
+                    handlelength=1,
                     title="Ablation",
                 )
             )
+
+            # hide grid for empty columns
+            if numb_task < plot_numb_task:
+                for coords in ax[:, numb_task:]:
+                    for coord in coords:
+                        coord.axis("off")
 
             # Adjust layout and white space
             plt.subplots_adjust(wspace=0.125)  # Adjust the white space between columns
@@ -504,42 +590,52 @@ class PlotResultByTask:
             # Manually set subplot positions
             for i, a in enumerate(ax.flatten()):
 
-                if i // numb_task >= 1:
+                if i // plot_numb_task >= 1:
                     # Get the bounding box of the second row's subplot in figure coordinates
                     bbox = a.get_position()
 
                     # Set the new position for the subplot
-                    a.set_position([bbox.x0, bbox.y0 - 0.025, bbox.width, bbox.height ])
+                    a.set_position([bbox.x0, bbox.y0 - 0.025, bbox.width, bbox.height])
 
             # Add a super title for the figure with padding
             # fig.suptitle(f"Summary by {cluster}", fontsize="xx-large", x=0.5125, y=0.96)
 
             save_plt(
-                fig, plot_title=f"Summary for {cluster}", 
-                path2folder=checkNgen_folder(os.path.join("results/summary/bytask", metric))
+                fig,
+                plot_title=f"Summary for {cluster}",
+                path2folder=checkNgen_folder(
+                    os.path.join("results/summary/bytask", metric)
+                ),
             )
 
             # clean up the df
             # Convert nested dictionary to DataFrame
-            all_task_summary_df = pd.DataFrame.from_dict(all_task_summary, orient="index")
+            all_task_summary_df = pd.DataFrame.from_dict(
+                all_task_summary, orient="index"
+            )
             # Set the name of the index
             all_task_summary_df.index.name = "Tasks"
             all_task_summary_df = all_task_summary_df.reindex(
-                list(itertools.chain(*task_cluster.values()))
+                list(itertools.chain(*TASK_CLUSTER.values()))
             ).rename(columns={})
             # reorder
-            selected_col_df = all_task_summary_df[[
-                "Transfer > One-hot",
-                "Transfer > Random init",
-                "Transfer > Stat transfer",
-                "Scale with PLM sizes",
-                "Scale with layer depths",
-                "Scale with pretrain losses",
-            ]].copy().T
-
+            selected_col_df = (
+                all_task_summary_df[
+                    [
+                        "Transfer > One-hot",
+                        "Transfer > Random init",
+                        "Transfer > Stat transfer",
+                        "Scale with PLM sizes",
+                        "Scale with layer depths",
+                        "Scale with pretrain losses",
+                    ]
+                ]
+                .copy()
+                .T
+            )
             # Generate custom annotations based on the conditions
             annotations = np.where(
-                selected_col_df.astype(float) > 0.5,
+                (selected_col_df.astype(float) > 0.5),
                 "✓",
                 np.where(selected_col_df.astype(float) < 0.5, "✗", "~"),
             )
@@ -550,13 +646,14 @@ class PlotResultByTask:
             sns.heatmap(
                 selected_col_df.astype(float),
                 ax=ax,
-                annot=annotations, fmt="",
+                annot=annotations,
+                fmt="",
                 cmap=ListedColormap("white"),
                 cbar=False,
                 linewidths=0.5,
                 linecolor="none",
             )
-            
+
             # recolor# Iterate over text annotations in the Axes
             for text in ax.texts:
                 value = text.get_text()
@@ -564,9 +661,9 @@ class PlotResultByTask:
                 if value == "✓":
                     text.set_color(bright_3[-1])
                     text.set_fontsize(14)  # Make the font larger
-                    text.set_weight('bold')  # Make the text bolder
+                    text.set_weight("bold")  # Make the text bolder
                 elif value == "✗":
-                    text.set_color('#666666')
+                    text.set_color("#666666")
                 elif value == "~":
                     text.set_color(dark_3[-1])
 
@@ -581,8 +678,11 @@ class PlotResultByTask:
             ax.set_ylabel("")
 
             save_plt(
-                fig, plot_title=f"Summary checkbox for tasks", 
-                path2folder=checkNgen_folder(os.path.join("results/summary/bytask", metric))
+                fig,
+                plot_title=f"Summary checkbox for tasks",
+                path2folder=checkNgen_folder(
+                    os.path.join("results/summary/bytask", metric)
+                ),
             )
 
     @property
@@ -590,6 +690,17 @@ class PlotResultByTask:
         """Return full summary result csv path"""
         df_path = os.path.join(
             os.path.normpath(self._sum_folder), self._sum_df_name + ".csv"
+        )
+
+        assert os.path.exists(df_path), f"{df_path} does not exist"
+
+        return df_path
+
+    @property
+    def repstat_df_path(self) -> str:
+        """Return full repstat df path"""
+        df_path = os.path.join(
+            os.path.normpath(self._sum_folder), self._stat_df_name + ".csv"
         )
 
         assert os.path.exists(df_path), f"{df_path} does not exist"
@@ -616,6 +727,13 @@ class PlotResultByTask:
         return result_df
 
     @property
+    def repstat_df(self) -> pd.DataFrame:
+            
+        """Return full repstat df"""
+
+        return clean_task(pd.read_csv(self.repstat_df_path))
+
+    @property
     def prepped_df(self) -> pd.DataFrame:
 
         """Return a more plotting compatible df"""
@@ -623,21 +741,31 @@ class PlotResultByTask:
         prepped_df = self.result_df.copy()
 
         # add task type and model size details for plotting legends
-        prepped_df["task_type"] = prepped_df["task"].str.split("_").str[0]
         prepped_df["model_size"] = prepped_df["model"].map(MODEL_SIZE)
         prepped_df["model_layer"] = prepped_df["model"].map(MODEL_LAYER)
 
-        # get rid of pooling details
-        prepped_df["task"] = prepped_df["task"].str.replace("_mean", "")
-        prepped_df["task"] = prepped_df["task"].str.replace("_noflatten", "")
-
-        # sort based on given task order for plot legend
-        prepped_df["task"] = pd.Categorical(
-            prepped_df["task"], categories=ORDERED_TASK_LIST, ordered=True
-        ).map(TASK_LEGEND_MAP)
+        # claen up taks names etc
+        prepped_df = clean_task(prepped_df)
         prepped_df = prepped_df.sort_values(["task", "ptp"], ascending=[True, False])
 
         return prepped_df
+
+def clean_task(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Clean up dataframe task names
+    """
+    # add task type and model size details for plotting legends
+    df["task_type"] = df["task"].str.split("_").str[0]
+    # get rid of pooling details
+    df["task"] = df["task"].str.replace("_mean", "")
+    df["task"] = df["task"].str.replace("_noflatten", "")
+
+    # sort based on given task order for plot legend
+    df["task"] = pd.Categorical(
+        df["task"], categories=ORDERED_TASK_LIST, ordered=True
+    ).map(TASK_LEGEND_MAP)
+
+    return df.copy()
 
 
 def get_taskdf2plot(
@@ -658,41 +786,98 @@ def get_taskdf2plot(
     """
     #  & (prepped_df["ptp"].isin([0, 1]))].copy()
     if "last_value" not in df.columns:
-        df["last_value"] = df["value"].apply(
-            lambda x: x[-1] if len(x) > 0 else None
-        ).copy()
+        df["last_value"] = (
+            df["value"].apply(lambda x: x[-1] if len(x) > 0 else None).copy()
+        )
 
     task_df = df[(df["metric"] == metric) & (df["task"] == task)].copy()
 
-    slice_df = task_df[
-        (
-            ((task_df["ablation"] == "emb"))  # get emb
-            | (task_df["ablation"] == "onehot")  # get onehot
-            | (
-                (task_df["ablation"].isin(["rand", "stat"]))
-                & (task_df["model"].isin([large_esm, "carp_640M"]))
+    slice_df = (
+        task_df[
+            (
+                ((task_df["ablation"] == "emb"))  # get emb
+                | (task_df["ablation"] == "onehot")  # get onehot
+                | (
+                    (task_df["ablation"].isin(["rand", "stat"]))
+                    & (task_df["model"].isin([large_esm, "carp_640M"]))
+                )
             )
+        ]
+        .drop(columns=["embseed"])
+        .copy()
+    )
+
+    groupby_cols = [
+        "arch",
+        "task",
+        "model",
+        "ablation",
+        "ptp",
+        "metric",
+        "task_type",
+        "model_size",
+        "model_layer",
+    ]
+
+    # slice_df.columns
+    # ['arch', 'task', 'model', 'ablation', 'ptp', 'metric',
+    #   'value', 'task_type', 'model_size', 'model_layer', 'last_value']
+
+    # get avg
+    slice_df_avg = (
+        deepcopy(slice_df.reset_index(drop=True))
+        .copy(deep=True)
+        .groupby(
+            groupby_cols,
+            dropna=True,
         )
-    ].copy()
+        .agg(
+            {
+                "last_value": ["mean", "std"],
+                "value": lambda x: np.mean(np.stack(x), axis=0),
+            }
+        )
+        .reset_index()
+        .copy(deep=True)
+    )
+
+    # Flatten the multi-level columns resulting from the aggregation
+    slice_df_avg.columns = [
+        "_".join(col).strip() if isinstance(col, tuple) else col
+        for col in slice_df_avg.columns.values
+    ]
+
+    rename_dict = {}
+    for c in groupby_cols:
+        rename_dict[f"{c}_"] = c
+
+    rename_dict["last_value_mean"] = "last_value"
+    rename_dict["value_<lambda>"] = "value"
+
+    # Rename the columns for clarity
+    slice_df_avg = slice_df_avg.rename(columns=rename_dict).dropna(
+        subset=[col for col in slice_df.columns if col != "last_value_std"]
+    )
 
     # if further slice based on more concise
-    select_model = slice_df["model"].isin(EMB4TASK)
-    select_ptp = slice_df["ptp"].isin([0, 1])
-    select_cp = (slice_df["arch"] != "esm") & (
-        slice_df["ablation"].isin(["emb", "onehot"])
+    select_model = slice_df_avg["model"].isin(EMB4TASK)
+    select_ptp = slice_df_avg["ptp"].isin([0, 1])
+    select_cp = (slice_df_avg["arch"] != "esm") & (
+        slice_df_avg["ablation"].isin(["emb", "onehot"])
     )
 
     if concise:
         return (
-            slice_df[select_model & select_ptp].copy(),
-            slice_df[select_model & select_cp].copy(),
+            slice_df_avg[select_model & select_ptp].copy(),
+            slice_df_avg[select_model & select_cp].copy(),
         )
     else:
         return (
-            slice_df[select_ptp].copy(),
-            slice_df[select_cp].copy(),
+            slice_df_avg[select_ptp].copy(),
+            slice_df_avg[select_cp].copy(),
         )
-    
+
+
 def pair_taskwy(df: pd.DataFrame, val_col: str == "last_value") -> np.array:
 
     """A function to pair x for task based plots with y"""
@@ -710,32 +895,41 @@ def pair_taskwy(df: pd.DataFrame, val_col: str == "last_value") -> np.array:
         emb_df.sort_values("model_size")[val_col].values
     )
 
+
 def eval_emb_vs_ab(
     df1: pd.DataFrame,
+    repstat_df: pd.DataFrame,
+    task: str,
+    metric: str,
     randstat: str,
-    error_margin: float = 0.1,
+    pval: float = 0.05,
     large_esm: str = "esm1b_t33_650M_UR50S",
 ) -> float:
     """
     A function that counts largest emb vs ablation
 
     Args:
-    - delta: float = 0.1, 5% increase at least
+    - df1: pd.DataFrame,
+    - repstat_df: pd.DataFrame,
+        precomputed with columns:
+        arch, task, model, metric, mean, std, n, t_statistic, p_value, significant, ablation
     """
 
     emb_vs_ab = 0
-    # emb > rand * 1.05 & emb > stat * 1.05
+    # emb > rand or stat & pval < 0.05
     for largest in ["carp_640M", large_esm]:
         emb_perf = df1[(df1["model"] == largest) & (df1["ablation"] == "emb")][
             "last_value"
-        ].values
+        ].values[0]
         emb_ab = df1[(df1["model"] == largest) & (df1["ablation"] == randstat)][
             "last_value"
-        ].values
+        ].values[0]
+        emb_ab_pval = repstat_df[(repstat_df["task"] == task) & (repstat_df["model"] == largest) & (repstat_df["metric"] == metric) & (repstat_df["ablation"] == randstat)][
+            "p_value"
+        ].values[0]
 
-        for ab in emb_ab:
-            if emb_perf > ab * (1 + error_margin):
-                emb_vs_ab += 1
+        if (emb_perf > emb_ab) and (emb_ab_pval < pval):
+            emb_vs_ab += 1
 
     return emb_vs_ab / 2
 
@@ -770,13 +964,16 @@ def is_monotonically_increasing_with_error(
 
 def task_summary(
     task: str,
+    metric: str,
     df1: pd.DataFrame,
     df2: pd.DataFrame,
+    repstat_df: pd.DataFrame,
     large_esm: str = "esm1b_t33_650M_UR50S",
     error_margin: float = 0.1,
     rho_cutoff: float = 0.9,
     tolerance: float = 0.2,
     window_size: int = 6,
+    pval: float = 0.05,
 ) -> dict:
 
     """
@@ -793,6 +990,7 @@ def task_summary(
     - rho_cutoff: float = 0.9, to what degree we call scale
     - tolerance: float = 0.2, allowing such 5% happen 20% out of the all data points
     - window_size: int = 5, moving average for the layer performance
+    - pval: float = 0.05, p value for
     """
 
     summary_task_dict = {}
@@ -804,15 +1002,16 @@ def task_summary(
 
     emb_df = df1[df1["ablation"] == "emb"].copy()
 
-    # emb > onehot *1.05
+    # emb > onehot
     summary_task_dict["Transfer > One-hot"] = (
-        sum(emb_df["last_value"] > onehot_val * (1 + error_margin)) / 6
+        sum(emb_df["last_value"] > onehot_val) / 6
     )
+    # emb > rand or stat with pval < 0.05
     summary_task_dict["Transfer > Random init"] = eval_emb_vs_ab(
-        df1, "rand", error_margin
+        df1=df1, repstat_df=repstat_df, task=task, metric=metric, randstat="rand", pval=pval, large_esm=large_esm
     )
     summary_task_dict["Transfer > Stat transfer"] = eval_emb_vs_ab(
-        df1, "stat", error_margin
+        df1=df1, repstat_df=repstat_df, task=task, metric=metric, randstat="stat", pval=pval, large_esm=large_esm
     )
 
     model_scale = 0
@@ -820,7 +1019,7 @@ def task_summary(
 
     for arch, large in zip(ARCH_TYPE, ["carp_640M", large_esm]):
 
-        # do strickly greater than
+        # do strickly greater than for model size
         arch_model_scale = is_monotonically_increasing_with_error(
             emb_df[emb_df["arch"] == arch]
             .sort_values(by=["model_size"])["last_value"]
@@ -831,7 +1030,7 @@ def task_summary(
         summary_task_dict[f"Scale w {arch} size"] = arch_model_scale
         model_scale += arch_model_scale
 
-        # make the layers smoother
+        # now consider layer 
         layer_perf = emb_df[(emb_df["model"] == large)]["value"].values[0]
 
         (
@@ -868,6 +1067,7 @@ def task_summary(
         summary_task_dict["Scale with pretrain losses"] = False
 
     return summary_task_dict
+
 
 def simplify_test_metric(metric: str) -> str:
 

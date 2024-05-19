@@ -142,6 +142,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--if_rerun_layer",
+    type=bool,
+    metavar="irl",
+    default=False,
+    help="if re run layers if already exist (default: False)",
+)
+
+parser.add_argument(
     "--if_multiprocess",
     type=bool,
     metavar="MP",
@@ -273,6 +281,7 @@ Run_Pytorch(
     manual_layer_max=args.manual_layer_max,
     loader_batch_size=args.loader_batch_size,
     worker_seed=args.worker_seed,
+    if_rerun_layer=args.if_rerun_layer,
     if_encode_all=args.if_encode_all,
     if_multiprocess=args.if_multiprocess,
     learning_rate=args.learning_rate,
